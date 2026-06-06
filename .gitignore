@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Sensitive / Config
+txa.json
+*_setting.json
+config.json
+
+# Cache & Temp
+cache/
+modules/cache/
+*.png
+*.jpg
+*.jpeg
+!background/*.png
+!background/*.jpg
+!background/*.jpeg
+!info.png
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
