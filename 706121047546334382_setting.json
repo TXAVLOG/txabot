@@ -1,0 +1,132 @@
+{
+    "admin_bot": [
+        "706121047546334382",
+        "1512279441003061662",
+        "1934642265051564731"
+    ],
+    "high_level_admins": [
+        "706121047546334382",
+        "1512279441003061662"
+    ],
+    "allowed_thread_ids": [
+        "9050521661076614651"
+    ],
+    "welcome": {
+        "9050521661076614651": true
+    },
+    "group_admins": {
+        "9050521661076614651": [
+            "1512279441003061662",
+            "706121047546334382"
+        ]
+    },
+    "allow_link": {
+        "9050521661076614651": false
+    },
+    "video_enabled": true,
+    "image_enabled": true,
+    "rules": {
+        "word": {
+            "threshold": 5,
+            "duration": 10
+        }
+    },
+    "forbidden_words": [
+        "txa",
+        "cặc",
+        "chó",
+        "súc vật",
+        "địt",
+        "mày"
+    ],
+    "gif_enabled": true,
+    "auto_sticker": {
+        "9050521661076614651": true
+    },
+    "chat": {
+        "9050521661076614651": true
+    },
+    "spam_enabled": {
+        "9050521661076614651": true
+    },
+    "music_enabled_groups": [],
+    "nct_enabled_groups": [
+        "9050521661076614651"
+    ],
+    "mp3_enabled_groups": [],
+    "scl_disabled_groups": [
+        "9050521661076614651"
+    ],
+    "approved_users": [
+        "1934642265051564731",
+        "702602823514128546",
+        "1661186671700169583",
+        "5766287098679073895",
+        "7326311889962270926"
+    ],
+    "remote_allowed_users": [
+        "1934642265051564731"
+    ],
+    "policies": {
+        "9050521661076614651": {
+            "link": {
+                "enabled": true,
+                "threshold": 5,
+                "duration": 30,
+                "action": "mute"
+            },
+            "image": {
+                "enabled": false,
+                "threshold": 30,
+                "duration": 10,
+                "action": "kick"
+            }
+        }
+    },
+    "tygia": {
+        "9050521661076614651": true
+    },
+    "muted_users": [
+        {
+            "author_id": "1934642265051564731",
+            "thread_id": "9050521661076614651",
+            "reason": "Quản trị viên cấm",
+            "muted_until": 1780688450
+        }
+    ],
+    "violations": {
+        "1934642265051564731": {
+            "9050521661076614651": {
+                "profanity_count": 1,
+                "spam_count": 0,
+                "penalty_level": 1
+            }
+        },
+        "702602823514128546": {
+            "9050521661076614651": {
+                "profanity_count": 0,
+                "spam_count": 0,
+                "penalty_level": 0,
+                "image_count": 2
+            }
+        }
+    },
+    "approved_users_expiry": {
+        "702602823514128546": null,
+        "1661186671700169583": null,
+        "5766287098679073895": null,
+        "7326311889962270926": null
+    },
+    "weather": {
+        "9050521661076614651": true
+    },
+    "image_approved_users": [
+        "702602823514128546"
+    ],
+    "image_approved_users_expiry": {
+        "702602823514128546": null
+    },
+    "autosend": {
+        "9050521661076614651": true
+    }
+}
