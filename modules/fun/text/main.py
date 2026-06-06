@@ -133,7 +133,7 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         draw.rounded_rectangle([(box_x1, box_y1), (box_x2, box_y2)], radius=75, fill=box_color)
 
         font_arial_path = "font/arial unicode ms.otf"
-        font_emoji_path = "font/emoji.ttf"
+        font_emoji_path = "font/NotoEmoji-Bold.ttf"
         
         try:
             font_text_large = ImageFont.truetype(font_arial_path, size=76)
@@ -396,8 +396,13 @@ def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
                     if dx != 0 or dy != 0:
                         draw.text((current_x + dx, y + dy), char, fill=(0, 0, 0), font=selected_font)
             draw.text((current_x, y), char, fill=color, font=selected_font)
-            text_bbox = draw.textbbox((current_x, y), char, font=selected_font)
-            text_width = text_bbox[2] - text_bbox[0]
+            try:
+                text_width = selected_font.getlength(char)
+            except AttributeError:
+                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
+                text_width = text_bbox[2] - text_bbox[0]
+                if text_width == 0 and char == " ":
+                    text_width = selected_font.size // 3
             current_x += text_width
         except Exception:
             dash_count = 2 if is_emoji(char) else 1
@@ -449,7 +454,7 @@ def get_font_size(content: str, max_width: int, max_height: int, draw: ImageDraw
     max_font_size = 53
     min_font_size = 33
     font_path = "font/arial unicode ms.otf"
-    emoji_font_path = "font/emoji.ttf"
+    emoji_font_path = "font/NotoEmoji-Bold.ttf"
     
     words = content.split()
     text_length = len(content)
@@ -684,13 +689,13 @@ def handle_create_image_command(message, message_object, thread_id, thread_type,
                 avatar_size = (80, 80)
                 avatar = make_circle_avatar(avatar, avatar_size)
                 background.paste(avatar, (glass_padding + 20, glass_padding + 20), avatar)
-        emoji_font_name = ImageFont.truetype("font/emoji.ttf", 40)
-        emoji_font_time = ImageFont.truetype("font/emoji.ttf", 32)
+        emoji_font_name = ImageFont.truetype("font/NotoEmoji-Bold.ttf", 40)
+        emoji_font_time = ImageFont.truetype("font/NotoEmoji-Bold.ttf", 32)
         avatar_width = avatar_size[0] if avatar_url and avatar_response.status_code == 200 else 0
         text_x = glass_padding + 20 + avatar_width + 30
         create_text(draw, creator_name, name_font, emoji_font_name, (text_x, glass_padding + 20), rgb_colors)
         create_text(draw, current_time, time_font, emoji_font_time, (text_x, glass_padding + 70))
-        emoji_font_admin = ImageFont.truetype("font/emoji.ttf", 36)
+        emoji_font_admin = ImageFont.truetype("font/NotoEmoji-Bold.ttf", 36)
         admin_bbox = draw.textbbox((0, 0), admin_name, font=admin_font)
         admin_width = admin_bbox[2] - admin_bbox[0]
         create_text(
@@ -701,7 +706,7 @@ def handle_create_image_command(message, message_object, thread_id, thread_type,
             (image_width - glass_padding - admin_width - 40, image_height - glass_padding - admin_height - 40)
         )
         top_right_emoji = "🌟"
-        emoji_font_top = ImageFont.truetype("font/emoji.ttf", 48)
+        emoji_font_top = ImageFont.truetype("font/NotoEmoji-Bold.ttf", 48)
         top_font = ImageFont.truetype("font/arial unicode ms.otf", 48)
         emoji_bbox = draw.textbbox((0, 0), top_right_emoji, font=emoji_font_top)
         emoji_width = emoji_bbox[2] - emoji_bbox[0]

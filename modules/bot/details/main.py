@@ -24,8 +24,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, client=N
 BACKGROUND_PATH = "background/"
 CACHE_PATH = "modules/cache/"
 font_path_arial = "font/arial unicode ms.otf"
-font_paci = "font/kai.ttf"
-font_emoji = "font/emoji.ttf"
+font_paci = "font/Kai.ttf"
+font_emoji = "font/NotoEmoji-Bold.ttf"
 
 def get_system_metrics():
     # OS

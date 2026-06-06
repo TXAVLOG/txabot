@@ -141,7 +141,7 @@ def generate_menu_image(self, author_id, thread_id, thread_type):
 
         font_arial_path = "font/arial unicode ms.otf"
         font_arial_path_16 = "font/arial unicode ms.otf"  
-        font_emoji_path = "font/emoji.ttf"
+        font_emoji_path = "font/NotoEmoji-Bold.ttf"
         
         try:
             font_text_large = ImageFont.truetype(font_arial_path_16, 76)  
@@ -550,7 +550,7 @@ def create_song_list_image(songs):
     try:
         scale = 2
         font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/emoji.ttf"
+        emoji_font_path = "font/NotoEmoji-Bold.ttf"
         font = ImageFont.truetype(font_path, 28 * scale)  
         artist_font = ImageFont.truetype(font_path, 20 * scale) 
         artist_emoji_font = ImageFont.truetype(emoji_font_path, 21 * scale)  
@@ -758,7 +758,7 @@ def create_single_song_image(song):
     try:
         scale = 2
         font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/emoji.ttf"
+        emoji_font_path = "font/NotoEmoji-Bold.ttf"
         font = ImageFont.truetype(font_path, 32 * scale)
         emoji_font = ImageFont.truetype(emoji_font_path, 32 * scale)
         title_font = ImageFont.truetype(font_path, 48 * scale)

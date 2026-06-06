@@ -1016,7 +1016,7 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         draw.rounded_rectangle([(box_x1, box_y1), (box_x2, box_y2)], radius=75, fill=box_color)
 
         font_arial_path = "font/arial unicode ms.otf"
-        font_emoji_path = "font/emoji.ttf"
+        font_emoji_path = "font/NotoEmoji-Bold.ttf"
         
         try:
             font_text_large = ImageFont.truetype(font_arial_path, size=76)

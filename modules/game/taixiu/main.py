@@ -847,7 +847,10 @@ def create_menu1_image(command_names, page, bot, author_id):
     gradient_colors_hi = interpolate_colors(create_gradient_colors(5), len(text_hi), 1)
     for i, char in enumerate(text_hi):
         draw.text((x_hi, y_hi), char, font=font_hi, fill=gradient_colors_hi[i])
-        x_hi += draw.textbbox((0, 0), char, font=font_hi)[2]
+        try:
+            x_hi += font_hi.getlength(char)
+        except AttributeError:
+            x_hi += draw.textbbox((0, 0), char, font=font_hi)[2]
 
     x_welcome = (1300 - draw.textbbox((0, 0), text_welcome, font=font_welcome)[2]) // 2
     y_welcome = y_hi + 60
@@ -855,7 +858,10 @@ def create_menu1_image(command_names, page, bot, author_id):
     gradient_colors_welcome = interpolate_colors(create_gradient_colors(5), len(text_welcome), 1)
     for i, char in enumerate(text_welcome):
         draw.text((x_welcome, y_welcome), char, font=font_welcome, fill=gradient_colors_welcome[i])
-        x_welcome += draw.textbbox((0, 0), char, font=font_welcome)[2]
+        try:
+            x_welcome += font_welcome.getlength(char)
+        except AttributeError:
+            x_welcome += draw.textbbox((0, 0), char, font=font_welcome)[2]
 
     x_bot_info = rect_x0 + 130
     y_bot_info = rect_y1 - 60
@@ -870,7 +876,10 @@ def create_menu1_image(command_names, page, bot, author_id):
             current_font = font_welcome
 
         draw.text((current_x, y_bot_info), char, font=current_font, fill=gradient_colors_bot_info[i])
-        char_width = draw.textbbox((0, 0), char, font=current_font)[2]
+        try:
+            char_width = current_font.getlength(char)
+        except AttributeError:
+            char_width = draw.textbbox((0, 0), char, font=current_font)[2]
         current_x += char_width
 
     y_bot_ready = y_bot_info - 80
@@ -883,7 +892,11 @@ def create_menu1_image(command_names, page, bot, author_id):
         else:
             current_font = font_welcome
         draw.text((current_x_bot_ready, y_bot_ready), char, font=current_font, fill=gradient_colors_bot_ready[i])
-        current_x_bot_ready += draw.textbbox((0, 0), char, font=current_font)[2]
+        try:
+            char_width = current_font.getlength(char)
+        except AttributeError:
+            char_width = draw.textbbox((0, 0), char, font=current_font)[2]
+        current_x_bot_ready += char_width
 
     overlay = Image.alpha_composite(image, overlay)
     temp_image_path = "temp_image.png"

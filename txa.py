@@ -528,8 +528,13 @@ def draw_text_with_emoji(draw: ImageDraw.Draw, text: str, position: Tuple[int, i
                      fill=tuple(gradient[i]), 
                      font=selected_font)
             
-            text_bbox = draw.textbbox((current_x, offset_y), char, font=selected_font)
-            text_width = text_bbox[2] - text_bbox[0]
+            try:
+                text_width = selected_font.getlength(char)
+            except AttributeError:
+                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
+                text_width = text_bbox[2] - text_bbox[0]
+                if text_width == 0 and char == " ":
+                    text_width = selected_font.size // 3
             current_x += text_width + (2 if is_emoji(char) else 0)
             
         except Exception as e:

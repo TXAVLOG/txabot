@@ -370,8 +370,13 @@ def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
             is_emoji_char = is_emoji(char)
             selected_font = emoji_font if is_emoji_char else font
             draw.text((current_x, text_position[1]), char, fill=color, font=selected_font)
-            text_bbox = draw.textbbox((current_x, text_position[1]), char, font=selected_font)
-            text_width = text_bbox[2] - text_bbox[0]
+            try:
+                text_width = selected_font.getlength(char)
+            except AttributeError:
+                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
+                text_width = text_bbox[2] - text_bbox[0]
+                if text_width == 0 and char == " ":
+                    text_width = selected_font.size // 3
             current_x += text_width
         except Exception as e:
             print(f"Lỗi khi vẽ ký tự '{char}': {e}. Bỏ qua ký tự này.")
@@ -677,8 +682,13 @@ def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
             is_emoji_char = ord(char) >= 0x1F000
             selected_font = emoji_font if is_emoji_char and emoji_font else font
             draw.text((current_x, text_position[1]), char, fill=color, font=selected_font)
-            text_bbox = draw.textbbox((current_x, text_position[1]), char, font=selected_font)
-            text_width = text_bbox[2] - text_bbox[0]
+            try:
+                text_width = selected_font.getlength(char)
+            except AttributeError:
+                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
+                text_width = text_bbox[2] - text_bbox[0]
+                if text_width == 0 and char == " ":
+                    text_width = selected_font.size // 3
             current_x += text_width
         except Exception as e:
             print(f"Lỗi khi vẽ ký tự '{char}': {e}. Bỏ qua ký tự này.")

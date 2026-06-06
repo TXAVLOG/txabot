@@ -151,7 +151,7 @@ def create_song_list_image(songs):
     try:
         scale = 2
         font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/emoji.ttf"
+        emoji_font_path = "font/NotoEmoji-Bold.ttf"
         font = ImageFont.truetype(font_path, 28 * scale)  
         artist_font = ImageFont.truetype(font_path, 20 * scale) 
         artist_emoji_font = ImageFont.truetype(emoji_font_path, 21 * scale)  
@@ -306,7 +306,7 @@ def create_single_song_image(song):
     try:
         scale = 2
         font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/emoji.ttf"
+        emoji_font_path = "font/NotoEmoji-Bold.ttf"
         font = ImageFont.truetype(font_path, 32 * scale)
         emoji_font = ImageFont.truetype(emoji_font_path, 32 * scale)
         title_font = ImageFont.truetype(font_path, 48 * scale)
@@ -506,6 +506,15 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
         song = songs[selector_index]
         encode_id, title, cover_url, plays, likes, comments, artists = song
+
+        # Fetch actual plays and likes for selected song
+        info_res = request_zing("/api/v2/song/get/info", {"id": encode_id})
+        if info_res and "data" in info_res and info_res["data"]:
+            info_data = info_res["data"]
+            plays = info_data.get("listen", plays)
+            likes = info_data.get("like", likes)
+            comments = info_data.get("comment", comments)
+            song = (encode_id, title, cover_url, plays, likes, comments, artists)
 
         text = f"""🚦{username} chọn: {content[1]}
 📩 Tên Bài Hát: {title}

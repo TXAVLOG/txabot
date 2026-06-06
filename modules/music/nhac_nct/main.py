@@ -158,8 +158,8 @@ def search_music_nct(keyword):
             unique_songs.append(s)
     return unique_songs
 
-# Stream URL NCT
-def get_nct_stream_url(song_link):
+# Stream URL & Details NCT
+def get_nct_song_details(song_link):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -167,11 +167,17 @@ def get_nct_stream_url(song_link):
         "Referer": "https://www.nhaccuatui.com/",
         "Cache-Control": "no-cache"
     }
+    details = {
+        "stream_url": None,
+        "viewed": 0,
+        "totalLiked": 0,
+        "commentCnt": 0
+    }
     try:
         r = requests.get(song_link, headers=headers, timeout=10)
         if r.status_code != 200:
             print(f"Failed to fetch song page: {r.status_code}")
-            return None
+            return details
             
         soup = BeautifulSoup(r.text, 'html.parser')
         script = soup.find("script", id="__NUXT_DATA__")
@@ -180,6 +186,28 @@ def get_nct_stream_url(song_link):
         if script:
             try:
                 data = json.loads(script.string)
+                for item in data:
+                    if isinstance(item, dict):
+                        if "viewed" in item and "totalLiked" in item:
+                            viewed = item["viewed"]
+                            if isinstance(viewed, int) and viewed < len(data):
+                                viewed = data[viewed]
+                            if isinstance(viewed, (int, float)):
+                                details["viewed"] = int(viewed)
+                                
+                            totalLiked = item["totalLiked"]
+                            if isinstance(totalLiked, int) and totalLiked < len(data):
+                                totalLiked = data[totalLiked]
+                            if isinstance(totalLiked, (int, float)):
+                                details["totalLiked"] = int(totalLiked)
+
+                            if "commentCnt" in item:
+                                commentCnt = item["commentCnt"]
+                                if isinstance(commentCnt, int) and commentCnt < len(data):
+                                    commentCnt = data[commentCnt]
+                                if isinstance(commentCnt, (int, float)):
+                                    details["commentCnt"] = int(commentCnt)
+                
                 streams_128 = []
                 streams_320 = []
                 for item in data:
@@ -207,37 +235,37 @@ def get_nct_stream_url(song_link):
                                 elif stype == "320":
                                     streams_320.append(stream_url)
                 if streams_320:
-                    return streams_320[0]
-                if streams_128:
-                    return streams_128[0]
-                    
-                # Fallback to any https nct mp3 link in list
-                for item in data:
-                    if isinstance(item, str) and item.startswith("https://") and (".mp3" in item or ".m4a" in item) and ".nct.vn" in item:
-                        return item
+                    details["stream_url"] = streams_320[0]
+                elif streams_128:
+                    details["stream_url"] = streams_128[0]
+                else:
+                    for item in data:
+                        if isinstance(item, str) and item.startswith("https://") and (".mp3" in item or ".m4a" in item) and ".nct.vn" in item:
+                            details["stream_url"] = item
+                            break
             except Exception as e:
                 print(f"Error parsing NUXT data: {e}")
         
-        # Regex fallback - improved pattern to match more URLs
-        stream_urls = re.findall(r'https://[^\s"\'<>]+\.(?:mp3|m4a)(?:\?[^\s"\'<>]*)?', r.text)
-        if stream_urls:
-            # Filter for nct.vn or similar music hosting
-            for url in stream_urls:
-                if '.nct.vn' in url or 'storage' in url:
-                    return url
-            # If no nct.vn found, return first match
+        if not details["stream_url"]:
+            stream_urls = re.findall(r'https://[^\s"\'<>]+\.(?:mp3|m4a)(?:\?[^\s"\'<>]*)?', r.text)
             if stream_urls:
-                return stream_urls[0]
-        
-        # Last resort: look for any MP3/M4A link in the page
-        mp3_pattern = r'https://[^\s"\'<>]*\.(?:mp3|m4a)(?:\?[^\s"\'<>]*)?'
-        matches = re.findall(mp3_pattern, r.text)
-        if matches:
-            return matches[0]
-            
+                found = False
+                for url in stream_urls:
+                    if '.nct.vn' in url or 'storage' in url:
+                        details["stream_url"] = url
+                        found = True
+                        break
+                if not found:
+                    details["stream_url"] = stream_urls[0]
+            else:
+                mp3_pattern = r'https://[^\s"\'<>]*\.(?:mp3|m4a)(?:\?[^\s"\'<>]*)?'
+                matches = re.findall(mp3_pattern, r.text)
+                if matches:
+                    details["stream_url"] = matches[0]
     except Exception as e:
-        print(f"Error getting NCT stream URL: {e}")
-    return None
+        print(f"Error getting NCT details: {e}")
+    return details
+
 
 # Drawing utilities
 def get_dominant_color(image_path):
@@ -308,7 +336,7 @@ def create_song_list_image(songs):
     try:
         scale = 2
         font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/emoji.ttf"
+        emoji_font_path = "font/NotoEmoji-Bold.ttf"
         font = ImageFont.truetype(font_path, 28 * scale)  
         artist_font = ImageFont.truetype(font_path, 20 * scale) 
         artist_emoji_font = ImageFont.truetype(emoji_font_path, 21 * scale)  
@@ -460,7 +488,7 @@ def create_single_song_image(song):
     try:
         scale = 2
         font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/emoji.ttf"
+        emoji_font_path = "font/NotoEmoji-Bold.ttf"
         font = ImageFont.truetype(font_path, 32 * scale)
         emoji_font = ImageFont.truetype(emoji_font_path, 32 * scale)
         title_font = ImageFont.truetype(font_path, 48 * scale)
@@ -568,6 +596,11 @@ def create_single_song_image(song):
         text_y = draw_gradient_text_line(draw, f"👤 Tác giả: {artists}", text_x, text_y, font, emoji_font)
         text_y = draw_gradient_text_line(draw, "🎯 Nền tảng: NhacCuaTui ☁️", text_x, text_y, font, emoji_font)
 
+        viewed = song.get("viewed", 0)
+        total_liked = song.get("totalLiked", 0)
+        if viewed > 0 or total_liked > 0:
+            draw_gradient_text_line(draw, f"👂 {viewed:,}   ❤️ {total_liked:,}".replace(",", "."), text_x, text_y, font, emoji_font)
+
         file_path = os.path.join(CACHE_PATH, "selected_song.png")
         image.save(file_path, format="JPEG", quality=95)
         return file_path
@@ -672,14 +705,13 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
         client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
-        # Get stream url
-        stream_url = None
-        for url in song.get("stream_urls", []) or []:
-            if isinstance(url, str) and url.startswith("http"):
-                stream_url = url
-                break
-        if not stream_url:
-            stream_url = get_nct_stream_url(song_link)
+        # Get stream url & stats
+        nct_details = get_nct_song_details(song_link)
+        stream_url = nct_details["stream_url"]
+        song["viewed"] = nct_details["viewed"]
+        song["totalLiked"] = nct_details["totalLiked"]
+        song["commentCnt"] = nct_details["commentCnt"]
+
         if not stream_url:
             text = f"🚦{username}, không tìm thấy link stream hoặc bài hát yêu cầu tài khoản VIP 🤧"
             client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)

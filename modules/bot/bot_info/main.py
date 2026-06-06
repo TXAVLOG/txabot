@@ -1362,19 +1362,44 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         
                         font_path = "font/arial unicode ms.otf"
                         font_bold_path = "font/arial unicode ms bold.otf"
+                        font_emoji_path = "font/NotoEmoji-Bold.ttf"
                         
                         try:
                             f_title = ImageFont.truetype(font_bold_path, 40)
                             f_section = ImageFont.truetype(font_bold_path, 26)
                             f_text = ImageFont.truetype(font_path, 22)
                             f_example = ImageFont.truetype(font_path, 20)
+                            f_emoji = ImageFont.truetype(font_emoji_path, 28)
                         except:
-                            f_title = f_section = f_text = f_example = ImageFont.load_default()
+                            f_title = f_section = f_text = f_example = f_emoji = ImageFont.load_default()
+
+                        def draw_line_with_emoji(draw_obj, text_str, pos, base_font, emoji_font_obj, fill_color):
+                            cx, cy = pos
+                            for char in text_str:
+                                is_char_emoji = is_emoji(char)
+                                selected_f = emoji_font_obj if is_char_emoji and emoji_font_obj else base_font
+                                offset_y = cy - (selected_f.size // 6) if is_char_emoji else cy
+                                draw_obj.text((cx, offset_y), char, fill=fill_color, font=selected_f)
+                                try:
+                                    cx += selected_f.getlength(char)
+                                except:
+                                    w = draw_obj.textbbox((0, 0), char, font=selected_f)[2]
+                                    cx += w if w > 0 else (selected_f.size // 2)
+
+                        def get_line_width(text_str, base_font, emoji_font_obj):
+                            w = 0
+                            for char in text_str:
+                                selected_f = emoji_font_obj if is_emoji(char) and emoji_font_obj else base_font
+                                try:
+                                    w += selected_f.getlength(char)
+                                except:
+                                    cw = draw.textbbox((0, 0), char, font=selected_f)[2]
+                                    w += cw if cw > 0 else (selected_f.size // 2)
+                            return w
                         
                         # Title
-                        title_bbox = draw.textbbox((0, 0), title, font=f_title)
-                        title_w = title_bbox[2] - title_bbox[0]
-                        draw.text(((size[0] - title_w) // 2, 55), title, fill=(0, 229, 255, 255), font=f_title)
+                        title_w = get_line_width(title, f_title, f_emoji)
+                        draw_line_with_emoji(draw, title, ((size[0] - title_w) // 2, 55), f_title, f_emoji, (0, 229, 255, 255))
                         
                         draw.line([(80, 110), (size[0] - 80, 110)], fill=(255, 64, 129, 150), width=2)
                         
@@ -1387,21 +1412,21 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         for line in guide_lines:
                             if line.startswith("##"):
                                 # Section header
-                                draw.text((80, y), line[2:].strip(), fill=neon_section, font=f_section)
+                                draw_line_with_emoji(draw, line[2:].strip(), (80, y), f_section, f_emoji, neon_section)
                                 y += 38
                             elif line.startswith(">>"):
                                 # Example
-                                draw.text((100, y), f"💡 Ví dụ: {line[2:].strip()}", fill=example_color, font=f_example)
+                                draw_line_with_emoji(draw, f"💡 Ví dụ: {line[2:].strip()}", (100, y), f_example, f_emoji, example_color)
                                 y += 32
                             elif line.startswith("!!"):
                                 # Command highlight
-                                draw.text((100, y), line[2:].strip(), fill=neon_cmd, font=f_text)
+                                draw_line_with_emoji(draw, line[2:].strip(), (100, y), f_text, f_emoji, neon_cmd)
                                 y += 30
                             elif line == "---":
                                 draw.line([(80, y + 5), (size[0] - 80, y + 5)], fill=(100, 100, 100, 100), width=1)
                                 y += 15
                             else:
-                                draw.text((100, y), line, fill=white_text, font=f_text)
+                                draw_line_with_emoji(draw, line, (100, y), f_text, f_emoji, white_text)
                                 y += 28
                         
                         result = Image.alpha_composite(bg_image, overlay)
@@ -2169,7 +2194,7 @@ def create_menu1_image(command_names, page, bot, author_id):
     bot_update = getattr(bot, "date_update", datetime.now().strftime("%d-%m-%y"))
     text_bot_info = f"🤖 Bot: {bot_name} 💻 version {bot_version} 🗓️ update {bot_update}"
     text_bot_ready = f"♥️ Bot sẵn sàng phục vụ tình iu :3"
-    font_paci = "font/kai.ttf"
+    font_paci = "font/Kai.ttf"
     font_emoji = "font/NotoEmoji-Bold.ttf"
     draw = ImageDraw.Draw(overlay)
 
@@ -2184,7 +2209,10 @@ def create_menu1_image(command_names, page, bot, author_id):
     gradient_colors_hi = interpolate_colors(create_gradient_colors(5), len(text_hi), 1)
     for i, char in enumerate(text_hi):
         draw.text((x_hi, y_hi), char, font=font_hi, fill=gradient_colors_hi[i])
-        x_hi += draw.textbbox((0, 0), char, font=font_hi)[2]
+        try:
+            x_hi += font_hi.getlength(char)
+        except AttributeError:
+            x_hi += draw.textbbox((0, 0), char, font=font_hi)[2]
 
     x_welcome = (1200 - draw.textbbox((0, 0), text_welcome, font=font_welcome)[2]) // 2
     y_welcome = y_hi + 60
@@ -2192,7 +2220,10 @@ def create_menu1_image(command_names, page, bot, author_id):
     gradient_colors_welcome = interpolate_colors(create_gradient_colors(5), len(text_welcome), 1)
     for i, char in enumerate(text_welcome):
         draw.text((x_welcome, y_welcome), char, font=font_welcome, fill=gradient_colors_welcome[i])
-        x_welcome += draw.textbbox((0, 0), char, font=font_welcome)[2]
+        try:
+            x_welcome += font_welcome.getlength(char)
+        except AttributeError:
+            x_welcome += draw.textbbox((0, 0), char, font=font_welcome)[2]
 
     x_bot_info = rect_x0 + (1100 - draw.textbbox((0, 0), text_bot_info, font=font_welcome)[2]) // 2
 
@@ -2208,7 +2239,10 @@ def create_menu1_image(command_names, page, bot, author_id):
             current_font = font_welcome
 
         draw.text((current_x, y_bot_info), char, font=current_font, fill=gradient_colors_bot_info[i])
-        char_width = draw.textbbox((0, 0), char, font=current_font)[2]
+        try:
+            char_width = current_font.getlength(char)
+        except AttributeError:
+            char_width = draw.textbbox((0, 0), char, font=current_font)[2]
         current_x += char_width
 
     y_bot_ready = y_bot_info - 80
@@ -2221,7 +2255,11 @@ def create_menu1_image(command_names, page, bot, author_id):
         else:
             current_font = font_welcome
         draw.text((current_x_bot_ready, y_bot_ready), char, font=current_font, fill=gradient_colors_bot_ready[i])
-        current_x_bot_ready += draw.textbbox((0, 0), char, font=current_font)[2]
+        try:
+            char_width = current_font.getlength(char)
+        except AttributeError:
+            char_width = draw.textbbox((0, 0), char, font=current_font)[2]
+        current_x_bot_ready += char_width
 
     overlay = Image.alpha_composite(image, overlay)
     temp_image_path = "temp_image.png"
@@ -2298,8 +2336,13 @@ def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
         try:
             selected_font = emoji_font if is_emoji(char) and emoji_font else font
             draw.text((current_x, text_position[1]), char, fill=color, font=selected_font)
-            text_bbox = draw.textbbox((current_x, text_position[1]), char, font=selected_font)
-            text_width = text_bbox[2] - text_bbox[0]
+            try:
+                text_width = selected_font.getlength(char)
+            except AttributeError:
+                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
+                text_width = text_bbox[2] - text_bbox[0]
+                if text_width == 0 and char == " ":
+                    text_width = selected_font.size // 3
             current_x += text_width
         except Exception as e:
             print(f"Lỗi khi vẽ ký tự '{char}': {e}. Bỏ qua ký tự này.")
