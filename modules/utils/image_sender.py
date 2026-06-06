@@ -81,7 +81,8 @@ class ImageSender:
         if type_name not in self.config:
             return None
         
-        file_path = os.path.join(self.data_dir, self.config[type_name]["file"])
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data-send")
+        file_path = os.path.join(data_dir, self.config[type_name]["file"])
         if not os.path.exists(file_path):
             return None
         
@@ -95,7 +96,8 @@ class ImageSender:
         if type_name not in self.config or "text" not in self.config[type_name]:
             return ""
         
-        file_path = os.path.join(self.data_dir, "Text", self.config[type_name]["text"])
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "data-send")
+        file_path = os.path.join(data_dir, "Text", self.config[type_name]["text"])
         if not os.path.exists(file_path):
             return ""
         
@@ -151,7 +153,7 @@ class ImageSender:
         
         return False
     
-    def send_image(self, bot, message_object, thread_id, thread_type, author_id, type_name):
+    def send_image(self, bot, message_object=None, thread_id=None, thread_type=None, author_id=None, type_name=None, custom_caption=""):
         """Gửi ảnh hoặc video tới chat"""
         urls = self.get_image_urls(type_name)
         if not urls or len(urls) == 0:
@@ -174,16 +176,22 @@ class ImageSender:
                 url = random.choice(urls)
             
             # Lấy caption
-            text = self.get_text(type_name)
-            if text:
-                try:
-                    author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
-                    author_name = author_info.get('zaloName', 'User')
-                    caption = f"[ {author_name} ] {text}"
-                except:
-                    caption = text
+            if custom_caption:
+                caption = custom_caption
             else:
-                caption = ""
+                text = self.get_text(type_name)
+                if text:
+                    try:
+                        if author_id:
+                            author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
+                            author_name = author_info.get('zaloName', 'User')
+                            caption = f"[ {author_name} ] {text}"
+                        else:
+                            caption = text
+                    except:
+                        caption = text
+                else:
+                    caption = ""
                 
             ttl = self.config[type_name].get("ttl", 300000)
             thumbnail_url = "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl"
@@ -223,27 +231,42 @@ class ImageSender:
         
         try:
             # Lấy caption
-            text = self.get_text(type_name)
-            if text:
-                # Lấy tên người dùng
-                try:
-                    author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
-                    author_name = author_info.get('zaloName', 'User')
-                    caption = f"[ {author_name} ] {text}"
-                except:
-                    caption = text
+            if custom_caption:
+                caption = custom_caption
             else:
-                caption = ""
+                text = self.get_text(type_name)
+                if text:
+                    try:
+                        if author_id:
+                            author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
+                            author_name = author_info.get('zaloName', 'User')
+                            caption = f"[ {author_name} ] {text}"
+                        else:
+                            caption = text
+                    except:
+                        caption = text
+                else:
+                    caption = ""
             
             # Gửi ảnh
             ttl = self.config[type_name].get("ttl", 300000)
-            bot.sendLocalImage(
-                temp_file,
-                thread_id=thread_id,
-                thread_type=thread_type,
-                message=Message(text=caption),
-                ttl=ttl
-            )
+            if message_object:
+                bot.sendLocalImage(
+                    temp_file,
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    message=Message(text=caption),
+                    replyTo=message_object.msgId if hasattr(message_object, 'msgId') else message_object.get('msgId'),
+                    ttl=ttl
+                )
+            else:
+                bot.sendLocalImage(
+                    temp_file,
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    message=Message(text=caption),
+                    ttl=ttl
+                )
             
             return None
         finally:

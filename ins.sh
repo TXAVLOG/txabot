@@ -39,7 +39,7 @@ echo -e "${CYAN}${BOLD}======================================================${N
 if [ -n "$TERMUX_VERSION" ] || [ -d "/data/data/com.termux" ]; then
     echo -e "${YELLOW}[⏳] Phát hiện môi trường Termux. Đang cập nhật & cài đặt gói hệ thống...${NC}"
     pkg update -y
-    pkg install -y python clang make libjpeg-turbo libcrypt
+    pkg install -y python clang make libjpeg-turbo libcrypt libffi python-cryptography
     echo -e "${GREEN}[✓] Cập nhật hệ thống Termux thành công!${NC}"
 else
     echo -e "${YELLOW}[⏳] Phát hiện môi trường Linux/VPS. Đang kiểm tra dependencies...${NC}"

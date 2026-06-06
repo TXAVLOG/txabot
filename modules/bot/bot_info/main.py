@@ -14,7 +14,14 @@ import emoji
 import requests
 from zlapi.models import *
 from config import *
-from core.bot_sys import is_group_admin_or_creator, cleanup_pending_messages
+from core.bot_sys import (
+    is_group_admin_or_creator,
+    cleanup_pending_messages,
+    handle_welcome_on,
+    handle_welcome_off,
+    handle_goodbye_on,
+    handle_goodbye_off,
+)
 
 thread_local = threading.local()
 
@@ -25,6 +32,7 @@ BOT_SUB_COMMANDS = [
     {"cmd": "{prefix}bot setup on/off", "desc": "⚙️ Bật / 🛑 Tắt cấu hình quản trị nhóm", "oa": True},
     {"cmd": "{prefix}bot noiquy", "desc": "💢 Xem nội quy nhóm hiện tại", "oa": False},
     {"cmd": "{prefix}bot welcome on/off", "desc": "🎊 Bật / 🛑 Tắt lời chào mừng thành viên mới", "oa": True},
+    {"cmd": "{prefix}bot goodbye on/off", "desc": "👋 Bật / 🛑 Tắt lời chào tạm biệt khi mem rời nhóm", "oa": True},
     {"cmd": "{prefix}bot anti on/off", "desc": "🚦 Bật / 🛑 Tắt tính năng Anti-Spam", "oa": True},
     {"cmd": "{prefix}bot link on/off", "desc": "🔗 Bật / 🛑 Tắt chặn gửi liên kết (Link) tự do", "oa": True},
     {"cmd": "{prefix}bot ban @tag", "desc": "😷 Khóa phát ngôn (Mute) người dùng", "oa": False},
@@ -918,7 +926,7 @@ def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None):
             
             if expiry_time:
                 expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
-                response += f"➜ Đã thêm người dùng ✅ {get_user_name_by_id(bot, uid)} vào danh sách được duyệt đến {expiry_str} ✅\n💡 Bot đã tự động lên lịch nhắc nhở hết hạn.\n"
+                response += f"➜ Đã thêm người dùng ✅ {get_user_name_by_id(bot, uid)} vào danh sách được duyệt đến {expiry_str} ✅\n💡 Bot sẽ tự động thu hồi và thông báo khi hết hạn.\n"
             else:
                 response += f"➜ Đã thêm người dùng ✅ {get_user_name_by_id(bot, uid)} vào danh sách được duyệt vô thời hạn ✅\n"
             
@@ -943,7 +951,7 @@ def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None):
             
             if expiry_time:
                 expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
-                response += f"➜ Đã cập nhật hạn duyệt dùng BOT cho người dùng ✅ {get_user_name_by_id(bot, uid)} đến {expiry_str} ✅\n💡 Bot đã tự động lên lịch nhắc nhở gia hạn/hết hạn.\n"
+                response += f"➜ Đã cập nhật hạn duyệt dùng BOT cho người dùng ✅ {get_user_name_by_id(bot, uid)} đến {expiry_str} ✅\n💡 Bot sẽ tự động thu hồi và thông báo khi hết hạn.\n"
                 
                 try:
                     inbox_text = f"🎉 Chào bạn, Admin đã gia hạn quyền sử dụng TXA Bot của bạn đến {expiry_str}! Hãy tiếp tục trải nghiệm nhé. 🌸"
@@ -1346,97 +1354,139 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     try:
                         BACKGROUND_PATH = "background/"
                         CACHE_PATH = "modules/cache/"
-                        
+
                         images_bg = glob.glob(BACKGROUND_PATH + "*.jpg") + glob.glob(BACKGROUND_PATH + "*.png") + glob.glob(BACKGROUND_PATH + "*.jpeg")
                         if not images_bg:
                             return None
-                        
-                        image_path = random.choice(images_bg)
-                        size = (1200, 900)
-                        bg_image = Image.open(image_path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
-                        bg_image = bg_image.filter(ImageFilter.GaussianBlur(radius=15))
-                        overlay = Image.new("RGBA", size, (0, 0, 0, 0))
-                        draw = ImageDraw.Draw(overlay)
-                        
-                        draw.rounded_rectangle([(40, 30), (size[0] - 40, size[1] - 30)], radius=30, fill=(10, 10, 15, 210))
-                        
-                        font_path = "font/arial unicode ms.otf"
+
+                        # ── Font ──────────────────────────────────────────────────
+                        font_path      = "font/arial unicode ms.otf"
                         font_bold_path = "font/arial unicode ms bold.otf"
                         font_emoji_path = "font/NotoEmoji-Bold.ttf"
-                        
-                        try:
-                            f_title = ImageFont.truetype(font_bold_path, 40)
-                            f_section = ImageFont.truetype(font_bold_path, 26)
-                            f_text = ImageFont.truetype(font_path, 22)
-                            f_example = ImageFont.truetype(font_path, 20)
-                            f_emoji = ImageFont.truetype(font_emoji_path, 28)
-                        except:
-                            f_title = f_section = f_text = f_example = f_emoji = ImageFont.load_default()
 
-                        def draw_line_with_emoji(draw_obj, text_str, pos, base_font, emoji_font_obj, fill_color):
+                        def _fnt(path, size):
+                            try:
+                                return ImageFont.truetype(path, size)
+                            except Exception:
+                                return ImageFont.load_default()
+
+                        f_title   = _fnt(font_bold_path,  38)
+                        f_section = _fnt(font_bold_path,  26)
+                        f_text    = _fnt(font_path,       22)
+                        f_example = _fnt(font_path,       20)
+                        f_note    = _fnt(font_path,       19)
+                        f_emoji_t = _fnt(font_emoji_path, 36)
+                        f_emoji_s = _fnt(font_emoji_path, 26)
+                        f_emoji_x = _fnt(font_emoji_path, 20)
+
+                        # ── Row-height map ────────────────────────────────────────
+                        def row_h(line):
+                            if   line.startswith("##"):  return 52   # section header
+                            elif line.startswith("!!"):  return 34   # command
+                            elif line.startswith(">>"):  return 32   # example
+                            elif line == "---":          return 22   # divider
+                            else:                        return 30   # plain / note
+
+                        # ── Calculate total height ────────────────────────────────
+                        PADDING_TOP    = 130   # title + divider
+                        PADDING_BOTTOM = 40
+                        SIDE_PAD       = 55
+                        total_content_h = sum(row_h(l) for l in guide_lines)
+                        H = max(600, PADDING_TOP + total_content_h + PADDING_BOTTOM + 20)
+                        W = 1100
+
+                        # ── Background ────────────────────────────────────────────
+                        image_path = random.choice(images_bg)
+                        bg = Image.open(image_path).convert("RGBA").resize((W, H), Image.Resampling.LANCZOS)
+                        bg = bg.filter(ImageFilter.GaussianBlur(radius=14))
+
+                        ov   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                        draw = ImageDraw.Draw(ov)
+
+                        # Glass card
+                        draw.rounded_rectangle(
+                            [(30, 20), (W - 30, H - 20)],
+                            radius=28, fill=(8, 10, 18, 215),
+                            outline=(255, 255, 255, 20), width=1
+                        )
+
+                        # ── Helper: draw mixed emoji+text ─────────────────────────
+                        def draw_mixed(text_str, pos, base_font, emoji_f, fill_color):
                             cx, cy = pos
                             for char in text_str:
-                                is_char_emoji = is_emoji(char)
-                                selected_f = emoji_font_obj if is_char_emoji and emoji_font_obj else base_font
-                                offset_y = cy - (selected_f.size // 6) if is_char_emoji else cy
-                                draw_obj.text((cx, offset_y), char, fill=fill_color, font=selected_f)
+                                is_e = is_emoji(char)
+                                sf   = emoji_f if is_e else base_font
+                                oy   = cy - sf.size // 6 if is_e else cy
+                                draw.text((cx, oy), char, fill=fill_color, font=sf)
                                 try:
-                                    cx += selected_f.getlength(char)
-                                except:
-                                    w = draw_obj.textbbox((0, 0), char, font=selected_f)[2]
-                                    cx += w if w > 0 else (selected_f.size // 2)
+                                    cx += sf.getlength(char)
+                                except Exception:
+                                    cw = draw.textbbox((0, 0), char, font=sf)[2]
+                                    cx += cw if cw > 0 else sf.size // 2
 
-                        def get_line_width(text_str, base_font, emoji_font_obj):
+                        def line_w(text_str, base_font, emoji_f):
                             w = 0
                             for char in text_str:
-                                selected_f = emoji_font_obj if is_emoji(char) and emoji_font_obj else base_font
+                                sf = emoji_f if is_emoji(char) else base_font
                                 try:
-                                    w += selected_f.getlength(char)
-                                except:
-                                    cw = draw.textbbox((0, 0), char, font=selected_f)[2]
-                                    w += cw if cw > 0 else (selected_f.size // 2)
+                                    w += sf.getlength(char)
+                                except Exception:
+                                    cw = draw.textbbox((0, 0), char, font=sf)[2]
+                                    w += cw if cw > 0 else sf.size // 2
                             return w
-                        
-                        # Title
-                        title_w = get_line_width(title, f_title, f_emoji)
-                        draw_line_with_emoji(draw, title, ((size[0] - title_w) // 2, 55), f_title, f_emoji, (0, 229, 255, 255))
-                        
-                        draw.line([(80, 110), (size[0] - 80, 110)], fill=(255, 64, 129, 150), width=2)
-                        
-                        y = 135
+
+                        # ── Title ─────────────────────────────────────────────────
+                        tw = line_w(title, f_title, f_emoji_t)
+                        draw_mixed(title, ((W - tw) // 2, 42), f_title, f_emoji_t, (0, 229, 255, 255))
+                        draw.line([(SIDE_PAD, 100), (W - SIDE_PAD, 100)], fill=(255, 64, 129, 140), width=2)
+
+                        # ── Body ──────────────────────────────────────────────────
+                        y = PADDING_TOP
                         neon_section = (255, 64, 129, 255)
-                        neon_cmd = (0, 230, 118, 255)
-                        white_text = (220, 220, 220, 230)
-                        example_color = (255, 235, 59, 200)
-                        
+                        neon_cmd     = (0, 230, 118, 255)
+                        white_text   = (215, 215, 220, 230)
+                        example_col  = (255, 235, 59, 210)
+                        note_col     = (180, 200, 230, 200)
+
                         for line in guide_lines:
                             if line.startswith("##"):
-                                # Section header
-                                draw_line_with_emoji(draw, line[2:].strip(), (80, y), f_section, f_emoji, neon_section)
-                                y += 38
-                            elif line.startswith(">>"):
-                                # Example
-                                draw_line_with_emoji(draw, f"💡 Ví dụ: {line[2:].strip()}", (100, y), f_example, f_emoji, example_color)
-                                y += 32
+                                # Section header — with subtle bg strip
+                                strip_h = 38
+                                draw.rounded_rectangle(
+                                    [(SIDE_PAD - 10, y - 4), (W - SIDE_PAD + 10, y + strip_h - 4)],
+                                    radius=8, fill=(255, 64, 129, 18)
+                                )
+                                draw_mixed(line[2:].strip(), (SIDE_PAD, y), f_section, f_emoji_s, neon_section)
+                                y += 52
+
                             elif line.startswith("!!"):
-                                # Command highlight
-                                draw_line_with_emoji(draw, line[2:].strip(), (100, y), f_text, f_emoji, neon_cmd)
-                                y += 30
+                                draw_mixed(line[2:].strip(), (SIDE_PAD + 20, y), f_text, f_emoji_x, neon_cmd)
+                                y += 34
+
+                            elif line.startswith(">>"):
+                                example_str = f"💡 Ví dụ: {line[2:].strip()}"
+                                draw_mixed(example_str, (SIDE_PAD + 20, y), f_example, f_emoji_x, example_col)
+                                y += 32
+
                             elif line == "---":
-                                draw.line([(80, y + 5), (size[0] - 80, y + 5)], fill=(100, 100, 100, 100), width=1)
-                                y += 15
+                                draw.line([(SIDE_PAD, y + 8), (W - SIDE_PAD, y + 8)],
+                                          fill=(100, 105, 120, 90), width=1)
+                                y += 22
+
                             else:
-                                draw_line_with_emoji(draw, line, (100, y), f_text, f_emoji, white_text)
-                                y += 28
-                        
-                        result = Image.alpha_composite(bg_image, overlay)
-                        result = result.convert("RGB")
-                        
+                                # Plain text / note (starts with 📌 etc.)
+                                draw_mixed(line, (SIDE_PAD, y), f_note, f_emoji_x, note_col)
+                                y += 30
+
+                        # ── Compose ───────────────────────────────────────────────
+                        result = Image.alpha_composite(bg, ov)
                         output_path = os.path.join(CACHE_PATH, filename)
-                        result.save(output_path, quality=92)
+                        result.convert("RGB").save(output_path, quality=93)
                         return output_path
+
                     except Exception as e:
                         print(f"[ERROR] generate_guide_image {filename}: {e}")
+                        import traceback; traceback.print_exc()
                         return None
                 
                 # Ảnh 1: Hướng dẫn Duyệt quyền
@@ -1456,7 +1506,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     f"!!{prefix}unduyet @tag  → Thu hồi quyền Kho ảnh",
                     f">>Admin gõ: {prefix}duyet @XuânAnh 3600",
                     "---",
-                    "📌 Bot tự động nhắc nhở khi hết hạn quyền",
+                    "📌 Bot tự động thu hồi và thông báo inbox khi hết hạn quyền",
                     "📌 Hỗ trợ nhập UID trực tiếp thay vì @tag",
                     "📌 Admin được dùng mọi lệnh mà không cần duyệt",
                 ]
@@ -1919,6 +1969,28 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = handle_welcome_off(bot, thread_id)
                         else:
                             response = f"➜ Lệnh {prefix}bot welcome {setup_action} không được hỗ trợ 🤧"
+
+                elif action == 'goodbye':
+                    if len(parts) < 3:
+                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {prefix}bot goodbye 🤧\n➜ Ví dụ: {prefix}bot goodbye on hoặc {prefix}bot goodbye off ✅"
+                    else:
+                        setup_action = parts[2].lower()
+                        if setup_action == 'on':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                response = handle_goodbye_on(bot, thread_id)
+                        elif setup_action == 'off':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                response = handle_goodbye_off(bot, thread_id)
+                        else:
+                            response = f"➜ Lệnh {prefix}bot goodbye {setup_action} không được hỗ trợ 🤧"
 
                 elif action == 'block':
                       
@@ -2725,22 +2797,6 @@ def handle_event(client, event_data, event_type):
 
     except Exception as e:
         print(f"Lỗi khi xử lý event {event_type}: {e}")
-
-def handle_welcome_on(bot, thread_id: str) -> str:
-    settings = read_settings()
-    if "welcome" not in settings:
-        settings["welcome"] = {}
-    settings["welcome"][thread_id] = True
-    write_settings(settings)
-    return f"🚦Chế độ welcome đã 🟢 Bật 🎉"
-
-def handle_welcome_off(bot, thread_id: str) -> str:
-    settings = read_settings()
-    if "welcome" in settings and thread_id in settings["welcome"]:
-        settings["welcome"][thread_id] = False
-        write_settings(settings)
-        return f"🚦Chế độ welcome đã 🔴 Tắt 🎉"
-    return "🚦Nhóm chưa có thông tin cấu hình welcome để 🔴 Tắt 🤗"
 
 def get_allow_welcome(bot, thread_id: str) -> bool:
     settings = read_settings()

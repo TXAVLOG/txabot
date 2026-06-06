@@ -104,10 +104,10 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
     image_path = random.choice(images)
 
     try:
-        size = (1920, 600)
-        final_size = (1280, 380)
+        size = (2000, 700)
+        final_size = (1600, 560)
         bg_image = Image.open(image_path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
-        bg_image = bg_image.filter(ImageFilter.GaussianBlur(radius=7))
+        bg_image = bg_image.filter(ImageFilter.GaussianBlur(radius=8))
         overlay = Image.new("RGBA", size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
@@ -116,45 +116,45 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
 
         box_colors = [
-            (255, 20, 147, 90),
-            (128, 0, 128, 90),
-            (0, 100, 0, 90),
-            (0, 0, 139, 90),
-            (184, 134, 11, 90),
-            (138, 3, 3, 90),
-            (0, 0, 0, 90)
+            (255, 20, 147, 100),
+            (128, 0, 128, 100),
+            (0, 100, 0, 100),
+            (0, 0, 139, 100),
+            (184, 134, 11, 100),
+            (138, 3, 3, 100),
+            (0, 0, 0, 100)
         ]
 
         box_color = random.choice(box_colors)
 
-        box_x1, box_y1 = 90, 60
-        box_x2, box_y2 = size[0] - 90, size[1] - 60
-        draw.rounded_rectangle([(box_x1, box_y1), (box_x2, box_y2)], radius=75, fill=box_color)
+        box_x1, box_y1 = 100, 70
+        box_x2, box_y2 = size[0] - 100, size[1] - 70
+        draw.rounded_rectangle([(box_x1, box_y1), (box_x2, box_y2)], radius=80, fill=box_color)
 
         font_arial_path = "font/arial unicode ms.otf"
         font_emoji_path = "font/NotoEmoji-Bold.ttf"
         
         try:
-            font_text_large = ImageFont.truetype(font_arial_path, size=76)
-            font_text_big = ImageFont.truetype(font_arial_path, size=68)
-            font_text_small = ImageFont.truetype(font_arial_path, size=64)
-            font_text_bot = ImageFont.truetype(font_arial_path, size=58)
-            font_time = ImageFont.truetype(font_arial_path, size=56)
-            font_icon = ImageFont.truetype(font_emoji_path, size=60)
-            font_icon_large = ImageFont.truetype(font_emoji_path, size=175)
-            font_name = ImageFont.truetype(font_emoji_path, size=60)
+            font_text_large = ImageFont.truetype(font_arial_path, size=80)
+            font_text_big = ImageFont.truetype(font_arial_path, size=72)
+            font_text_small = ImageFont.truetype(font_arial_path, size=68)
+            font_text_bot = ImageFont.truetype(font_arial_path, size=60)
+            font_time = ImageFont.truetype(font_arial_path, size=58)
+            font_icon = ImageFont.truetype(font_emoji_path, size=70)
+            font_icon_large = ImageFont.truetype(font_emoji_path, size=190)
+            font_name = ImageFont.truetype(font_emoji_path, size=70)
         except Exception as e:
             print(f"❌ Lỗi tải font: {e}")
-            font_text_large = ImageFont.load_default(size=76)
-            font_text_big = ImageFont.load_default(size=68)
-            font_text_small = ImageFont.load_default(size=64)
-            font_text_bot = ImageFont.load_default(size=58)
-            font_time = ImageFont.load_default(size=56)
-            font_icon = ImageFont.load_default(size=60)
-            font_icon_large = ImageFont.load_default(size=175)
-            font_name = ImageFont.load_default(size=60)
+            font_text_large = ImageFont.load_default(size=80)
+            font_text_big = ImageFont.load_default(size=72)
+            font_text_small = ImageFont.load_default(size=68)
+            font_text_bot = ImageFont.load_default(size=60)
+            font_time = ImageFont.load_default(size=58)
+            font_icon = ImageFont.load_default(size=70)
+            font_icon_large = ImageFont.load_default(size=190)
+            font_name = ImageFont.load_default(size=70)
 
-        def draw_text_with_shadow(draw, position, text, font, fill, shadow_color=(0, 0, 0, 250), shadow_offset=(2, 2)):
+        def draw_text_with_shadow(draw, position, text, font, fill, shadow_color=(0, 0, 0, 250), shadow_offset=(3, 3)):
             x, y = position
             draw.text((x + shadow_offset[0], y + shadow_offset[1]), text, font=font, fill=shadow_color)
             draw.text((x, y), text, font=font, fill=fill)
@@ -165,24 +165,24 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         formatted_time = vietnam_now.strftime("%H:%M")
         time_icon = "🌤️" if 6 <= hour < 18 else "🌙"
         time_text = f" {formatted_time}"
-        time_x = box_x2 - 250
-        time_y = box_y1 + 10
+        time_x = box_x2 - 270
+        time_y = box_y1 + 15
         
         box_rgb = box_color[:3]
         box_luminance = (0.299 * box_rgb[0] + 0.587 * box_rgb[1] + 0.114 * box_rgb[2]) / 255
-        last_lines_color = (255, 255, 255, 220) if box_luminance < 0.5 else (0, 0, 0, 220)
+        last_lines_color = (255, 255, 255, 230) if box_luminance < 0.5 else (0, 0, 0, 230)
 
         time_color = last_lines_color
 
         if time_x >= 0 and time_y >= 0 and time_x < size[0] and time_y < size[1]:
             try:
-                icon_x = time_x - 75
+                icon_x = time_x - 90
                 icon_color = random_contrast_color(box_color)
-                draw_text_with_shadow(draw, (icon_x, time_y - 8), time_icon, font_icon, icon_color)
+                draw_text_with_shadow(draw, (icon_x, time_y - 10), time_icon, font_icon, icon_color)
                 draw.text((time_x, time_y), time_text, font=font_time, fill=time_color)
             except Exception as e:
                 print(f"❌ Lỗi vẽ thời gian lên ảnh: {e}")
-                draw_text_with_shadow(draw, (time_x - 75, time_y - 8), "⏰", font_icon, (255, 255, 255, 255))
+                draw_text_with_shadow(draw, (time_x - 90, time_y - 10), "⏰", font_icon, (255, 255, 255, 255))
                 draw.text((time_x, time_y), " ??;??", font=font_time, fill=time_color)
 
         user_info = bot.fetchUserInfo(author_id) if author_id else None
@@ -203,7 +203,9 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
             "📅": random_contrast_color(box_color),
             "🎧": random_contrast_color(box_color),
             "🌙": random_contrast_color(box_color),
-            "🌤️": (200, 150, 50, 255)
+            "🌤️": (200, 150, 50, 255),
+            "🚗": (255, 100, 100, 255),
+            "🚀": (100, 200, 255, 255)
         }
 
         text_lines = [
@@ -234,33 +236,33 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
             font_text_small
         ]
 
-        line_spacing = 85
-        start_y = box_y1 + 10
+        line_spacing = 95
+        start_y = box_y1 + 15
 
         avatar_url = user_info.changed_profiles[author_id].avatar if user_info and hasattr(user_info, 'changed_profiles') and author_id in user_info.changed_profiles else None
         avatar_path = download_avatar(avatar_url)
         if avatar_path and os.path.exists(avatar_path):
-            avatar_size = 200
+            avatar_size = 220
             try:
                 avatar_img = Image.open(avatar_path).convert("RGBA").resize((avatar_size, avatar_size), Image.Resampling.LANCZOS)
                 mask = Image.new("L", (avatar_size, avatar_size), 0)
                 ImageDraw.Draw(mask).ellipse((0, 0, avatar_size, avatar_size), fill=255)
-                border_size = avatar_size + 10
+                border_size = avatar_size + 12
                 rainbow_border = Image.new("RGBA", (border_size, border_size), (0, 0, 0, 0))
                 draw_border = ImageDraw.Draw(rainbow_border)
                 steps = 360
                 for i in range(steps):
                     h = i / steps
                     r, g, b = colorsys.hsv_to_rgb(h, 1.0, 1.0)
-                    draw_border.arc([(0, 0), (border_size-1, border_size-1)], start=i, end=i + (360 / steps), fill=(int(r * 255), int(g * 255), int(b * 255), 255), width=5)
+                    draw_border.arc([(0, 0), (border_size-1, border_size-1)], start=i, end=i + (360 / steps), fill=(int(r * 255), int(g * 255), int(b * 255), 255), width=6)
                 avatar_y = (box_y1 + box_y2 - avatar_size) // 2
-                overlay.paste(rainbow_border, (box_x1 + 40, avatar_y), rainbow_border)
-                overlay.paste(avatar_img, (box_x1 + 45, avatar_y + 5), mask)
+                overlay.paste(rainbow_border, (box_x1 + 50, avatar_y), rainbow_border)
+                overlay.paste(avatar_img, (box_x1 + 56, avatar_y + 6), mask)
             except Exception as e:
                 print(f"❌ Lỗi xử lý avatar: {e}")
-                draw.text((box_x1 + 60, (box_y1 + box_y2) // 2 - 140), "🐳", font=font_icon, fill=(0, 139, 139, 255))
+                draw.text((box_x1 + 70, (box_y1 + box_y2) // 2 - 150), "🐳", font=font_icon, fill=(0, 139, 139, 255))
         else:
-            draw.text((box_x1 + 60, (box_y1 + box_y2) // 2 - 140), "🐳", font=font_icon, fill=(0, 139, 139, 255))
+            draw.text((box_x1 + 70, (box_y1 + box_y2) // 2 - 150), "🐳", font=font_icon, fill=(0, 139, 139, 255))
 
         current_line_idx = 0
         for i, line in enumerate(text_lines):
@@ -283,18 +285,22 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
 
             total_width = 0
             part_widths = []
+            spacing = 8  # Spacing between each part (text or emoji)
             current_font = font_text_bot if i == 4 else text_fonts[i]
             for part in parts:
                 font_to_use = font_icon if any(ord(c) > 0xFFFF for c in part) else current_font
-                width = draw.textbbox((0, 0), part, font=font_to_use)[2]
+                bbox = draw.textbbox((0, 0), part, font=font_to_use)
+                width = bbox[2] - bbox[0]
                 part_widths.append(width)
                 total_width += width
+            
+            total_width += spacing * (len(parts) - 1)
 
-            max_width = box_x2 - box_x1 - 300
+            max_width = box_x2 - box_x1 - 350
             if total_width > max_width:
                 font_size = int(current_font.getbbox("A")[3] * max_width / total_width * 0.9)
-                if font_size < 60:
-                    font_size = 60
+                if font_size < 50:
+                    font_size = 50
                 try:
                     current_font = ImageFont.truetype(font_arial_path, size=font_size) if os.path.exists(font_arial_path) else ImageFont.load_default(size=font_size)
                 except Exception as e:
@@ -304,15 +310,17 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
                 part_widths = []
                 for part in parts:
                     font_to_use = font_icon if any(ord(c) > 0xFFFF for c in part) else current_font
-                    width = draw.textbbox((0, 0), part, font=font_to_use)[2]
+                    bbox = draw.textbbox((0, 0), part, font=font_to_use)
+                    width = bbox[2] - bbox[0]
                     part_widths.append(width)
                     total_width += width
+                total_width += spacing * (len(parts) - 1)
 
             text_x = (box_x1 + box_x2 - total_width) // 2
             text_y = start_y + current_line_idx * line_spacing + (current_font.getbbox("A")[3] // 2)
 
             current_x = text_x
-            for part, width in zip(parts, part_widths):
+            for idx, (part, width) in enumerate(zip(parts, part_widths)):
                 if any(ord(c) > 0xFFFF for c in part):
                     emoji_color = emoji_colors.get(part, random_contrast_color(box_color))
                     draw_text_with_shadow(draw, (current_x, text_y), part, font_icon, emoji_color)
@@ -323,13 +331,17 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
                         draw_text_with_shadow(draw, (current_x, text_y), part, current_font, text_colors[i])
                     else:
                         draw.text((current_x, text_y), part, font=current_font, fill=text_colors[i])
-                current_x += width
+                
+                if idx != len(parts) - 1:
+                    current_x += width + spacing
+                else:
+                    current_x += width
             current_line_idx += 1
 
         right_icons = ["🚗"]
         right_icon = random.choice(right_icons)
-        icon_right_x = box_x2 - 225
-        icon_right_y = (box_y1 + box_y2 - 180) // 2
+        icon_right_x = box_x2 - 250
+        icon_right_y = (box_y1 + box_y2 - 200) // 2
         draw_text_with_shadow(draw, (icon_right_x, icon_right_y), right_icon, font_icon_large, emoji_colors.get(right_icon, (80, 80, 80, 255)))
 
         final_image = Image.alpha_composite(bg_image, overlay)
@@ -341,6 +353,8 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
 
     except Exception as e:
         print(f"❌ Lỗi xử lý ảnh menu: {e}")
+        import traceback
+        print(traceback.format_exc())
         return None
 
 VEHICLE_TYPES = {
@@ -349,6 +363,41 @@ VEHICLE_TYPES = {
     "3": "xe máy",
     "4": "xe máy điện"
 }
+
+def detect_vehicle_type(plate_number):
+    """Tự động nhận dạng loại xe theo quy tắc biển số Việt Nam
+    
+    Trả về danh sách loại xe theo thứ tự ưu tiên (thấy có khả năng nhất trước)
+    """
+    import re
+    # Làm sạch biển số: bỏ tất cả ký tự không phải chữ và số (-, ., space, ...)
+    cleaned = re.sub(r"[^A-Za-z0-9À-ỹĐđ]", "", plate_number.upper())
+    
+    # Ưu tiên xe máy điện nếu có chữ Đ hoặc E
+    if any(c in cleaned for c in ["Đ", "E"]):
+        return ["4", "3", "1", "2"]
+    
+    # Kiểm tra độ dài và mẫu regex
+    length = len(cleaned)
+    # Mẫu regex: 2 chữ cái đầu
+    has_two_letters = bool(re.match(r"^[A-ZĐ]{2}", cleaned))
+    has_one_letter = bool(re.match(r"^[A-ZĐ]{1}", cleaned))
+    
+    if length == 7 or length == 8:
+        if has_two_letters:
+            # Ô tô (thường 7-8 ký tự: 2 chữ + 5-6 số)
+            return ["1", "2", "3", "4"]
+        else:
+            return ["3", "4", "1", "2"]
+    elif length == 5 or length == 6:
+        if has_two_letters or has_one_letter:
+            # Xe máy (thường 5-6 ký tự: 1-2 chữ + 4-5 số)
+            return ["3", "4", "1", "2"]
+        else:
+            return ["3", "4", "1", "2"]
+    else:
+        # Mặc định thử tất cả
+        return ["1", "2", "3", "4"]
 
 def handle_phatnguoi_on(bot, thread_id):
     settings = read_settings(bot.uid)
@@ -370,8 +419,9 @@ def phatnguoi(bot, message_object, author_id, thread_id, thread_type, command):
     def send_phatnguoi_response():
         try:
             settings = read_settings(bot.uid)
+            cmd_text = command or ""
     
-            user_message = command.replace(f"{bot.prefix}phatnguoi ", "").strip().lower()
+            user_message = cmd_text.replace(f"{bot.prefix}phatnguoi ", "").strip().lower()
             if user_message == "on":
                 if not is_admin(bot, author_id):  
                     response = "❌Bạn không phải admin bot!"
@@ -390,7 +440,7 @@ def phatnguoi(bot, message_object, author_id, thread_id, thread_type, command):
             if not (settings.get("phatnguoi", {}).get(thread_id, False)):
                 return
             bot_prefix = f"{bot.prefix}phatnguoi"
-            parts = command.split()
+            parts = cmd_text.split()
             user_name = get_user_name_by_id(bot, author_id)
 
             if len(parts) < 2:
@@ -440,8 +490,8 @@ def phatnguoi(bot, message_object, author_id, thread_id, thread_type, command):
                     message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
                     thread_id=thread_id,
                     thread_type=thread_type,
-                    width=1920,
-                    height=600,
+                    width=1600,
+                    height=560,
                     ttl=240000
                 )
                 
@@ -453,55 +503,72 @@ def phatnguoi(bot, message_object, author_id, thread_id, thread_type, command):
                 return  # Thêm return để tránh lỗi tiếp tục xử lý
 
             plate_number = parts[1].upper()
-            url = "https://phatnguoixe.com/1026"
+            # Danh sách các URL để thử theo thứ tự ưu tiên
+            urls = [
+                "https://phatnguoixe.com/1026",
+                "https://phatnguoixe.com"
+            ]
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
             }
 
             found_vehicle = None
             violations = []
-            for vehicle_code, vehicle_name in VEHICLE_TYPES.items():
-                data = {"BienSo": plate_number, "LoaiXe": vehicle_code}
-                try:
-                    response = requests.post(url, data=data, headers=headers, allow_redirects=False)
-
-                    if response.status_code == 302:  # Nếu server trả về chuyển hướng
-                        print(f"⚠️ Chuyển hướng bị chặn cho URL: {url}")
-                        continue
-
-                    if response.status_code != 200:
-                        print(f"⚠️ Lỗi HTTP {response.status_code} khi truy cập URL: {url}")
-                        continue
-
-                    response.encoding = "utf-8"
-                    soup = BeautifulSoup(response.text, "html.parser")
-
-                    no_violation_message = soup.find("h3", text="Không tìm thấy vi phạm phạt nguội!")
-                    if no_violation_message:
-                        continue
-
-                    found_vehicle = vehicle_name
-                    tables = soup.find_all("table", class_="css_table")
-                    for table in tables:
-                        violation_info = {}
-                        rows = table.find_all("tr")
-                        for row in rows:
-                            cells = row.find_all("td")
-                            if len(cells) == 2:
-                                key = cells[0].text.strip()
-                                value = cells[1].text.strip()
-                                violation_info[key] = value
-
-                        resolution_places = [row.text.strip() for row in table.find_all("td", colspan="2")]
-                        if resolution_places:
-                            violation_info["Nơi giải quyết vụ việc"] = " | ".join(resolution_places)
-
-                        if violation_info:
-                            violations.append(violation_info)
+            
+            # Tự động nhận dạng loại xe theo biển số (thứ tự ưu tiên)
+            detected_vehicle_order = detect_vehicle_type(plate_number)
+            
+            # Thử từng URL trong danh sách
+            for url in urls:
+                if found_vehicle:
                     break
-                except requests.exceptions.RequestException as e:
-                    print(f"❌ Lỗi khi gửi yêu cầu: {e}")
-                    continue
+                # Thử loại xe theo thứ tự ưu tiên đã nhận dạng
+                for vehicle_code in detected_vehicle_order:
+                    vehicle_name = VEHICLE_TYPES[vehicle_code]
+                    data = {"BienSo": plate_number, "LoaiXe": vehicle_code}
+                    try:
+                        response = requests.post(url, data=data, headers=headers, allow_redirects=True, timeout=15)
+
+                        if response.status_code != 200:
+                            print(f"⚠️ Lỗi HTTP {response.status_code} khi truy cập URL: {url}")
+                            continue
+
+                        response.encoding = "utf-8"
+                        soup = BeautifulSoup(response.text, "html.parser")
+
+                        # Kiểm tra các thông báo không có vi phạm
+                        no_violation_messages = [
+                            soup.find("h3", string="Không tìm thấy vi phạm phạt nguội!"),
+                            soup.find("h3", text="Không tìm thấy vi phạm phạt nguội!"),
+                            soup.find(string=lambda text: text and "Không tìm thấy" in text)
+                        ]
+                        
+                        if any(no_violation_messages):
+                            continue
+
+                        found_vehicle = vehicle_name
+                        tables = soup.find_all("table", class_="css_table")
+                        for table in tables:
+                            violation_info = {}
+                            rows = table.find_all("tr")
+                            for row in rows:
+                                cells = row.find_all("td")
+                                if len(cells) == 2:
+                                    key = cells[0].text.strip()
+                                    value = cells[1].text.strip()
+                                    violation_info[key] = value
+
+                            resolution_places = [row.text.strip() for row in table.find_all("td", colspan="2")]
+                            if resolution_places:
+                                violation_info["Nơi giải quyết vụ việc"] = " | ".join(resolution_places)
+
+                            if violation_info:
+                                violations.append(violation_info)
+                        if violations:
+                            break
+                    except requests.exceptions.RequestException as e:
+                        print(f"❌ Lỗi khi gửi yêu cầu đến {url}: {e}")
+                        continue
 
             if found_vehicle and violations:
                 for idx, violation in enumerate(violations, 1):
@@ -559,7 +626,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
             'author_id': author_id,
             'message': message_text,
             'message_text': message_text,
-            'message_lower': message_text.lower()
+            'message_lower': message_text.lower(),
+            'command': message_text,
         }
         args = []
         for param_name in sig.parameters:

@@ -524,7 +524,7 @@ def handle_share_command(self, message, message_object, thread_id, author_id, th
             'features': "Chào mừng thành viên ra vào nhóm",
             'notes': [
                 "1️⃣ [Bước 1] Thay imei và cookie",
-                "2️⃣ [Bước 2] Chọn nhóm cần bật welcome. Gõ lệnh !wl on để bật chế độ welcome. Tắt bằng lệnh !wl off"
+                "2️⃣ [Bước 2] Chọn nhóm cần bật welcome. Gõ lệnh !bot welcome on để bật chế độ welcome. Tắt bằng lệnh !bot welcome off"
             ]
         },
         'welcome2': {
@@ -535,7 +535,7 @@ def handle_share_command(self, message, message_object, thread_id, author_id, th
             'notes': [
                 "1️⃣ [Bước 1] Thay imei và cookie",
                 "2️⃣ [Bước 2] Cài thư viện pip install pillow, pip install emoji Run file chính welcome2.py Thư mục Font, file và welcome2.py đặt ngang hàng nhau"
-                "3️⃣ [Bước 3] Chọn nhóm cần bật welcome. Gõ lệnh !wl on để bật chế độ welcome. Tắt bằng lệnh !wl off"
+                "3️⃣ [Bước 3] Chọn nhóm cần bật welcome. Gõ lệnh !bot welcome on để bật chế độ welcome. Tắt bằng lệnh !bot welcome off"
             ]
         },
         'botvip': {
@@ -546,7 +546,7 @@ def handle_share_command(self, message, message_object, thread_id, author_id, th
             'notes': [
                 "1️⃣ [Bước 1] Thay imei và cookie",
                 "2️⃣ [Bước 2] Cài thư viện pip install pillow, pip install emoji Run file chính welcome2.py Thư mục Font, file và welcome2.py đặt ngang hàng nhau"
-                "3️⃣ [Bước 3] Chọn nhóm cần bật welcome. Gõ lệnh !wl on để bật chế độ welcome. Tắt bằng lệnh !wl off"
+                "3️⃣ [Bước 3] Chọn nhóm cần bật welcome. Gõ lệnh !bot welcome on để bật chế độ welcome. Tắt bằng lệnh !bot welcome off"
             ]
         }
         

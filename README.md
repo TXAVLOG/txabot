@@ -1,15 +1,16 @@
 # 🌟 TXA Zalo Bot 🌟
 
-Chào mừng bạn đến với **TXA Zalo Bot** — hệ thống Zalo Bot thông minh, mượt mà và hỗ trợ hoạt động 24/7 trên môi trường Termux (Android) lẫn Linux/VPS.
+Chào mừng bạn đến với **TXA Zalo Bot** — hệ thống Zalo Bot thông minh, mượt mà và hỗ trợ hoạt động 24/7 trên môi trường Termux (Android) lẫn Linux/VPS. **Dùng file `ins.sh` để auto setup nhanh chóng cho mọi hệ điều hành!**
 
 ---
 
 ## 📋 Mục lục
-1. [Giới thiệu](#-giới thiệu)
-2. [Cấu trúc thư mục bị ẩn (.gitignore)](#-cấu-trúc-thư-mục-bị-ẩn-gitignore)
+1. [Giới thiệu](#-giới-thiệu)
+2. [Cấu trúc thư mục cần tạo](#-cấu-trúc-thư-mục-cần-tạo)
 3. [Hướng dẫn cài đặt trên Termux (Android)](#-hướng-dẫn-cài-đặt-trên-termux-android)
-4. [Hướng dẫn chạy Bot 24/7 không bị tắt](#-hướng-dẫn-chạy-bot-247-không-bị-tắt)
-5. [Lưu ý quan trọng](#⚠️-lưu-ý-quan-trọng)
+4. [Hướng dẫn cài đặt trên Linux/VPS](#-hướng-dẫn-cài-đặt-trên-linuxvps)
+5. [Hướng dẫn chạy Bot 24/7 không bị tắt](#-hướng-dẫn-chạy-bot-247-không-bị-tắt)
+6. [Lưu ý quan trọng](#⚠️-lưu-ý-quan-trọng)
 
 ---
 
@@ -21,11 +22,29 @@ Dự án được tối ưu hóa để chạy nhẹ nhàng, tự động cài đ
 
 ---
 
-## 📁 Cấu trúc thư mục bị ẩn (.gitignore)
-Để bảo mật tài khoản Zalo của bạn, các tệp tin chứa thông tin nhạy cảm dưới đây **không** được đẩy lên GitHub. Bạn cần sao chép thủ công các tệp này từ máy tính sang điện thoại sau khi clone repo:
+## 📁 Cấu trúc thư mục cần tạo
+Để bảo mật tài khoản Zalo của bạn, bạn cần tự tạo các tệp tin cấu hình sau:
 * `txa.json` (Chứa cookie, imei đăng nhập Zalo)
 * `config.json` (Cấu hình bot)
 * `*_setting.json` (Các cài đặt nhóm/người dùng)
+
+**Ví dụ nội dung `txa.json`:**
+```json
+{
+  "cookie": "zpw_sek=...; other_cookies=...",
+  "imei": "your_imei_here",
+  "phone": "your_phone_number"
+}
+```
+
+**Ví dụ nội dung `config.json`:**
+```json
+{
+  "prefix": "!",
+  "admin_bot": ["your_admin_id"],
+  "high_level_admins": ["your_high_level_admin_id"]
+}
+```
 
 ---
 
@@ -33,65 +52,84 @@ Dự án được tối ưu hóa để chạy nhẹ nhàng, tự động cài đ
 
 Thực hiện lần lượt các bước sau trong ứng dụng Termux của bạn:
 
-### Bước 1: Cập nhật Termux và cài đặt Git / GitHub CLI
+### Bước 1: Cập nhật Termux và cài đặt Git
 ```bash
 pkg update -y && pkg upgrade -y
-pkg install -y git gh
+pkg install -y git
 ```
 
-### Bước 2: Đăng nhập GitHub trên Termux (Vì đây là Repo Riêng Tư)
+### Bước 2: Clone Repository về Termux
 ```bash
-gh auth login
-```
-*Chọn `GitHub.com` -> `HTTPS` -> Chọn đăng nhập qua trình duyệt (Web) hoặc dán Token của bạn.*
-
-### Bước 3: Clone Repository về Termux
-```bash
-gh repo clone TXAVLOG/txabot
-# Hoặc sử dụng git: git clone https://github.com/TXAVLOG/txabot.git
+git clone https://github.com/TXAVLOG/txabot.git
+# Hoặc dùng repo của bạn
 ```
 
-### Bước 4: Di chuyển vào thư mục bot
+### Bước 3: Di chuyển vào thư mục bot
 ```bash
 cd txabot
 ```
 
-### Bước 5: Chép các tệp cấu hình bảo mật vào thư mục bot
-Bạn cần tạo hoặc chuyển các tệp `txa.json`, `config.json`, và bất kỳ tệp cấu hình nhóm nào (ví dụ: `706121047546334382_setting.json`) vào thư mục `txabot` trên điện thoại.
-*Mẹo:* Bạn có thể sử dụng các ứng dụng quản lý tệp tin trên Android hỗ trợ truy cập thư mục Termux (như ZArchiver, MT Manager) hoặc chuyển qua mạng bằng lệnh `scp` / các công cụ chia sẻ tệp tin.
-
-Nếu muốn tự viết lại nhanh cấu hình từ Termux, bạn có thể tạo nhanh bằng trình soạn thảo `nano`:
+### Bước 4: Tạo các tệp cấu hình bảo mật
+Tạo và chỉnh sửa các tệp `txa.json`, `config.json` bằng trình soạn thảo `nano`:
 ```bash
 nano txa.json
 # Dán nội dung txa.json của bạn vào, sau đó nhấn Ctrl+O (Enter) rồi Ctrl+X để thoát.
 ```
 
-### Bước 6: Cấp quyền và chạy Script Auto Setup / Run
+### Bước 5: Cấp quyền và chạy Script Auto Setup / Run
 ```bash
 chmod +x ins.sh
 ./ins.sh
 ```
-*Script sẽ tự động kiểm tra hệ điều hành, cài đặt các package C/C++ (clang, make, jpeg-turbo) cần thiết cho Python, tạo môi trường ảo `.venv`, cài đặt thư viện từ `requirements.txt` và bắt đầu chạy giám sát 24/7.*
+*Script sẽ tự động kiểm tra hệ điều hành, cài đặt các package C/C++ cần thiết cho Python, tạo môi trường ảo `.venv`, cài đặt thư viện từ `requirements.txt` và bắt đầu chạy giám sát 24/7.*
 
 ---
 
-## 🔋 Hướng dẫn chạy Bot 24/7 không bị tắt
+## � Hướng dẫn cài đặt trên Linux/VPS
 
+Thực hiện lần lượt các bước sau:
+
+### Bước 1: Cập nhật hệ thống và cài đặt dependencies
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git python3 python3-pip python3-venv python3-dev build-essential libjpeg-dev zlib1g-dev
+```
+
+### Bước 2: Clone Repository
+```bash
+git clone https://github.com/TXAVLOG/txabot.git
+cd txabot
+```
+
+### Bước 3: Tạo các tệp cấu hình bảo mật
+Tạo `txa.json` và `config.json` như hướng dẫn ở phần [Cấu trúc thư mục cần tạo](#-cấu-trúc-thư-mục-cần-tạo).
+
+### Bước 4: Chạy Script Auto Setup / Run
+```bash
+chmod +x ins.sh
+./ins.sh
+```
+
+---
+
+## �🔋 Hướng dẫn chạy Bot 24/7 không bị tắt
+
+### Trên Termux (Android)
 Hệ điều hành Android rất nghiêm ngặt trong việc tiết kiệm pin và sẽ tắt Termux khi bạn khóa màn hình hoặc ứng dụng chạy ngầm quá lâu. Làm theo các bước sau để đảm bảo bot chạy vĩnh viễn:
 
-### 1. Kích hoạt Termux Wake Lock (Giữ thiết bị luôn hoạt động ngầm)
+#### 1. Kích hoạt Termux Wake Lock (Giữ thiết bị luôn hoạt động ngầm)
 Vuốt thanh thông báo từ trên xuống, nhấn vào nút **"Acquire Wake Lock"** trên thông báo của Termux.
 Hoặc bạn có thể chạy lệnh này trong Termux:
 ```bash
 termux-wake-lock
 ```
 
-### 2. Tắt Tối ưu hóa Pin cho Termux (Battery Optimization)
+#### 2. Tắt Tối ưu hóa Pin cho Termux (Battery Optimization)
 * Vào **Cài đặt điện thoại** -> **Ứng dụng** -> **Quản lý ứng dụng** -> Tìm **Termux**.
 * Chọn mục **Pin** hoặc **Tiết kiệm pin**.
 * Chọn **Không giới hạn (No restrictions)** hoặc **Tắt tối ưu hóa pin**.
 
-### 3. Sử dụng `tmux` để tắt ứng dụng mà bot vẫn chạy
+#### 3. Sử dụng `tmux` để tắt ứng dụng mà bot vẫn chạy
 Để bạn có thể đóng cửa sổ Termux hoặc vuốt tắt ứng dụng mà tiến trình bot vẫn tiếp tục chạy ngầm:
 1. Cài đặt tmux:
    ```bash
@@ -109,6 +147,28 @@ termux-wake-lock
    * Nhấn tổ hợp phím: `Ctrl + B` sau đó nhả ra và nhấn phím `D`.
 5. Bây giờ bạn có thể đóng Termux thoải mái.
 6. Để quay trở lại theo dõi log bot (Attach):
+   ```bash
+   tmux a -t bot
+   ```
+
+### Trên Linux/VPS
+Sử dụng `tmux` hoặc `screen` để giữ bot chạy 24/7:
+
+#### Sử dụng `tmux`:
+1. Cài đặt tmux:
+   ```bash
+   sudo apt install tmux -y
+   ```
+2. Khởi tạo session:
+   ```bash
+   tmux new -s bot
+   ```
+3. Chạy bot:
+   ```bash
+   ./ins.sh
+   ```
+4. Detach: `Ctrl + B` rồi `D`
+5. Attach lại:
    ```bash
    tmux a -t bot
    ```

@@ -13,6 +13,17 @@ from concurrent.futures import ThreadPoolExecutor
 pool = ThreadPoolExecutor(max_workers=9999)
 logger = Logging(theme="catppuccin-mocha", log_text_color="black")
 
+def _thread_name(thread_type):
+	return getattr(thread_type, "name", str(thread_type))
+
+
+def _log_outgoing_message(message_obj, thread_id, thread_type, prefix="Sent"):
+	raw_text = getattr(message_obj, "text", message_obj)
+	text = str(raw_text).strip() if raw_text is not None else ""
+	if not text:
+		text = "<no text>"
+	logger.info(f"{prefix} {text} -> {thread_id} in {_thread_name(thread_type)}")
+
 class ZaloAPI(object):
 	def __init__(self, phone, password, imei, session_cookies=None, user_agent=None, auto_login=True):
 		"""Initialize and log in the client.
@@ -277,6 +288,7 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
+		_log_outgoing_message(message, groupId, ThreadType.GROUP, prefix="Mention")
 		params = {
 			"params": self._encode({
 				"avatar_size": 120,
@@ -571,6 +583,7 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
+		_log_outgoing_message(message, groupId, ThreadType.GROUP, prefix="Mention")
 		params = {
 			"zpw_ver": "641",
 			"zpw_type": "30",
@@ -2467,6 +2480,7 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
+		_log_outgoing_message(message, thread_id, thread_type)
 		params = {
 			"zpw_ver": 641,
 			"zpw_type": 30,

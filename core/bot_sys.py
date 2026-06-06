@@ -2539,6 +2539,28 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = handle_welcome_off(bot, thread_id)
                         else:
                             response = f"➜ Lệnh {bot.prefix}bot welcome {setup_action} không được hỗ trợ 🤧"
+
+                elif action == 'goodbye':
+                    if len(parts) < 3:
+                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {bot.prefix}bot goodbye 🤧\n➜ Ví dụ: {bot.prefix}bot goodbye on hoặc {bot.prefix}bot goodbye off ✅"
+                    else:
+                        setup_action = parts[2].lower()
+                        if setup_action == 'on':
+                            if not is_admin(bot, author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                response = handle_goodbye_on(bot, thread_id)
+                        elif setup_action == 'off':
+                            if not is_admin(bot, author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                response = handle_goodbye_off(bot, thread_id)
+                        else:
+                            response = f"➜ Lệnh {bot.prefix}bot goodbye {setup_action} không được hỗ trợ 🤧"
                 
                 elif action in ('spam', 'anti'):
                     if not is_admin(bot, author_id):
@@ -3184,12 +3206,21 @@ def create_default_avatar(name: str) -> Image.Image:
     )
     return avatar
 
+def get_allow_goodbye(bot, thread_id: str) -> bool:
+    settings = read_settings(bot.uid)
+    return settings.get("goodbye", {}).get(thread_id, False)
+
+def _is_banner_enabled(settings, thread_id, event_type) -> bool:
+    if event_type == GroupEventType.LEAVE:
+        return settings.get("goodbye", {}).get(thread_id, False)
+    return settings.get("welcome", {}).get(thread_id, False)
+
 def create_banner(bot, uid: str, thread_id: str, group_name: str = None, 
                  avatar_url: str = None, event_type: str = None, 
                  event_data = None, background_dir: str = "background") -> str:
     try:
         settings = read_settings(bot.uid)
-        if not settings.get("welcome", {}).get(thread_id, False):
+        if not _is_banner_enabled(settings, thread_id, event_type):
             return None
             
         member_info = bot.fetchUserInfo(uid).changed_profiles.get(uid)
@@ -3216,20 +3247,36 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 print(f"[WARNING] Lỗi khi lấy thông tin admin: {e}")
                 ow_name = "Quản trị viên"
 
+        prefix = getattr(bot, 'prefix', '!')
+        join_msg = (
+            f"🎉 Chào mừng {user_name} vào nhóm {group_name}!\n"
+            f"👤 Thành viên thứ {total_members}"
+            + (f" | Duyệt bởi {ow_name}" if ow_name else "")
+            + f"\n📌 Gõ {prefix}menu để khám phá bot\n"
+            f"💬 Chúc bạn vui vẻ và tuân thủ nội quy nhóm!"
+        )
+        leave_msg = (
+            f"👋 Tạm biệt {user_name}!\n"
+            f"📊 Nhóm {group_name} còn {total_members} thành viên\n"
+            f"💫 Hẹn gặp lại bạn trên hành trình phía trước!"
+        )
+
         event_config = {
             GroupEventType.JOIN: {
                 'main_text': f'Chào mừng, {user_name}',
                 'group_name_text': group_name,
                 'credit_text': f"Được duyệt bởi {ow_name}" if ow_name else "Đã được duyệt vào nhóm",
-                'msg': f"🎉 Chào mừng {user_name} đã được duyệt vào nhóm" + (f" bởi {ow_name}! 🚀" if ow_name else "! 🚀"),
+                'banner_sub': f"Thành viên thứ {total_members}  •  Gõ {prefix}menu để xem lệnh bot",
+                'msg': join_msg,
                 'mention': Mention(uid=uid, offset=12, length=len(user_name))
             },
             GroupEventType.LEAVE: {
                 'main_text': f'Tạm biệt, {user_name}',
                 'group_name_text': group_name,
                 'credit_text': "Đã rời khỏi nhóm",
-                'msg': f"👋 Hẹn gặp lại {user_name} nhé! Chúc bạn luôn vui vẻ và gặp nhiều may mắn trên con đường phía trước! ✨",
-                'mention': Mention(uid=uid, offset=15, length=len(user_name))
+                'banner_sub': f"Nhóm còn {total_members} thành viên",
+                'msg': leave_msg,
+                'mention': Mention(uid=uid, offset=11, length=len(user_name))
             },
             GroupEventType.ADD_ADMIN: {
                 'main_text': f'Chúc mừng, {user_name}',
@@ -3403,6 +3450,15 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         credit_y = group_y + group_bbox[3] + 15
         draw.text((credit_x, credit_y), credit_text, font=font_credit, fill=(255, 255, 255))
 
+        if config.get('banner_sub'):
+            font_sub = ImageFont.truetype(font_path_arial, 24)
+            sub_text = config['banner_sub']
+            sub_bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+            sub_width = sub_bbox[2] - sub_bbox[0]
+            sub_x = rect_x0 + (rect_x1 - rect_x0 - sub_width) // 2
+            sub_y = credit_y + credit_bbox[3] + 8
+            draw.text((sub_x, sub_y), sub_text, font=font_sub, fill=(220, 220, 220))
+
         time_text = f" {time.strftime('%d/%m/%Y')}   {time.strftime('%H:%M:%S')}     Executed by {ow_name}" if ow_name else f" {time.strftime('%d/%m/%Y')}      {time.strftime('%H:%M:%S')}"
         font_footer = ImageFont.truetype(font_path_arial, 22)
         footer_bbox = draw.textbbox((0, 0), time_text, font=font_footer)
@@ -3466,8 +3522,38 @@ def handle_event(client, event_data, event_type):
         thread_id = event_data.groupId
         thread_type = ThreadType.GROUP
         
+        # Check if event is one that triggers auto lock
+        auto_lock_events = [
+            GroupEventType.LEAVE,
+            GroupEventType.REMOVE_MEMBER,
+            GroupEventType.ADD_ADMIN,
+            GroupEventType.REMOVE_ADMIN
+        ]
+        
+        if event_type in auto_lock_events:
+            def lock_then_unlock():
+                try:
+                    # Lock the group with Zalo API
+                    client.changeGroupSetting(thread_id, lockSendMsg=1)
+                    # Announce lock
+                    client.send(Message(text="🔒 Nhóm đã được khóa tạm thời (60 giây) do có sự thay đổi thành viên/admin!"), thread_id, thread_type)
+                    
+                    # Wait 60 seconds
+                    time.sleep(60)
+                    
+                    # Unlock the group with Zalo API
+                    client.changeGroupSetting(thread_id, lockSendMsg=0)
+                    # Announce unlock
+                    client.send(Message(text="🔓 Nhóm đã được mở khóa trở lại!"), thread_id, thread_type)
+                except Exception as e:
+                    print(f"Lỗi khi khóa/mở khóa nhóm auto: {e}")
+            
+            # Run in a new thread so we don't block
+            threading.Thread(target=lock_then_unlock, daemon=True).start()
+        
+        # Continue with original banner logic
         settings = read_settings(client.uid)
-        if not settings.get("welcome", {}).get(thread_id, False):
+        if not _is_banner_enabled(settings, thread_id, event_type):
             return
             
         group_info = client.fetchGroupInfo(thread_id)
@@ -3503,9 +3589,28 @@ def handle_welcome_on(bot, thread_id: str) -> str:
     settings = read_settings(bot.uid)
     if "welcome" not in settings:
         settings["welcome"] = {}
+    if "goodbye" not in settings:
+        settings["goodbye"] = {}
     settings["welcome"][thread_id] = True
+    settings["goodbye"][thread_id] = True
     write_settings(bot.uid, settings)
-    return f"🚦Chế độ welcome đã 🟢 Bật 🎉"
+    return f"🚦Chế độ welcome đã 🟢 Bật 🎉 (tạm biệt cũng được bật theo)"
+
+def handle_goodbye_on(bot, thread_id: str) -> str:
+    settings = read_settings(bot.uid)
+    if "goodbye" not in settings:
+        settings["goodbye"] = {}
+    settings["goodbye"][thread_id] = True
+    write_settings(bot.uid, settings)
+    return f"🚦Chế độ goodbye (tạm biệt) đã 🟢 Bật 👋"
+
+def handle_goodbye_off(bot, thread_id: str) -> str:
+    settings = read_settings(bot.uid)
+    if "goodbye" in settings and thread_id in settings["goodbye"]:
+        settings["goodbye"][thread_id] = False
+        write_settings(bot.uid, settings)
+        return f"🚦Chế độ goodbye (tạm biệt) đã 🔴 Tắt 👋"
+    return "🚦Nhóm chưa có thông tin cấu hình goodbye để 🔴 Tắt 🤗"
 
 def handle_welcome_off(bot, thread_id: str) -> str:
     settings = read_settings(bot.uid)
@@ -3553,7 +3658,9 @@ def check_member_changes(bot, thread_id: str) -> Tuple[set, set]:
     return joined_members, left_members
 
 def handle_group_member(bot, message_object, author_id: str, thread_id: str, thread_type: str):
-    if not get_allow_welcome(bot, thread_id):
+    welcome_on = get_allow_welcome(bot, thread_id)
+    goodbye_on = get_allow_goodbye(bot, thread_id)
+    if not welcome_on and not goodbye_on:
         return
         
     current_group_info = bot.fetchGroupInfo(thread_id).gridInfoMap.get(thread_id, None)
@@ -3570,6 +3677,8 @@ def handle_group_member(bot, message_object, author_id: str, thread_id: str, thr
     left_members = old_members - new_members
 
     for member_id in joined_members:
+        if not welcome_on:
+            continue
         banner = create_banner(bot, member_id, thread_id, event_type=GroupEventType.JOIN, 
                              event_data=type('Event', (), {'sourceId': author_id or bot.uid})())
         if banner and os.path.exists(banner):
@@ -3594,6 +3703,8 @@ def handle_group_member(bot, message_object, author_id: str, thread_id: str, thr
                     delete_file(banner)
 
     for member_id in left_members:
+        if not goodbye_on:
+            continue
         banner = create_banner(bot, member_id, thread_id, event_type=GroupEventType.LEAVE, 
                              event_data=type('Event', (), {'sourceId': author_id or bot.uid})())
         if banner and os.path.exists(banner):
@@ -3622,7 +3733,7 @@ def start_member_check_thread(bot, allowed_thread_ids: List[str]):
     def check_members_loop():
         while True:
             for thread_id in allowed_thread_ids:
-                if not get_allow_welcome(bot, thread_id):
+                if not get_allow_welcome(bot, thread_id) and not get_allow_goodbye(bot, thread_id):
                     continue
                 handle_group_member(bot, None, None, thread_id, ThreadType.GROUP)
             time.sleep(2)

@@ -1559,7 +1559,10 @@ class DynamicCommandHandler:
             print(f"Lỗi khi thực thi lệnh '{command_name}': {e}")
             import traceback
             traceback.print_exc()
-            self.client.sendMessage(f"❌ Lỗi khi thực thi lệnh '{command_name}': {e}", thread_id, thread_type)
+            try:
+                self.client.sendMessage(f"❌ Lỗi khi thực thi lệnh '{command_name}': {e}", thread_id, thread_type)
+            except Exception as send_err:
+                print(f"[ERROR] couldn't send error message: {send_err}")
             return True
 
 class bot(ZaloAPI):
@@ -1627,6 +1630,14 @@ class bot(ZaloAPI):
         allowed_thread_ids = list(all_group.gridVerMap.keys())
         initialize_group_info(self, allowed_thread_ids)
         start_member_check_thread(self,allowed_thread_ids)
+
+        try:
+            from modules.bot.func_autosend.main import start_autosend_thread
+            autosend_settings = read_settings(self.uid).get("autosend", {})
+            if any(autosend_settings.values()):
+                start_autosend_thread(self)
+        except Exception as e:
+            logging.error(f"Lỗi khởi động autosend thread: {e}")
         
         # Khởi động luồng quét hết hạn quyền sử dụng chạy nền
         threading.Thread(target=self.expiry_cleanup_loop, daemon=True).start()
@@ -1820,10 +1831,14 @@ class bot(ZaloAPI):
             allowed_thread_ids = get_allowed_thread_ids(self)
 
             message_text = message.text if isinstance(message, Message) else str(message)
+            # Clean leading mentions (like @Tbot) and whitespace
+            message_text = re.sub(r'^@[\S]+[\s]*', '', message_text).lstrip()
             message_lower = message_text.lower()
 
             if author_id == self.uid or author_id in banned_users:
                 return
+
+
 
             if thread_id not in self.message_history:
                 self.message_history[thread_id] = []
@@ -1874,6 +1889,22 @@ class bot(ZaloAPI):
                 )
             else:
                 is_allowed = is_user_approved
+
+            # Add friendly reply when bot is mentioned but not a command
+            has_mention = (message_object.mentions and len(message_object.mentions) > 0) or (message_text and '@' in message_text)
+            if has_mention and not message_text.startswith(prefix) and is_allowed:
+                try:
+                    user_name = get_user_name_by_id(self, author_id)
+                    replies = [
+                        f"Xin chào {user_name}! 🌸 Tôi là {self.me_name}!\nGõ {prefix}help để xem danh sách lệnh nhé!",
+                        f"Chào {user_name}! 😊 Có gì tôi có thể giúp bạn? Gõ {prefix}help để biết thêm!",
+                        f"Hi {user_name}! 🚗 Bạn cần giúp gì? Gõ {prefix}help để xem danh sách lệnh!"
+                    ]
+                    reply_text = random.choice(replies)
+                    self.replyMessage(Message(text=reply_text), message_object, thread_id, thread_type)
+                except Exception as e:
+                    print(f"[ERROR] Error sending mention reply: {e}")
+                return
 
             if not is_allowed:
                 if message_text.startswith(prefix):
@@ -1969,6 +2000,33 @@ class bot(ZaloAPI):
                                 self.last_admin_notify[(author_id, 'bot')] = current_time_sec
                             except Exception as e:
                                 print(f"[ERROR] Không thể gửi thông báo yêu cầu duyệt bot cho Admin: {e}")
+
+            # Log tin nhắn nhóm chưa được phép (không có lệnh prefix)
+            if not is_allowed and thread_type == ThreadType.GROUP:
+                try:
+                    _author_info = self.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
+                    _author_name = _author_info.get('zaloName', 'N/A')
+                    _group_name = 'N/A'
+                    try:
+                        _g = self.fetchGroupInfo(thread_id)
+                        _group_name = _g.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                    except Exception:
+                        pass
+                    _t = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
+                    _c = random.sample(colors, 8)
+                    print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {_author_name}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[4])}{Style.BRIGHT}│- TÊN NHÓM: {_group_name}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: ❌ CHƯA KÍCH HOẠT{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {_t}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                except Exception:
+                    pass
                 return
 
             if thread_id in allowed_thread_ids and thread_type == ThreadType.GROUP and not is_admin(self, author_id):
@@ -1976,8 +2034,6 @@ class bot(ZaloAPI):
             
             author_info = self.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
             author_name = author_info.get('zaloName', 'đéo xác định')
-            group_info = self.fetchGroupInfo(thread_id)
-            group_name = group_info.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
             current_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
             colors_selected = random.sample(colors, 8)
             
@@ -1993,13 +2049,23 @@ class bot(ZaloAPI):
                 print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
             else:
+                try:
+                    group_info_log = self.fetchGroupInfo(thread_id)
+                    group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                except Exception:
+                    group_name = 'N/A'
+                is_allowed_status = thread_id in allowed_thread_ids
+                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}")
+                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[5])}{Style.BRIGHT}│- TYPE: {thread_type}{Style.RESET_ALL}")
+                print(f"{hex_to_ansi(colors_selected[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: {'✅ ĐƯỢC PHÉP' if is_allowed_status else '❌ CHƯA KÍCH HOẠT'}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {current_time}{Style.RESET_ALL}")
+                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
             
             # Admin control of music features for groups (private chat only)
             if thread_type == ThreadType.USER and author_id in admin_bot and (
@@ -2118,18 +2184,37 @@ class bot(ZaloAPI):
                     self.replyMessage(Message(text="⚠️ Sai cú pháp! Vui lòng dùng:\n➜ .music <on/off> <link_group/group_id> hoặc .nct/mp3/scl <on/off> <link_group/group_id>"), message_object, thread_id, thread_type)
                 return
 
-            # Intercept word chain game active states
-            if current_word is not None and not message_text.startswith(prefix):
+            # Intercept word chain game active states only if allowed
+            if is_allowed and current_word is not None and not message_text.startswith(prefix):
                 if game_active and author_id == current_player:
                     nt_go(self, message_object, author_id, thread_id, thread_type, message_lower)
                     return
 
-            # Intercept custom message choices (donghua search selections)
-            if author_id in user_selection_data and message.strip().isdigit() and user_selection_data.get(author_id)['next_step'] == "handle_user_selection":
+            # Intercept custom message choices (donghua search selections) only if allowed
+            if is_allowed and author_id in user_selection_data and message.strip().isdigit() and user_selection_data.get(author_id)['next_step'] == "handle_user_selection":
                 handle_user_selection(self, message_object, author_id, thread_id, thread_type, message)
                 return
-            elif author_id in user_selection_data and message.strip().isdigit() and user_selection_data.get(author_id)['next_step'] == "handle_episode_selection":
+            elif is_allowed and author_id in user_selection_data and message.strip().isdigit() and user_selection_data.get(author_id)['next_step'] == "handle_episode_selection":
                 handle_episode_selection(self, message_object, author_id, thread_id, thread_type, message)
+                return
+
+            # For unapproved private messages, send a warning even if no prefix
+            if not is_allowed and thread_type == ThreadType.USER:
+                # Send the same warning as for command
+                admin_names = []
+                for aid in admin_bot:
+                    admin_names.append(f"Admin (ID: {aid})")
+                admin_info = ", ".join(admin_names) if admin_names else "Admin BOT"
+                
+                warning_text = (
+                    f"⚠️ Bạn chưa được phép sử dụng BOT trong tin nhắn riêng tư!\n"
+                    f"➜ Vui lòng liên hệ {admin_info} để được duyệt. 🌸\n"
+                    f"💡 (Hiện tại đang miễn phí trải nghiệm, sau này sẽ có tính phí dịch vụ nhé! 🌸)"
+                )
+                try:
+                    self.replyMessage(Message(text=warning_text), message_object, thread_id, thread_type)
+                except Exception as e:
+                    print(f"[ERROR] Error sending unapproved PM warning: {e}")
                 return
 
             # Parse commands starting with prefix

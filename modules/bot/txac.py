@@ -7,7 +7,7 @@ CONFIG = {
         "thue_bot/main.py": {"emoji": "❖", "title": "Thue Bot", "cmds": ["thuebot"]},
         "func_share/main.py": {"emoji": "💌", "title": "Share code", "cmds": ["share"]},
         "func_friend/main.py": {"emoji": "❖", "title": "Friend", "cmds": ["block", "kb", "kbgr", "unblock", "xkb"]},
-        "func_autosend/main.py": {"emoji": "⏳", "title": "Tin nhắn tự xóa", "cmds": ["autosend"]},
+        "func_autosend/main.py": {"emoji": "⏳", "title": "Tin nhắn tự động", "cmds": ["autosend"]},
         "details/main.py": {"emoji": "❖", "title": "Details", "cmds": ["details"]},
         "func_allan/main.py": {"emoji": "❖", "title": "Allan", "cmds": ["all", "lmao"]},
         "func_disbox/main.py": {"emoji": "❖", "title": "Disbox", "cmds": ["disbox"]},
@@ -23,6 +23,7 @@ CONFIG = {
         "spamjoin/main.py": {"emoji": "❖", "title": "Spamjoin", "cmds": ["spamjoin"]},
         "treo/main.py": {"emoji": "❖", "title": "Treo", "cmds": ["treo"]},
         "uptime/main.py": {"emoji": "❖", "title": "Uptime", "cmds": ["uptime"]},
-        "func_duyet/main.py": {"emoji": "🔑", "title": "Duyet quyen", "cmds": ["duyet", "unduyet"]}
+        "func_duyet/main.py": {"emoji": "🔑", "title": "Duyet quyen", "cmds": ["duyet", "unduyet"]},
+        "func_group_lock/main.py": {"emoji": "🔒", "title": "Khóa nhóm", "cmds": ["lock", "lockgroup", "unlockgroup"]}
     }
 }

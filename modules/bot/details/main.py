@@ -1,13 +1,12 @@
-import colorsys
 import os
 import platform
 import time
 import random
 import psutil
 import shutil
-import requests
-from io import BytesIO
+from typing import List, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import emoji
 from zlapi.models import Message
 from core.bot_sys import read_settings, get_user_name_by_id
 
@@ -21,268 +20,296 @@ txa = {
 def txa_command(bot, message_object, thread_id, thread_type, author_id, client=None):
     handle_details_command(bot, message_object, thread_id, thread_type, author_id, client)
 
+# ── Paths ───────────────────────────────────────────────────────────────────
 BACKGROUND_PATH = "background/"
-CACHE_PATH = "modules/cache/"
-font_path_arial = "font/arial unicode ms.otf"
-font_paci = "font/Kai.ttf"
-font_emoji = "font/NotoEmoji-Bold.ttf"
-DEFAULT_FONT_FALLBACKS = [
-    "arial.ttf",
-    "DejaVuSans.ttf",
-    "LiberationSans-Regular.ttf",
-    "NotoEmoji-Bold.ttf"
-]
+CACHE_PATH      = "modules/cache/"
+FONT_TEXT_PATH  = "font/arial unicode ms.otf"
+FONT_TITLE_PATH = "font/Kai.ttf"
+FONT_EMOJI_PATH = "font/NotoEmoji-Bold.ttf"
 
-def load_font_with_fallback(primary_paths, size):
-    candidates = []
-    if isinstance(primary_paths, (list, tuple)):
-        candidates.extend(primary_paths)
-    elif primary_paths:
-        candidates.append(primary_paths)
-    candidates.extend(DEFAULT_FONT_FALLBACKS)
+# ── Font helpers (dùng chung cả project) ────────────────────────────────────
+def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
+    try:
+        return ImageFont.truetype(path, size)
+    except (OSError, IOError):
+        return ImageFont.load_default()
 
-    for path in candidates:
-        if not path:
-            continue
+def _char_width(font: ImageFont.FreeTypeFont, char: str) -> int:
+    try:
+        return font.getbbox(char)[2] - font.getbbox(char)[0]
+    except Exception:
         try:
-            return ImageFont.truetype(path, size)
-        except (OSError, IOError):
-            continue
+            return int(font.getlength(char))
+        except Exception:
+            return font.size
 
-    return ImageFont.load_default()
+# ── draw_text_with_emoji — chuẩn của project (txa.py) ──────────────────────
+def is_emoji(ch: str) -> bool:
+    return ch in emoji.EMOJI_DATA
 
-def format_bytes(value, decimals=1):
-    if value < 0:
-        return "0 B"
-    units = ["B", "KB", "MB", "GB", "TB", "PB", "EB"]
-    idx = 0
-    while value >= 1024 and idx < len(units) - 1:
-        value /= 1024
-        idx += 1
-    return f"{value:.{decimals}f} {units[idx]}"
+def draw_text_with_emoji(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    pos: Tuple[int, int],
+    font: ImageFont.FreeTypeFont,
+    emoji_font: ImageFont.FreeTypeFont,
+    fill,
+) -> int:
+    """Vẽ text ký tự-by-ký tự, dùng emoji_font cho emoji và font thường cho text.
+    Trả về x kết thúc."""
+    x, y = pos
+    for ch in text:
+        f = emoji_font if is_emoji(ch) else font
+        # emoji nhỏ hơn một chút so với text_font để baseline đẹp hơn
+        oy = y - (f.size // 6) if is_emoji(ch) else y
+        draw.text((x, oy), ch, font=f, fill=fill)
+        x += _char_width(f, ch) + (1 if is_emoji(ch) else 0)
+    return x
 
-def get_system_metrics():
-    # OS
-    os_name = f"{platform.system()} {platform.release()}"
-    
-    # CPU usage and cores
-    cpu_cores = psutil.cpu_count(logical=True)
-    cpu_usage = f"{psutil.cpu_percent(interval=None)}%"
-    
-    # RAM usage
-    virtual_mem = psutil.virtual_memory()
-    ram_usage = f"{format_bytes(virtual_mem.used)} / {format_bytes(virtual_mem.total)}"
-    
-    # Process memory usage
-    process = psutil.Process(os.getpid())
-    process_mem = format_bytes(process.memory_info().rss)
-    
-    # Disk usage
-    total, used, free = shutil.disk_usage("/")
-    disk_usage = f"{format_bytes(used)} / {format_bytes(total)}"
-    
+# ── System metrics ──────────────────────────────────────────────────────────
+def _fmt_bytes(val: float, dec: int = 1) -> str:
+    units = ["B", "KB", "MB", "GB", "TB"]
+    i = 0
+    while val >= 1024 and i < len(units) - 1:
+        val /= 1024; i += 1
+    return f"{val:.{dec}f} {units[i]}"
+
+def get_system_metrics(bot) -> dict:
+    vm   = psutil.virtual_memory()
+    proc = psutil.Process(os.getpid())
+    total, used, _ = shutil.disk_usage("/")
+    load_avg = "N/A"
+    try:
+        if hasattr(psutil, "getloadavg"):
+            load1, load5, load15 = psutil.getloadavg()
+            load_avg = f"{load1:.2f} | {load5:.2f} | {load15:.2f}"
+    except:
+        pass
+        
+    net_io = psutil.net_io_counters()
     return {
-        "os": os_name,
-        "cpu_cores": f"{cpu_cores} Cores",
-        "cpu_usage": cpu_usage,
-        "ram": ram_usage,
-        "process_mem": process_mem,
-        "disk": disk_usage
+        "os":          f"{platform.system()} {platform.release()}",
+        "cpu_cores":   f"{psutil.cpu_count(logical=True)} Cores",
+        "cpu_usage":   f"{psutil.cpu_percent(interval=0.1)}%",
+        "ram":         f"{_fmt_bytes(vm.used)} / {_fmt_bytes(vm.total)} ({vm.percent}%)",
+        "proc_mem":    _fmt_bytes(proc.memory_info().rss),
+        "proc_threads": f"{proc.num_threads()} Threads",
+        "disk_used":   _fmt_bytes(used),
+        "disk_total":  _fmt_bytes(total),
+        "version":     getattr(bot, "version", "1.0"),
+        "load_avg":    load_avg,
+        "net_sent":    _fmt_bytes(net_io.bytes_sent),
+        "net_recv":    _fmt_bytes(net_io.bytes_recv),
+        "process_count": f"{len(psutil.pids())} Processes",
     }
 
-def format_uptime(uptime_seconds):
-    days = uptime_seconds // (24 * 3600)
-    uptime_seconds %= (24 * 3600)
-    hours = uptime_seconds // 3600
-    uptime_seconds %= 3600
-    minutes = uptime_seconds // 60
-    seconds = uptime_seconds % 60
-    
+def format_uptime(secs: int) -> str:
+    d, secs = divmod(secs, 86400)
+    h, secs = divmod(secs, 3600)
+    m, s    = divmod(secs, 60)
     parts = []
-    if days > 0: parts.append(f"{days} ngày")
-    if hours > 0: parts.append(f"{hours} giờ")
-    if minutes > 0: parts.append(f"{minutes} phút")
-    if seconds > 0 or not parts: parts.append(f"{seconds} giây")
+    if d: parts.append(f"{d} ngày")
+    if h: parts.append(f"{h} giờ")
+    if m: parts.append(f"{m} phút")
+    if s or not parts: parts.append(f"{s} giây")
     return ", ".join(parts)
 
-def create_details_image(bot, uptime_str, thread_id):
-    width, height = 1200, 800
-    
-    # Find background image
-    bg_image_path = None
+# ── Progress bar ────────────────────────────────────────────────────────────
+def draw_progress_bar(draw, x, y, w, h, pct, label, f_label, f_pct, emoji_font):
+    color = (78, 203, 113, 255) if pct < 70 else (255, 193, 7, 255) if pct < 90 else (255, 107, 107, 255)
+    draw_text_with_emoji(draw, label, (x, y - 30), f_label, emoji_font, (180, 220, 255, 255))
+    # track
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=h // 2,
+                            fill=(25, 35, 50, 220), outline=(255, 255, 255, 35), width=1)
+    fill_w = max(0, int(w * pct / 100))
+    if fill_w:
+        draw.rounded_rectangle([x, y, x + fill_w, y + h], radius=h // 2, fill=color)
+    draw.text((x + w + 10, y + 1), f"{pct:.1f}%", font=f_pct, fill=(255, 255, 255, 220))
+
+# ── Main image builder ──────────────────────────────────────────────────────
+def create_details_image(bot, uptime_str: str, thread_id: str) -> str:
+    # Layout
+    WIDTH     = 1280
+    PAD       = 60
+    COL_L_W   = 490
+    COL_R_X   = PAD + COL_L_W + 50
+    COL_R_W   = WIDTH - COL_R_X - PAD
+    ROW_H     = 52
+    SEC_H     = 48
+    BAR_BLOCK = 78
+    FOOTER_H  = 55
+
+    sys_rows = 13
+    cfg_rows = 11
+    sys_h = SEC_H + sys_rows * ROW_H + 20 + BAR_BLOCK * 2
+    cfg_h = SEC_H + cfg_rows * ROW_H
+    HEIGHT = max(1200, PAD * 2 + 120 + max(sys_h, cfg_h) + FOOTER_H + 30)
+
+    # Background
+    bg_path = None
     if os.path.exists(BACKGROUND_PATH):
-        images = [os.path.join(BACKGROUND_PATH, f) for f in os.listdir(BACKGROUND_PATH) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        if images:
-            bg_image_path = random.choice(images)
-            
-    if bg_image_path:
-        background = Image.open(bg_image_path).convert("RGBA").resize((width, height))
-        background_blurred = background.filter(ImageFilter.GaussianBlur(radius=8))
+        imgs = [os.path.join(BACKGROUND_PATH, f) for f in os.listdir(BACKGROUND_PATH)
+                if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+        if imgs:
+            bg_path = random.choice(imgs)
+
+    if bg_path:
+        bg = Image.open(bg_path).convert("RGBA").resize((WIDTH, HEIGHT))
+        bg = bg.filter(ImageFilter.GaussianBlur(radius=10))
     else:
-        # Default gradient
-        background_blurred = Image.new("RGBA", (width, height), (30, 45, 60, 255))
-        
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    
-    # Semi-transparent box for glassmorphism
-    glass_color = (15, 25, 35, 180)
-    draw.rounded_rectangle([50, 50, width - 50, height - 50], radius=30, fill=glass_color, outline=(255, 255, 255, 30), width=2)
-    
-    # Load Fonts using safe fallback
-    font_title = load_font_with_fallback([font_paci, font_path_arial], 48)
-    font_header = load_font_with_fallback([font_paci, font_path_arial], 32)
-    font_text = load_font_with_fallback([font_emoji, font_path_arial], 26)
-    font_desc = load_font_with_fallback(font_path_arial, 16)
-        
-    # Draw Title
-    bot_name = getattr(bot, 'me_name', 'TXABOT')
-    draw.text((80, 80), f"⚡ HỆ THỐNG & CẤU HÌNH BOT", font=font_title, fill=(200, 150, 255, 255))
-    draw.text((80, 140), f"🤖 Bot Name: {bot_name} | ⏳ Uptime: {uptime_str}", font=font_text, fill=(255, 255, 255, 200))
-    
-    # Draw Divider Line
-    draw.line([80, 180, width - 80, 180], fill=(255, 255, 255, 50), width=2)
-    
-    # System Information
-    metrics = get_system_metrics()
-    sys_x = 80
-    sys_y = 200
-    
-    draw.text((sys_x, sys_y), "💻 THÔNG TIN HỆ THỐNG", font=font_header, fill=(90, 200, 250, 255))
-    sys_y += 50
-    
-    sys_fields = [
-        ("Hệ điều hành", metrics["os"], "OS nền tảng hoạt động của bot"),
-        ("CPU Cores", metrics["cpu_cores"], "Số luồng xử lý CPU"),
-        ("CPU Usage", metrics["cpu_usage"], "Tỷ lệ sử dụng CPU hiện tại"),
-        ("RAM Usage", metrics["ram"], "Bộ nhớ RAM đã dùng/tổng"),
-        ("Bộ nhớ Bot", metrics["process_mem"], "Bộ nhớ tiêu thụ bởi process bot"),
-        ("Dung lượng ổ đĩa", metrics["disk"], "Không gian lưu trữ đã dùng/tổng"),
-        ("Bot Version", getattr(bot, 'version', '1.0'), "Phiên bản bot hiện tại")
+        bg = Image.new("RGBA", (WIDTH, HEIGHT), (20, 30, 45, 255))
+
+    ov   = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(ov)
+
+    # Glass card
+    draw.rounded_rectangle(
+        [PAD - 10, PAD - 10, WIDTH - PAD + 10, HEIGHT - PAD + 10],
+        radius=28, fill=(10, 18, 30, 185), outline=(255, 255, 255, 22), width=2
+    )
+
+    # Fonts
+    f_title  = _load_font(FONT_TITLE_PATH, 44)
+    f_header = _load_font(FONT_TITLE_PATH, 30)
+    f_text   = _load_font(FONT_TEXT_PATH,  24)
+    f_desc   = _load_font(FONT_TEXT_PATH,  15)
+    f_emoji  = _load_font(FONT_EMOJI_PATH, 38)   # emoji font dùng chung
+    f_emoji_sm = _load_font(FONT_EMOJI_PATH, 28)
+
+    # ── Title ─────────────────────────────────────────────────────────
+    bot_name = getattr(bot, "me_name", "TXABOT")
+    draw_text_with_emoji(draw, f"⚡ HỆ THỐNG & CẤU HÌNH BOT",
+                         (PAD, PAD + 5), f_title, f_emoji, (200, 150, 255, 255))
+    draw_text_with_emoji(draw, f"🤖 Bot Name: {bot_name}  |  ⏳ Uptime: {uptime_str}",
+                         (PAD, PAD + 62), f_text, f_emoji_sm, (255, 255, 255, 200))
+    draw.line([PAD, PAD + 112, WIDTH - PAD, PAD + 112], fill=(255, 255, 255, 40), width=2)
+
+    body_y = PAD + 128
+
+    # ══════════════════════════════════════════════════════════════════
+    # LEFT  — Thông tin hệ thống
+    # ══════════════════════════════════════════════════════════════════
+    metrics = get_system_metrics(bot)
+    lx, ly = PAD, body_y
+
+    draw_text_with_emoji(draw, "💻 THÔNG TIN HỆ THỐNG",
+                         (lx, ly), f_header, f_emoji_sm, (90, 200, 250, 255))
+    ly += SEC_H
+
+    LABEL_COL = 205   # độ rộng cột label trong left col
+    sys_rows_data = [
+        ("Hệ điều hành",   metrics["os"],        "OS nền tảng hoạt động của bot"),
+        ("CPU Cores",       metrics["cpu_cores"], "Số luồng xử lý CPU"),
+        ("CPU Usage",       metrics["cpu_usage"], "Tỷ lệ sử dụng CPU hiện tại"),
+        ("Load Average",    metrics["load_avg"],  "Tải trung bình hệ thống (1/5/15m)"),
+        ("RAM Usage",       metrics["ram"],       "Bộ nhớ RAM đã dùng/tổng"),
+        ("Bộ nhớ Bot",      metrics["proc_mem"],  "Bộ nhớ tiêu thụ bởi process bot"),
+        ("Threads Bot",     metrics["proc_threads"], "Số luồng của process bot"),
+        ("Ổ đĩa đã dùng",  metrics["disk_used"], "Dung lượng đã sử dụng"),
+        ("Tổng dung lượng", metrics["disk_total"],"Dung lượng toàn bộ"),
+        ("Network Sent",    metrics["net_sent"],  "Dữ liệu đã gửi qua mạng"),
+        ("Network Recv",    metrics["net_recv"],  "Dữ liệu đã nhận qua mạng"),
+        ("Process Count",   metrics["process_count"], "Tổng số tiến trình trên hệ thống"),
+        ("Bot Version",     metrics["version"],   "Phiên bản bot hiện tại"),
     ]
-    
-    for label, val, desc in sys_fields:
-        draw.text((sys_x, sys_y), f"➜ {label}:", font=font_text, fill=(220, 220, 220, 255))
-        draw.text((sys_x + 220, sys_y), val, font=font_text, fill=(255, 255, 255, 255))
-        draw.text((sys_x, sys_y + 25), f"   {desc}", font=font_desc, fill=(150, 150, 150, 200))
-        sys_y += 55
-        
-    # Group configurations
-    cfg_x = 650
-    cfg_y = 200
-    
-    draw.text((cfg_x, cfg_y), "⚙️ CẤU HÌNH NHÓM", font=font_header, fill=(90, 255, 150, 255))
-    cfg_y += 50
-    
+    for label, val, desc in sys_rows_data:
+        draw.text((lx, ly),              f"➜ {label}:", font=f_text, fill=(210, 215, 225, 255))
+        draw.text((lx + LABEL_COL, ly),  val,            font=f_text, fill=(255, 255, 255, 255))
+        draw.text((lx, ly + 26),         f"   {desc}",   font=f_desc, fill=(140, 145, 160, 200))
+        ly += ROW_H
+
+    # Progress bars
+    ly += 18
+    BAR_W, BAR_H = COL_L_W - 60, 20
+    cpu_pct = psutil.cpu_percent(interval=None)
+    draw_progress_bar(draw, lx, ly + 30, BAR_W, BAR_H, cpu_pct,
+                      "📊 CPU Usage", f_text, f_text, f_emoji_sm)
+    ly += BAR_BLOCK
+
+    ram_pct = psutil.virtual_memory().percent
+    draw_progress_bar(draw, lx, ly + 30, BAR_W, BAR_H, ram_pct,
+                      "💾 RAM Usage", f_text, f_text, f_emoji_sm)
+
+    # ══════════════════════════════════════════════════════════════════
+    # RIGHT — Cấu hình nhóm  (1 cột, không overlap)
+    # ══════════════════════════════════════════════════════════════════
     settings = read_settings(bot.uid)
-    
-    # Helper to check setting status per thread
-    def check_status(key, default=True, sub_key=None):
-        if sub_key:
-            return settings.get(key, {}).get(sub_key, {}).get(thread_id, default)
-        
+
+    def check_status(key: str, default=True) -> bool:
         val = settings.get(key)
         if isinstance(val, dict):
             return val.get(thread_id, default)
         return val if val is not None else default
 
-    # Map settings to readable status lines
-    cfg_fields = [
-        ("Chào mừng mem mới (Welcome)", check_status('welcome', False), "Tự động chào thành viên mới tham gia"),
-        ("Chống Spam tin nhắn", check_status('spam_enabled', False), "Chặn spam tin nhắn trong nhóm"),
-        ("Đọc tin nhắn thu hồi (Undo)", check_status('undo_enabled', True), "Bot có thể đọc tin nhắn đã thu hồi"),
-        ("Cho phép gửi Link", check_status('allow_link', False), "Cho phép gửi liên kết trong nhóm"),
-        ("Cho phép gửi Voice", check_status('voice_enabled', True), "Cho phép gửi voice message"),
-        ("Cho phép gửi Hình ảnh", check_status('image_enabled', True), "Cho phép gửi hình ảnh"),
-        ("Cho phép gửi Sticker", check_status('sticker_enabled', True), "Cho phép gửi sticker"),
-        ("Cho phép gửi Video", check_status('video_enabled', True), "Cho phép gửi video"),
-        ("Cho phép gửi Doodle", check_status('doodle_enabled', True), "Cho phép gửi doodle/vẽ"),
-        ("Tương tác Chat AI (Gemini)", settings.get('chat', {}).get(thread_id, False), "Bật AI Gemini trả lời tin nhắn"),
-        ("Chặn tạo bình chọn (AntiPoll)", check_status('anti_poll', True), "Chặn tạo bình chọn trong nhóm")
+    cfg_data = [
+        ("Chào mừng mem mới",    check_status("welcome",        False), "Tự động chào thành viên mới"),
+        ("Chào tạm biệt mem rời", check_status("goodbye",       False), "Tự động chào tạm biệt khi mem rời nhóm"),
+        ("Chống Spam tin nhắn",  check_status("spam_enabled",   False), "Chặn spam tin nhắn trong nhóm"),
+        ("Đọc tin nhắn thu hồi", check_status("undo_enabled",   True),  "Bot đọc tin nhắn đã thu hồi"),
+        ("Cho phép gửi Link",    check_status("allow_link",     False), "Cho phép link trong nhóm"),
+        ("Cho phép gửi Voice",   check_status("voice_enabled",  True),  "Cho phép voice message"),
+        ("Cho phép gửi Hình ảnh",check_status("image_enabled",  True),  "Cho phép gửi hình ảnh"),
+        ("Cho phép gửi Sticker", check_status("sticker_enabled",True),  "Cho phép gửi sticker"),
+        ("Cho phép gửi Video",   check_status("video_enabled",  True),  "Cho phép gửi video"),
+        ("Cho phép gửi Doodle",  check_status("doodle_enabled", True),  "Cho phép gửi doodle/vẽ"),
+        ("Tương tác Chat AI",    settings.get("chat", {}).get(thread_id, False), "Bật AI Gemini trả lời"),
+        ("Chặn tạo bình chọn",  check_status("anti_poll",      True),  "Chặn tạo bình chọn trong nhóm"),
     ]
-    
-    for label, is_enabled, desc in cfg_fields:
-        status_text = "Bật (ON)" if is_enabled else "Tắt (OFF)"
-        status_color = (78, 203, 113, 255) if is_enabled else (255, 107, 107, 255)
-        
-        draw.text((cfg_x, cfg_y), f"• {label}:", font=font_text, fill=(220, 220, 220, 255))
-        draw.text((cfg_x + 360, cfg_y), status_text, font=font_text, fill=status_color)
-        draw.text((cfg_x, cfg_y + 25), f"   {desc}", font=font_desc, fill=(150, 150, 150, 200))
-        cfg_y += 55
-        
-    # Add progress bars for CPU and RAM
-    progress_y = max(sys_y, cfg_y) + 30
-    
-    # CPU Progress Bar
-    draw.text((80, progress_y), "📊 CPU Usage:", font=font_header, fill=(90, 200, 250, 255))
-    progress_y += 40
-    draw.rounded_rectangle([80, progress_y, 580, progress_y + 25], radius=12, fill=(30, 40, 50, 255), outline=(255, 255, 255, 50), width=2)
-    cpu_percent = psutil.cpu_percent(interval=None)
-    cpu_bar_width = int(500 * cpu_percent / 100)
-    cpu_color = (78, 203, 113, 255) if cpu_percent < 70 else (255, 193, 7, 255) if cpu_percent < 90 else (255, 107, 107, 255)
-    draw.rounded_rectangle([80, progress_y, 80 + cpu_bar_width, progress_y + 25], radius=12, fill=cpu_color)
-    draw.text((590, progress_y), f"{cpu_percent}%", font=font_text, fill=(255, 255, 255, 255))
-    
-    # RAM Progress Bar
-    progress_y += 40
-    draw.text((80, progress_y), "💾 RAM Usage:", font=font_header, fill=(90, 200, 250, 255))
-    progress_y += 40
-    virtual_mem = psutil.virtual_memory()
-    ram_percent = virtual_mem.percent
-    draw.rounded_rectangle([80, progress_y, 580, progress_y + 25], radius=12, fill=(30, 40, 50, 255), outline=(255, 255, 255, 50), width=2)
-    ram_bar_width = int(500 * ram_percent / 100)
-    ram_color = (78, 203, 113, 255) if ram_percent < 70 else (255, 193, 7, 255) if ram_percent < 90 else (255, 107, 107, 255)
-    draw.rounded_rectangle([80, progress_y, 80 + ram_bar_width, progress_y + 25], radius=12, fill=ram_color)
-    draw.text((590, progress_y), f"{ram_percent}%", font=font_text, fill=(255, 255, 255, 255))
-    
-    # Add decorative circles
-    # Circle 1 - Top Right
-    draw.ellipse([width - 120, 70, width - 40, 150], outline=(200, 150, 255, 100), width=3)
-    draw.ellipse([width - 100, 90, width - 60, 130], outline=(200, 150, 255, 80), width=2)
-    
-    # Circle 2 - Bottom Left
-    draw.ellipse([50, height - 150, 130, height - 70], outline=(90, 200, 250, 100), width=3)
-    draw.ellipse([70, height - 130, 110, height - 90], outline=(90, 200, 250, 80), width=2)
-    
-    # Circle 3 - Bottom Right
-    draw.ellipse([width - 180, height - 130, width - 100, height - 50], outline=(90, 255, 150, 100), width=3)
-    draw.ellipse([width - 160, height - 110, width - 120, height - 70], outline=(90, 255, 150, 80), width=2)
-        
-    # Combine
-    final_image = Image.alpha_composite(background_blurred, overlay)
-    
-    # Save to temp file
-    os.makedirs(CACHE_PATH, exist_ok=True)
-    temp_file = os.path.join(CACHE_PATH, f"bot_details_{int(time.time())}.png")
-    final_image.convert('RGB').save(temp_file, "PNG", quality=95)
-    return temp_file
 
+    rx, ry = COL_R_X, body_y
+    draw_text_with_emoji(draw, "⚙️ CẤU HÌNH NHÓM",
+                         (rx, ry), f_header, f_emoji_sm, (90, 255, 150, 255))
+    ry += SEC_H
+
+    # độ rộng phần label trước badge ON/OFF
+    BADGE_X = rx + COL_R_W - 95
+
+    for label, is_on, desc in cfg_data:
+        status      = "Bật (ON)"  if is_on else "Tắt (OFF)"
+        status_fill = (78, 203, 113, 255) if is_on else (255, 107, 107, 255)
+        draw.text((rx, ry),         f"• {label}:", font=f_text, fill=(215, 215, 225, 255))
+        draw.text((BADGE_X, ry),    status,         font=f_text, fill=status_fill)
+        draw.text((rx, ry + 26),    f"   {desc}",   font=f_desc, fill=(140, 145, 160, 200))
+        ry += ROW_H
+
+    # ── Footer accent bar ──────────────────────────────────────────────
+    bar_y = HEIGHT - PAD + 12
+    accent = [(255, 93, 47, 210), (255, 193, 7, 210), (34, 197, 94, 210), (59, 130, 246, 210)]
+    seg = (WIDTH - PAD * 2) // len(accent)
+    for i, col in enumerate(accent):
+        sx = PAD + i * seg
+        draw.rectangle([sx, bar_y, sx + seg, bar_y + 16], fill=col)
+
+    # ── Compose & save ─────────────────────────────────────────────────
+    final = Image.alpha_composite(bg, ov)
+    os.makedirs(CACHE_PATH, exist_ok=True)
+    path = os.path.join(CACHE_PATH, f"bot_details_{int(time.time())}.png")
+    final.convert("RGB").save(path, "PNG", quality=95)
+    return path
+
+# ── Command handler ─────────────────────────────────────────────────────────
 def handle_details_command(bot, message_object, thread_id, thread_type, author_id, client=None):
-    active_client = client if client else bot
-    
-    start_time = getattr(active_client, 'start_time', time.time())
-    uptime_seconds = int(time.time() - start_time)
-    uptime_str = format_uptime(uptime_seconds)
-    
+    active = client if client else bot
+    uptime_str = format_uptime(int(time.time() - getattr(active, "start_time", time.time())))
+
     temp_file = None
     try:
-        active_client.sendReaction(message_object, "⏳", thread_id, thread_type)
-        temp_file = create_details_image(active_client, uptime_str, thread_id)
-        
-        active_client.sendLocalImage(
+        active.sendReaction(message_object, "⏳", thread_id, thread_type)
+        temp_file = create_details_image(active, uptime_str, thread_id)
+        active.sendLocalImage(
             temp_file,
             thread_id=thread_id,
             thread_type=thread_type,
-            width=1200,
-            height=800
+            width=1280,
+            height=1200
         )
-        active_client.sendReaction(message_object, "✅", thread_id, thread_type)
+        active.sendReaction(message_object, "✅", thread_id, thread_type)
     except Exception as e:
-        print(f"Error drawing details: {e}")
-        active_client.sendMessage(f"❌ Lỗi khi tải chi tiết cấu hình bot: {e}", thread_id, thread_type)
+        print(f"[details] Error: {e}")
+        active.sendMessage(f"❌ Lỗi khi tải chi tiết cấu hình bot: {e}", thread_id, thread_type)
     finally:
         if temp_file and os.path.exists(temp_file):
             try:
                 os.remove(temp_file)
-            except:
+            except Exception:
                 pass

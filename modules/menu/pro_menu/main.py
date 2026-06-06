@@ -595,35 +595,82 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                             # Draw category emoji
                             draw.text((x_pos, y_pos), emoji_part, font=font_bullet, fill=title_color)
                             emoji_w = draw.textbbox((0, 0), emoji_part, font=font_bullet)[2]
-                            # Draw category text
-                            draw_text_with_shadow(draw, (x_pos + emoji_w + 5, y_pos), text_part, font_title, title_color)
+                            # Draw category text with spacing
+                            current_x = x_pos + emoji_w + 5
+                            for char in text_part:
+                                draw_text_with_shadow(draw, (current_x, y_pos), char, font_title, title_color)
+                                char_w = draw.textbbox((0, 0), char, font=font_title)[2]
+                                current_x += char_w + 1
                         except:
-                            draw_text_with_shadow(draw, (x_pos, y_pos), item["text"], font_title, title_color)
+                            # Fallback: draw entire title without per-char spacing
+                            current_x = x_pos
+                            for char in item["text"]:
+                                if emoji.emoji_count(char) > 0:
+                                    draw.text((current_x, y_pos), char, font=font_bullet, fill=title_color)
+                                    char_w = draw.textbbox((0, 0), char, font=font_bullet)[2]
+                                else:
+                                    draw_text_with_shadow(draw, (current_x, y_pos), char, font_title, title_color)
+                                    char_w = draw.textbbox((0, 0), char, font=font_title)[2]
+                                current_x += char_w + 1
                         y_pos += title_height_step
                     elif item["type"] == "cmd":
                         bullet = "• "
                         cmd_str = item["cmd"]
                         desc_str = f" - {item['desc']}"
+                        char_spacing = 1
                         
                         # Bullet drawing
                         draw.text((x_pos, y_pos), bullet, font=font_cmd, fill=bullet_color)
                         bullet_w = draw.textbbox((0, 0), bullet, font=font_cmd)[2]
                         
-                        # Cmd drawing (colored with the neon palette color)
-                        draw_text_with_shadow(draw, (x_pos + bullet_w, y_pos), cmd_str, font_cmd, cmd_color)
-                        cmd_w = draw.textbbox((0, 0), cmd_str, font=font_cmd)[2]
+                        # Cmd drawing with proper character spacing
+                        current_x = x_pos + bullet_w
+                        for char in cmd_str:
+                            if emoji.emoji_count(char) > 0:
+                                draw.text((current_x, y_pos), char, font=font_bullet, fill=cmd_color)
+                                char_w = draw.textbbox((0, 0), char, font=font_bullet)[2]
+                            else:
+                                draw_text_with_shadow(draw, (current_x, y_pos), char, font_cmd, cmd_color)
+                                char_w = draw.textbbox((0, 0), char, font=font_cmd)[2]
+                            current_x += char_w + char_spacing
+                        cmd_w = current_x - (x_pos + bullet_w)
                         
-                        # Description drawing (with auto-truncate to fit column)
+                        # Description drawing (with auto-truncate to fit column, and spacing)
                         avail_width = col_width - bullet_w - cmd_w - 10
                         truncated_desc = desc_str
-                        desc_w = draw.textbbox((0, 0), truncated_desc, font=font_desc)[2]
+                        desc_w = 0
+                        for char in truncated_desc:
+                            if emoji.emoji_count(char) > 0:
+                                desc_w += draw.textbbox((0, 0), char, font=font_bullet)[2]
+                            else:
+                                desc_w += draw.textbbox((0, 0), char, font=font_desc)[2]
+                            desc_w += char_spacing
+                        desc_w -= char_spacing
+                        
                         if desc_w > avail_width:
                             for k in range(len(desc_str), 0, -1):
                                 truncated_desc = desc_str[:k] + "..."
-                                if draw.textbbox((0, 0), truncated_desc, font=font_desc)[2] <= avail_width:
+                                desc_w = 0
+                                for char in truncated_desc:
+                                    if emoji.emoji_count(char) > 0:
+                                        desc_w += draw.textbbox((0, 0), char, font=font_bullet)[2]
+                                    else:
+                                        desc_w += draw.textbbox((0, 0), char, font=font_desc)[2]
+                                    desc_w += char_spacing
+                                desc_w -= char_spacing
+                                if desc_w <= avail_width:
                                     break
                                     
-                        draw.text((x_pos + bullet_w + cmd_w, y_pos), truncated_desc, font=font_desc, fill=desc_color)
+                        # Draw description with spacing
+                        current_x = x_pos + bullet_w + cmd_w
+                        for char in truncated_desc:
+                            if emoji.emoji_count(char) > 0:
+                                draw.text((current_x, y_pos), char, font=font_bullet, fill=desc_color)
+                                char_w = draw.textbbox((0, 0), char, font=font_bullet)[2]
+                            else:
+                                draw.text((current_x, y_pos), char, font=font_desc, fill=desc_color)
+                                char_w = draw.textbbox((0, 0), char, font=font_desc)[2]
+                            current_x += char_w + char_spacing
                         y_pos += cmd_height_step
 
         final_image = Image.alpha_composite(bg_image, overlay)

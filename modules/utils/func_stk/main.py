@@ -7,6 +7,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw
 from zlapi.models import Message, MultiMsgStyle, MessageStyle
 from zlapi._threads import ThreadType
+from core.bot_sys import is_admin, read_settings, write_settings
 
 def handle_stk_command(message, message_object, thread_id, thread_type, author_id, client):
     if message_object.quote:
@@ -202,13 +203,52 @@ def send_response(client, thread_id, thread_type, text, ttl=10000):
     styled_message = Message(text=text, style=style)
     client.sendMessage(styled_message, thread_id, thread_type, ttl=ttl)
 
+def handle_autostk_on(client, thread_id):
+    settings = read_settings(client.uid)
+    if "auto_sticker" not in settings:
+        settings["auto_sticker"] = {}
+    settings["auto_sticker"][thread_id] = True
+    write_settings(client.uid, settings)
+    return f"🚦 Tính năng rải sticker auto đã được BẬT trong nhóm này ✅"
+
+def handle_autostk_off(client, thread_id):
+    settings = read_settings(client.uid)
+    if "auto_sticker" in settings and thread_id in settings["auto_sticker"]:
+        settings["auto_sticker"][thread_id] = False
+        write_settings(client.uid, settings)
+        return f"🚦 Tính năng rải sticker auto đã được TẮT trong nhóm này ✅"
+    return "🚦 Nhóm chưa có thông tin cấu hình auto sticker để tắt 🤗"
+
+def handle_autostk_command(message, message_object, thread_id, thread_type, author_id, client):
+    prefix = getattr(client, 'prefix', '.')
+    parts = message.replace(f"{prefix}autostk", "").strip().split()
+    if not parts:
+        send_response(client, thread_id, thread_type, f"💡 Hướng dẫn:\n- {prefix}autostk on: Bật rải sticker auto\n- {prefix}autostk off: Tắt rải sticker auto")
+        return
+    
+    sub_cmd = parts[0].lower()
+    if sub_cmd == "on":
+        if not is_admin(client, author_id):
+            send_response(client, thread_id, thread_type, "❌ Bạn không phải admin bot!")
+            return
+        response = handle_autostk_on(client, thread_id)
+        send_response(client, thread_id, thread_type, response)
+    elif sub_cmd == "off":
+        if not is_admin(client, author_id):
+            send_response(client, thread_id, thread_type, "❌ Bạn không phải admin bot!")
+            return
+        response = handle_autostk_off(client, thread_id)
+        send_response(client, thread_id, thread_type, response)
+    else:
+        send_response(client, thread_id, thread_type, f"💡 Hướng dẫn:\n- {prefix}autostk on: Bật rải sticker auto\n- {prefix}autostk off: Tắt rải sticker auto")
+
 
 
 txa = {
     "name": "pro_stk",
-    "desc": "Tạo sticker từ ảnh hoặc video. Reply vào ảnh/video để tạo sticker. Admin có thể bật/tắt tính năng.",
+    "desc": "Tạo sticker từ ảnh hoặc video. Reply vào ảnh/video để tạo sticker. Admin có thể bật/tắt tính năng và rải sticker auto.",
     "author": "TXA",
-    "command": ['stk']
+    "command": ['stk', 'autostk']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -216,7 +256,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'stk': handle_stk_command
+        'stk': handle_stk_command,
+        'autostk': handle_autostk_command
     }
     
     func = dispatch_map.get(cmd)
