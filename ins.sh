@@ -73,17 +73,22 @@ if [ -n "$TERMUX_VERSION" ] || [ -d "/data/data/com.termux" ]; then
     echo -e "${YELLOW}[!] Phát hiện Termux, cài đặt psutil từ repo Termux...${NC}"
     # Install prebuilt psutil from Termux repo
     pkg install -y python-psutil
-    # Install other requirements
-    if pip install -r requirements.txt; then
+    # Install other requirements except psutil
+    grep -v "psutil" requirements.txt > requirements_temp.txt
+    if pip install -r requirements_temp.txt; then
         echo -e "${GREEN}[✓] Đã cài đặt đầy đủ thư viện Python!${NC}"
     else
-        echo -e "${RED}[✗] Lỗi khi cài đặt thư viện Python!${NC}"
+        echo -e "${RED}[✗] Lỗi khi cài đặt thư viện Python! Dừng script lại..."
+        rm -f requirements_temp.txt
+        exit 1
     fi
+    rm -f requirements_temp.txt
 else
     if pip install -r requirements.txt; then
         echo -e "${GREEN}[✓] Đã cài đặt đầy đủ thư viện Python!${NC}"
     else
-        echo -e "${RED}[✗] Lỗi khi cài đặt thư viện Python!${NC}"
+        echo -e "${RED}[✗] Lỗi khi cài đặt thư viện Python! Dừng script lại..."
+        exit 1
     fi
 fi
 
