@@ -1648,17 +1648,65 @@ class bot(ZaloAPI):
     def sendMessage(self, message, thread_id, thread_type, mark_message=None, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
+        self._log_bot_message(message, thread_id, thread_type)
         return super().sendMessage(message, thread_id, thread_type, mark_message, ttl)
 
     def replyMessage(self, message, replyMsg, thread_id, thread_type, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
+        self._log_bot_message(message, thread_id, thread_type)
         return super().replyMessage(message, replyMsg, thread_id, thread_type, ttl)
 
     def send(self, message, thread_id, thread_type=ThreadType.USER, mark_message=None, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
+        self._log_bot_message(message, thread_id, thread_type)
         return super().send(message, thread_id, thread_type, mark_message, ttl)
+
+    def _log_bot_message(self, message, thread_id, thread_type):
+        try:
+            import random
+            colors = [
+                "#FF5733", "#33FF57", "#3357FF", "#F3FF33", "#FF33F3",
+                "#33FFF3", "#FF5733", "#5733FF", "#33FFA5", "#FF8C33"
+            ]
+            selected_colors = random.sample(colors, 8)
+            
+            def hex_to_ansi(hex_color):
+                hex_color = hex_color.lstrip('#')
+                r = int(hex_color[0:2], 16)
+                g = int(hex_color[2:4], 16)
+                b = int(hex_color[4:6], 16)
+                return f"\033[38;2;{r};{g};{b}m"
+            
+            current_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
+            message_text = message.text if hasattr(message, 'text') else str(message)
+            
+            print(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+            if thread_type == ThreadType.USER:
+                print(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}🤖 BOT GỬI TIN NHẮN RIÊNG TƯ{Style.RESET_ALL}")
+            else:
+                print(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}🤖 BOT GỬI TIN NHẮN NHÓM{Style.RESET_ALL}")
+            print(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+            print(f"{hex_to_ansi(selected_colors[2])}{Style.BRIGHT}│- Nội dung: {message_text}{Style.RESET_ALL}")
+            if thread_type == ThreadType.GROUP:
+                try:
+                    group_info = self.fetchGroupInfo(thread_id)
+                    group_name = group_info.gridInfoMap.get(thread_id, {}).get('name', 'Không rõ')
+                    print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- ID nhóm: {group_name} ({thread_id}){Style.RESET_ALL}")
+                except Exception:
+                    print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- ID nhóm: {thread_id}{Style.RESET_ALL}")
+            else:
+                try:
+                    user_info = self.fetchUserInfo(thread_id)
+                    user_name = user_info.changed_profiles.get(thread_id, {}).get('zaloName', 'Không rõ')
+                    print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- Đến người dùng: {user_name} ({thread_id}){Style.RESET_ALL}")
+                except Exception:
+                    print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- Đến UID: {thread_id}{Style.RESET_ALL}")
+            print(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
+            print(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"[ERROR] Không thể in log tin nhắn bot: {e}")
 
     def expiry_cleanup_loop(self):
         while not self.stop_event.is_set():
