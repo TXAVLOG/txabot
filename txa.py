@@ -1648,22 +1648,22 @@ class bot(ZaloAPI):
     def sendMessage(self, message, thread_id, thread_type, mark_message=None, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
-        self._log_bot_message(message, thread_id, thread_type)
+        self.log_bot_message(message, thread_id, thread_type)
         return super().sendMessage(message, thread_id, thread_type, mark_message, ttl)
 
     def replyMessage(self, message, replyMsg, thread_id, thread_type, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
-        self._log_bot_message(message, thread_id, thread_type)
+        self.log_bot_message(message, thread_id, thread_type)
         return super().replyMessage(message, replyMsg, thread_id, thread_type, ttl)
 
     def send(self, message, thread_id, thread_type=ThreadType.USER, mark_message=None, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
-        self._log_bot_message(message, thread_id, thread_type)
+        self.log_bot_message(message, thread_id, thread_type)
         return super().send(message, thread_id, thread_type, mark_message, ttl)
 
-    def _log_bot_message(self, message, thread_id, thread_type):
+    def log_bot_message(self, message, thread_id, thread_type):
         try:
             colors = [
                 "#FF5733", "#33FF57", "#3357FF", "#F3FF33", "#FF33F3",
