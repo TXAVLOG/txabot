@@ -348,7 +348,7 @@ timeLimit = 300
 
 game_sessions = {}
 
-attendance_file = 'modules/dhbc/attendance.json'
+attendance_file = 'modules/game/dhbc/attendance.json'
 
 def read_json(file):
     try:
@@ -370,9 +370,9 @@ def write_json(file, data):
         print(f"[ERROR] Lỗi khi ghi dữ liệu vào file {file}: {e}")
 
 def save_score(user_id, score):
-    leaderboard = read_json('modules/dhbc/scoreboard.json')
+    leaderboard = read_json('modules/game/dhbc/scoreboard.json')
     leaderboard[user_id] = leaderboard.get(user_id, 0) + score
-    write_json('modules/dhbc/scoreboard.json', leaderboard)
+    write_json('modules/game/dhbc/scoreboard.json', leaderboard)
 
 def handle_attendance(user_id, client, thread_id, thread_type):
     today = datetime.today().strftime('%Y-%m-%d')
@@ -395,7 +395,7 @@ def handle_attendance(user_id, client, thread_id, thread_type):
         thread_type=thread_type,
     )
 def get_current_top_and_score(user_id):
-    leaderboard = read_json('modules/dhbc/scoreboard.json')
+    leaderboard = read_json('modules/game/dhbc/scoreboard.json')
     user_score = leaderboard.get(str(user_id), 0)
     sorted_leaderboard = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
     position = next((i + 1 for i, (uid, _) in enumerate(sorted_leaderboard) if uid == str(user_id)), None)
@@ -434,7 +434,7 @@ def send_next_question(thread_id, thread_type, client):
                 )
                 return
 
-        data = read_json('modules/dhbc/data.json')
+        data = read_json('modules/game/dhbc/data.json')
         if not data or 'doanhinh' not in data or not data['doanhinh']:
             raise ValueError("Dữ liệu câu hỏi không hợp lệ hoặc trống.")
 
@@ -454,7 +454,8 @@ def send_next_question(thread_id, thread_type, client):
         asked_questions.add(question['tukhoa'])
 
         headers = {'User-Agent': 'Mozilla/5.0'}
-        image_path = 'modules/dhbc/cache/next_question.png'
+        os.makedirs('modules/game/dhbc/cache', exist_ok=True)
+        image_path = 'modules/game/dhbc/cache/next_question.png'
         print(f"[DEBUG] Đang tải ảnh từ: {question['link']}")
         image_response = requests.get(question['link'], headers=headers, timeout=10)
         image_response.raise_for_status()
@@ -590,7 +591,7 @@ def handle_quit_command(message, thread_id, thread_type, user_id, client):
 
 # Hàm lấy bảng xếp hạng
 def get_leaderboard(client):
-    leaderboard = read_json('modules/dhbc/scoreboard.json')
+    leaderboard = read_json('modules/game/dhbc/scoreboard.json')
     sorted_leaderboard = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
     leaderboard_message = "🎉 Bảng xếp hạng 🎯:\n"
 
@@ -628,9 +629,9 @@ def send_answer_for_admin(thread_id, thread_type, client):
             thread_type=thread_type,
         )
 
-duck_base_image_path = "modules/dhbc/assets/duck.png"
-waiting_image_path = "modules/dhbc/assets/waiting.png"
-duck_race_gif_path = "modules/dhbc/assets/duck_race.gif"
+duck_base_image_path = "modules/game/dhbc/assets/duck.png"
+waiting_image_path = "modules/game/dhbc/assets/waiting.png"
+duck_race_gif_path = "modules/game/dhbc/assets/duck_race.gif"
 
 num_ducks = 10
 ducks = [f"🦆 {i+1}" for i in range(num_ducks)]
@@ -841,7 +842,7 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
             send_next_question(thread_id, thread_type, client)
             return
         if content[1] == 'bxh':
-            leaderboard_message = get_leaderboard()
+            leaderboard_message = get_leaderboard(client)
             client.sendMessage(
                 Message(text=leaderboard_message),
                 thread_id=thread_id,
@@ -920,7 +921,7 @@ txa = {
     "name": "pro_dhbc",
     "desc": "Game đoán từ: đoán từ khóa dựa trên gợi ý. Hỗ trợ chơi game vui nhộn trong nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['quit', 'dhbc']
+    "command": ['dhbc']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -928,7 +929,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'quit': handle_quit_command,
         'dhbc': handle_dhbc_command
     }
     

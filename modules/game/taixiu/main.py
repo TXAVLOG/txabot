@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw
 from PIL import Image, ImageDraw, ImageFont
 
 MAX_COINS = "Vô Hạn"
-FLIE_FF = "modules/taixiu/jj.json"
+FLIE_FF = "modules/game/taixiu/jj.json"
 
 def handle_taixiu_command(client, content, message_object, thread_id, thread_type, author_id):
     try:
@@ -113,8 +113,8 @@ def handle_taixiu_command(client, content, message_object, thread_id, thread_typ
         jackpot_value = bet_amount * 2
 
         # Gửi GIF cho người chơi
-        gif_path = "modules/taixiu/tx.gif"
-        thumbnail_url = "modules/taixiu/background.jpg"
+        gif_path = "modules/game/taixiu/tx.gif"
+        thumbnail_url = "modules/game/taixiu/background.jpg"
         client.sendLocalGif(gifPath=gif_path, thumbnailUrl=thumbnail_url, thread_id=thread_id, thread_type=thread_type, width=820, height=275, ttl=3000)
 
         time.sleep(5)  # Correctly using time.sleep(5)
@@ -137,7 +137,7 @@ def handle_taixiu_command(client, content, message_object, thread_id, thread_typ
         result_text += f"\nTiền hũ hiện tại: {jackpot_value} VNĐ 💰"
 
         # Vẽ ảnh xúc xắc
-        background_image_path = "modules/taixiu/background.jpg"
+        background_image_path = "modules/game/taixiu/background.jpg"
         background_image = Image.open(background_image_path)
         draw = ImageDraw.Draw(background_image)
 
@@ -245,7 +245,7 @@ def handle_taoma_command(self, message, message_object, thread_id, thread_type, 
             return
 
         code = f"code_{random.randint(100000, 999999)}"
-        file_path = 'modules/taixiu/codes.json'
+        file_path = 'modules/game/taixiu/codes.json'
 
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
@@ -273,7 +273,7 @@ def handle_sudung_command(self, message, message_object, thread_id, thread_type,
             return
 
         code = message.split()[2]
-        file_path = 'modules/taixiu/codes.json'
+        file_path = 'modules/game/taixiu/codes.json'
         
         if not os.path.exists(file_path):
             self.replyMessage(Message(text="💢 Không có mã code nào!"), message_object, thread_id=thread_id, thread_type=thread_type)
@@ -611,7 +611,7 @@ def handle_vohantien_command(self, message, message_object, thread_id, thread_ty
 
 def list_codes(self, message_object, thread_id, thread_type):
     try:
-        file_path = 'modules/taixiu/codes.json'
+        file_path = 'modules/game/taixiu/codes.json'
 
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:

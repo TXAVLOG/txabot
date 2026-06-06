@@ -161,8 +161,8 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                     else:
                         cmds = [cmds[0]] if cmds else []
                     
-                    if cmds:  # Show all commands in one entry separated by " / "
-                        cmd_str = " / ".join([f"{prefix}{c}" for c in cmds])
+                    if cmds:  # Only show first command
+                        c_name = cmds[0]
                         title = sub_cfg.get("title", m_info['name'])
                         
                         # Clean title
@@ -174,7 +174,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                         
                         columns[col_idx].append({
                             "type": "cmd",
-                            "cmd": cmd_str,
+                            "cmd": f"{prefix}{c_name}",
                             "desc": display_title
                         })
 

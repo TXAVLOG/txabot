@@ -713,7 +713,7 @@ txa = {
     "name": "pro_zingmp3",
     "desc": "Nghe nhạc chất lượng cao từ ZingMP3. Hỗ trợ tìm kiếm bài hát, playlist và gửi audio vào nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['zingmp3', 'mp3']
+    "command": ['mp3']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -721,7 +721,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'zingmp3': handle_zingmp3_command,
         'mp3': handle_zingmp3_command
     }
     

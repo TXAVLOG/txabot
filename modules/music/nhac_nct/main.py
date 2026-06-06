@@ -812,10 +812,10 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
 
 txa = {
-    "name": "pro_nct",
+    "name": "pro_ncl",
     "desc": "Nghe nhạc từ NhacCuaTui. Hỗ trợ tìm kiếm bài hát, playlist và gửi audio vào nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['nct', 'nhaccuatui']
+    "command": ['ncl']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -823,8 +823,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'nct': handle_nct_command,
-        'nhaccuatui': handle_nct_command
+        'ncl': handle_nct_command
     }
     
     func = dispatch_map.get(cmd)
