@@ -21,9 +21,6 @@ env/
 *~
 
 # Sensitive / Config
-#txa.json
-#*_setting.json
-#config.json
 
 # Cache & Temp
 cache/
