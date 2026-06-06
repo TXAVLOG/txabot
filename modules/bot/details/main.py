@@ -26,6 +26,40 @@ CACHE_PATH = "modules/cache/"
 font_path_arial = "font/arial unicode ms.otf"
 font_paci = "font/Kai.ttf"
 font_emoji = "font/NotoEmoji-Bold.ttf"
+DEFAULT_FONT_FALLBACKS = [
+    "arial.ttf",
+    "DejaVuSans.ttf",
+    "LiberationSans-Regular.ttf",
+    "NotoEmoji-Bold.ttf"
+]
+
+def load_font_with_fallback(primary_paths, size):
+    candidates = []
+    if isinstance(primary_paths, (list, tuple)):
+        candidates.extend(primary_paths)
+    elif primary_paths:
+        candidates.append(primary_paths)
+    candidates.extend(DEFAULT_FONT_FALLBACKS)
+
+    for path in candidates:
+        if not path:
+            continue
+        try:
+            return ImageFont.truetype(path, size)
+        except (OSError, IOError):
+            continue
+
+    return ImageFont.load_default()
+
+def format_bytes(value, decimals=1):
+    if value < 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB", "PB", "EB"]
+    idx = 0
+    while value >= 1024 and idx < len(units) - 1:
+        value /= 1024
+        idx += 1
+    return f"{value:.{decimals}f} {units[idx]}"
 
 def get_system_metrics():
     # OS
@@ -37,17 +71,15 @@ def get_system_metrics():
     
     # RAM usage
     virtual_mem = psutil.virtual_memory()
-    used_ram = f"{virtual_mem.used / (1024**3):.1f} GB"
-    total_ram = f"{virtual_mem.total / (1024**3):.1f} GB"
-    ram_usage = f"{used_ram} / {total_ram}"
+    ram_usage = f"{format_bytes(virtual_mem.used)} / {format_bytes(virtual_mem.total)}"
     
     # Process memory usage
     process = psutil.Process(os.getpid())
-    process_mem = f"{process.memory_info().rss / (1024**2):.1f} MB"
+    process_mem = format_bytes(process.memory_info().rss)
     
     # Disk usage
     total, used, free = shutil.disk_usage("/")
-    disk_usage = f"{used / (1024**3):.1f} GB / {total / (1024**3):.1f} GB"
+    disk_usage = f"{format_bytes(used)} / {format_bytes(total)}"
     
     return {
         "os": os_name,
@@ -97,13 +129,11 @@ def create_details_image(bot, uptime_str, thread_id):
     glass_color = (15, 25, 35, 180)
     draw.rounded_rectangle([50, 50, width - 50, height - 50], radius=30, fill=glass_color, outline=(255, 255, 255, 30), width=2)
     
-    # Load Fonts
-    try:
-        font_title = ImageFont.truetype(font_paci, 48) if os.path.exists(font_paci) else ImageFont.truetype(font_path_arial, 42)
-        font_header = ImageFont.truetype(font_paci, 32) if os.path.exists(font_paci) else ImageFont.truetype(font_path_arial, 30)
-        font_text = ImageFont.truetype(font_emoji, 26) if os.path.exists(font_emoji) else ImageFont.truetype(font_path_arial, 24)
-    except:
-        font_title = font_header = font_text = ImageFont.load_default()
+    # Load Fonts using safe fallback
+    font_title = load_font_with_fallback([font_paci, font_path_arial], 48)
+    font_header = load_font_with_fallback([font_paci, font_path_arial], 32)
+    font_text = load_font_with_fallback([font_emoji, font_path_arial], 26)
+    font_desc = load_font_with_fallback(font_path_arial, 16)
         
     # Draw Title
     bot_name = getattr(bot, 'me_name', 'TXABOT')
@@ -134,7 +164,7 @@ def create_details_image(bot, uptime_str, thread_id):
     for label, val, desc in sys_fields:
         draw.text((sys_x, sys_y), f"➜ {label}:", font=font_text, fill=(220, 220, 220, 255))
         draw.text((sys_x + 220, sys_y), val, font=font_text, fill=(255, 255, 255, 255))
-        draw.text((sys_x, sys_y + 25), f"   {desc}", font=ImageFont.truetype(font_path_arial, 16), fill=(150, 150, 150, 200))
+        draw.text((sys_x, sys_y + 25), f"   {desc}", font=font_desc, fill=(150, 150, 150, 200))
         sys_y += 55
         
     # Group configurations
@@ -177,7 +207,7 @@ def create_details_image(bot, uptime_str, thread_id):
         
         draw.text((cfg_x, cfg_y), f"• {label}:", font=font_text, fill=(220, 220, 220, 255))
         draw.text((cfg_x + 360, cfg_y), status_text, font=font_text, fill=status_color)
-        draw.text((cfg_x, cfg_y + 25), f"   {desc}", font=ImageFont.truetype(font_path_arial, 16), fill=(150, 150, 150, 200))
+        draw.text((cfg_x, cfg_y + 25), f"   {desc}", font=font_desc, fill=(150, 150, 150, 200))
         cfg_y += 55
         
     # Add progress bars for CPU and RAM
