@@ -288,7 +288,6 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
-		_log_outgoing_message(message, groupId, ThreadType.GROUP, prefix="Mention")
 		params = {
 			"params": self._encode({
 				"avatar_size": 120,
@@ -583,7 +582,6 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
-		_log_outgoing_message(message, groupId, ThreadType.GROUP, prefix="Mention")
 		params = {
 			"zpw_ver": "641",
 			"zpw_type": "30",
