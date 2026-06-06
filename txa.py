@@ -1665,7 +1665,6 @@ class bot(ZaloAPI):
 
     def _log_bot_message(self, message, thread_id, thread_type):
         try:
-            import random
             colors = [
                 "#FF5733", "#33FF57", "#3357FF", "#F3FF33", "#FF33F3",
                 "#33FFF3", "#FF5733", "#5733FF", "#33FFA5", "#FF8C33"
