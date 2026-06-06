@@ -292,7 +292,8 @@ def autosend_task(client):
             
             if current_time_str in time_greetings:
                 greeting = random.choice(time_greetings[current_time_str])
-                formatted_message = f"🚦 {greeting}\n⏰ {current_time_str} - Bot: {get_user_name_by_id(client, client.uid)}"
+                bot_name = get_user_name_by_id(client, client.uid)
+                formatted_message = f"> Send task ({current_time_str}) <\n\n{greeting}\n\nSend by (@{bot_name} - TXA Bot ✨)"
                 
                 allowed_groups = settings.get("allowed_thread_ids", [])
                 for thread_id, enabled in settings["autosend"].items():
