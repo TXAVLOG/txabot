@@ -285,14 +285,14 @@ def create_details_image(bot, uptime_str: str, thread_id: str) -> str:
         ("Chào tạm biệt mem rời", check_status("goodbye",       False), "Tự động chào tạm biệt khi mem rời nhóm"),
         ("Chống Spam tin nhắn",  check_status("spam_enabled",   False), "Chặn spam tin nhắn trong nhóm"),
         ("Đọc tin nhắn thu hồi", check_status("undo_enabled",   True),  "Bot đọc tin nhắn đã thu hồi"),
-        ("Cho phép gửi Link",    check_status("allow_link",     False), "Cho phép link trong nhóm"),
-        ("Cho phép gửi Voice",   check_status("voice_enabled",  True),  "Cho phép voice message"),
-        ("Cho phép gửi Hình ảnh",check_status("image_enabled",  True),  "Cho phép gửi hình ảnh"),
-        ("Cho phép gửi Sticker", check_status("sticker_enabled",True),  "Cho phép gửi sticker"),
-        ("Cho phép gửi Video",   check_status("video_enabled",  True),  "Cho phép gửi video"),
-        ("Cho phép gửi Doodle",  check_status("doodle_enabled", True),  "Cho phép gửi doodle/vẽ"),
+        ("Cho phép gửi Link",    not check_status("allow_link", False), "Cho phép link trong nhóm"),  # allow_link is anti-link, so invert
+        ("Cho phép gửi Voice",   not check_status("voice_enabled", True), "Cho phép voice message"),  # invert
+        ("Cho phép gửi Hình ảnh",not check_status("image_enabled", True), "Cho phép gửi hình ảnh"),  # invert
+        ("Cho phép gửi Sticker", not check_status("sticker_enabled", True), "Cho phép gửi sticker"),  # invert
+        ("Cho phép gửi Video",   not check_status("video_enabled", True), "Cho phép gửi video"),  # invert
+        ("Cho phép gửi Doodle",  not check_status("doodle_enabled", True), "Cho phép gửi doodle/vẽ"),  # invert
         ("Tương tác Chat AI",    settings.get("chat", {}).get(thread_id, False), "Bật AI Gemini trả lời"),
-        ("Chặn tạo bình chọn",  check_status("anti_poll",      True),  "Chặn tạo bình chọn trong nhóm"),
+        ("Chặn tạo bình chọn",  check_status("anti_poll", True), "Chặn tạo bình chọn trong nhóm"),
     ]
 
     rx, ry = COL_R_X, body_y
