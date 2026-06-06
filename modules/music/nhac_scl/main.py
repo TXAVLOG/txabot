@@ -973,7 +973,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
 
     content = message.strip().split()
 
-    if len(content) == 2 and content[0].lower() in [f"{client.prefix}scl", f"{client.prefix}ns"] and content[1].isdigit():
+    if len(content) == 2 and content[0].lower() == f"{client.prefix}scl" and content[1].isdigit():
         print(f"[DEBUG] Người dùng chọn bài với số: {content[1]}")
 
         if author_id not in user_states:
@@ -1254,10 +1254,10 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
 
 
 txa = {
-    "name": "pro_nhac",
+    "name": "pro_scl",
     "desc": "Nghe nhạc từ SoundCloud. Hỗ trợ tìm kiếm và gửi bài hát vào nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['nhac', 'scl', 'ns']
+    "command": ['scl']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -1265,9 +1265,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'nhac': handle_nhac_command,
-        'scl': handle_nhac_command,
-        'ns': handle_nhac_command
+        'scl': handle_nhac_command
     }
     
     func = dispatch_map.get(cmd)

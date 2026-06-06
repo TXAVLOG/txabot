@@ -161,7 +161,8 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                     else:
                         cmds = [cmds[0]] if cmds else []
                     
-                    for c_name in cmds:
+                    if cmds:  # Show all commands in one entry separated by " / "
+                        cmd_str = " / ".join([f"{prefix}{c}" for c in cmds])
                         title = sub_cfg.get("title", m_info['name'])
                         
                         # Clean title
@@ -169,14 +170,11 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                             title = title[4:]
                         title = title.replace("_", " ").title()
                         
-                        if len(cmds) > 1:
-                            display_title = c_name.replace("_", " ").title()
-                        else:
-                            display_title = title
+                        display_title = title
                         
                         columns[col_idx].append({
                             "type": "cmd",
-                            "cmd": f"{prefix}{c_name}",
+                            "cmd": cmd_str,
                             "desc": display_title
                         })
 
