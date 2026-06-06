@@ -1,13 +1,20 @@
 import os
 import time
 import random
-import psutil
 import platform
 from datetime import datetime
 from typing import Tuple
 import emoji
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from zlapi.models import Message
+
+# Try to import psutil, make it optional
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    psutil = None
 
 # ── Font paths ──────────────────────────────────────────────────────────────
 FONT_TITLE  = "font/Kai.ttf"
@@ -86,17 +93,29 @@ def _fmt_bytes(val: float, dec: int = 1) -> str:
     return f"{val:.{dec}f} {units[i]}"
 
 def get_system_info():
-    vm = psutil.virtual_memory()
-    cpu_pct = psutil.cpu_percent(interval=0.1)
-    proc = psutil.Process(os.getpid())
-    return {
-        "cpu_usage": f"{cpu_pct:.1f}%",
-        "ram_used": _fmt_bytes(vm.used),
-        "ram_total": _fmt_bytes(vm.total),
-        "ram_pct": f"{vm.percent}%",
-        "proc_mem": _fmt_bytes(proc.memory_info().rss),
+    info = {
+        "cpu_usage": "N/A",
+        "ram_used": "N/A",
+        "ram_total": "N/A",
+        "ram_pct": "N/A",
+        "proc_mem": "N/A",
         "os": f"{platform.system()} {platform.release()}",
     }
+    
+    if PSUTIL_AVAILABLE:
+        try:
+            vm = psutil.virtual_memory()
+            cpu_pct = psutil.cpu_percent(interval=0.1)
+            proc = psutil.Process(os.getpid())
+            info["cpu_usage"] = f"{cpu_pct:.1f}%"
+            info["ram_used"] = _fmt_bytes(vm.used)
+            info["ram_total"] = _fmt_bytes(vm.total)
+            info["ram_pct"] = f"{vm.percent}%"
+            info["proc_mem"] = _fmt_bytes(proc.memory_info().rss)
+        except Exception as e:
+            print(f"[uptime] Error getting psutil metrics: {e}")
+    
+    return info
 
 # ── Image builder ────────────────────────────────────────────────────────────
 def create_uptime_image(bot_name: str, days: int, hours: int,

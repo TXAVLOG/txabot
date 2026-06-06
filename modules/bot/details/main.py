@@ -2,13 +2,20 @@ import os
 import platform
 import time
 import random
-import psutil
 import shutil
 from typing import List, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import emoji
 from zlapi.models import Message
 from core.bot_sys import read_settings, get_user_name_by_id
+
+# Try to import psutil, make it optional
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    psutil = None
 
 txa = {
     "name": "Details",
@@ -75,33 +82,60 @@ def _fmt_bytes(val: float, dec: int = 1) -> str:
     return f"{val:.{dec}f} {units[i]}"
 
 def get_system_metrics(bot) -> dict:
-    vm   = psutil.virtual_memory()
-    proc = psutil.Process(os.getpid())
     total, used, _ = shutil.disk_usage("/")
-    load_avg = "N/A"
-    try:
-        if hasattr(psutil, "getloadavg"):
-            load1, load5, load15 = psutil.getloadavg()
-            load_avg = f"{load1:.2f} | {load5:.2f} | {load15:.2f}"
-    except:
-        pass
-        
-    net_io = psutil.net_io_counters()
-    return {
+    metrics = {
         "os":          f"{platform.system()} {platform.release()}",
-        "cpu_cores":   f"{psutil.cpu_count(logical=True)} Cores",
-        "cpu_usage":   f"{psutil.cpu_percent(interval=0.1)}%",
-        "ram":         f"{_fmt_bytes(vm.used)} / {_fmt_bytes(vm.total)} ({vm.percent}%)",
-        "proc_mem":    _fmt_bytes(proc.memory_info().rss),
-        "proc_threads": f"{proc.num_threads()} Threads",
+        "cpu_cores":   "N/A",
+        "cpu_usage":   "N/A",
+        "ram":         "N/A",
+        "proc_mem":    "N/A",
+        "proc_threads": "N/A",
         "disk_used":   _fmt_bytes(used),
         "disk_total":  _fmt_bytes(total),
         "version":     getattr(bot, "version", "1.0"),
-        "load_avg":    load_avg,
-        "net_sent":    _fmt_bytes(net_io.bytes_sent),
-        "net_recv":    _fmt_bytes(net_io.bytes_recv),
-        "process_count": f"{len(psutil.pids())} Processes",
+        "load_avg":    "N/A",
+        "net_sent":    "N/A",
+        "net_recv":    "N/A",
+        "process_count": "N/A",
     }
+    
+    if PSUTIL_AVAILABLE:
+        try:
+            vm = psutil.virtual_memory()
+            proc = psutil.Process(os.getpid())
+            metrics["ram"] = f"{_fmt_bytes(vm.used)} / {_fmt_bytes(vm.total)} ({vm.percent}%)"
+            metrics["proc_mem"] = _fmt_bytes(proc.memory_info().rss)
+            metrics["proc_threads"] = f"{proc.num_threads()} Threads"
+            
+            cpu_cores = psutil.cpu_count(logical=True)
+            if cpu_cores:
+                metrics["cpu_cores"] = f"{cpu_cores} Cores"
+            
+            cpu_usage = psutil.cpu_percent(interval=0.1)
+            metrics["cpu_usage"] = f"{cpu_usage}%"
+            
+            try:
+                if hasattr(psutil, "getloadavg"):
+                    load1, load5, load15 = psutil.getloadavg()
+                    metrics["load_avg"] = f"{load1:.2f} | {load5:.2f} | {load15:.2f}"
+            except:
+                pass
+                
+            try:
+                net_io = psutil.net_io_counters()
+                metrics["net_sent"] = _fmt_bytes(net_io.bytes_sent)
+                metrics["net_recv"] = _fmt_bytes(net_io.bytes_recv)
+            except:
+                pass
+                
+            try:
+                metrics["process_count"] = f"{len(psutil.pids())} Processes"
+            except:
+                pass
+        except Exception as e:
+            print(f"[details] Error getting psutil metrics: {e}")
+    
+    return metrics
 
 def format_uptime(secs: int) -> str:
     d, secs = divmod(secs, 86400)
@@ -221,14 +255,19 @@ def create_details_image(bot, uptime_str: str, thread_id: str) -> str:
     # Progress bars
     ly += 18
     BAR_W, BAR_H = COL_L_W - 60, 20
-    cpu_pct = psutil.cpu_percent(interval=None)
-    draw_progress_bar(draw, lx, ly + 30, BAR_W, BAR_H, cpu_pct,
-                      "📊 CPU Usage", f_text, f_text, f_emoji_sm)
-    ly += BAR_BLOCK
+    
+    if PSUTIL_AVAILABLE:
+        try:
+            cpu_pct = psutil.cpu_percent(interval=None)
+            draw_progress_bar(draw, lx, ly + 30, BAR_W, BAR_H, cpu_pct,
+                              "📊 CPU Usage", f_text, f_text, f_emoji_sm)
+            ly += BAR_BLOCK
 
-    ram_pct = psutil.virtual_memory().percent
-    draw_progress_bar(draw, lx, ly + 30, BAR_W, BAR_H, ram_pct,
-                      "💾 RAM Usage", f_text, f_text, f_emoji_sm)
+            ram_pct = psutil.virtual_memory().percent
+            draw_progress_bar(draw, lx, ly + 30, BAR_W, BAR_H, ram_pct,
+                              "💾 RAM Usage", f_text, f_text, f_emoji_sm)
+        except Exception as e:
+            print(f"[details] Error drawing progress bars: {e}")
 
     # ══════════════════════════════════════════════════════════════════
     # RIGHT — Cấu hình nhóm  (1 cột, không overlap)

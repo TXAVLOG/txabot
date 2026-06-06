@@ -179,6 +179,7 @@ Sử dụng `tmux` hoặc `screen` để giữ bot chạy 24/7:
 * Không chia sẻ thư mục chứa `txa.json` và `config.json` cho bất cứ ai.
 * Nếu bot Zalo bị mất kết nối, hãy kiểm tra lại Cookie/IMEI trong `txa.json`.
 * Nguồn ảnh font lỗi emoji đã được cập nhật thành `font/NotoEmoji-Bold.ttf` giúp hiển thị emoji hoàn hảo.
+* **Termux/Android**: Script `ins.sh` sẽ tự động cài đặt gói `python-psutil` từ repo Termux để có thể dùng các lệnh `details` và `uptime` đầy đủ.
 
 ---
 *Chúc bạn chạy Bot thành công! Bản quyền thuộc về **TXA**.*

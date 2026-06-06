@@ -67,8 +67,25 @@ fi
 # 3. CÀI ĐẶT THƯ VIỆN
 echo -e "${BLUE}[⏳] Đang nâng cấp pip & cài đặt các thư viện Python...${NC}"
 python3 -m pip install --upgrade pip
-pip install -r requirements.txt
-echo -e "${GREEN}[✓] Đã cài đặt đầy đủ thư viện Python!${NC}"
+
+# Try to install requirements
+if [ -n "$TERMUX_VERSION" ] || [ -d "/data/data/com.termux" ]; then
+    echo -e "${YELLOW}[!] Phát hiện Termux, cài đặt psutil từ repo Termux...${NC}"
+    # Install prebuilt psutil from Termux repo
+    pkg install -y python-psutil
+    # Install other requirements
+    if pip install -r requirements.txt; then
+        echo -e "${GREEN}[✓] Đã cài đặt đầy đủ thư viện Python!${NC}"
+    else
+        echo -e "${RED}[✗] Lỗi khi cài đặt thư viện Python!${NC}"
+    fi
+else
+    if pip install -r requirements.txt; then
+        echo -e "${GREEN}[✓] Đã cài đặt đầy đủ thư viện Python!${NC}"
+    else
+        echo -e "${RED}[✗] Lỗi khi cài đặt thư viện Python!${NC}"
+    fi
+fi
 
 # 4. VÒNG LẶP CHẠY 24/7 & TỰ ĐỘNG KHỞI CHẠY LẠI KHI CRASH
 RESTART_COUNT=0

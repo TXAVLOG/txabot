@@ -16,7 +16,6 @@ import threading
 import time
 from typing import List, Optional, Tuple
 import emoji
-import psutil
 import pytz
 import requests
 from zlapi.models import *
