@@ -72,6 +72,10 @@ def meme(bot, message_object, author_id, thread_id, thread_type, command):
     def meme_command():
         user_name = get_user_name_by_id(bot, author_id)
         try:
+            if not command:
+                bot.replyMessage(Message(text="➜ 🐞 Lệnh không hợp lệ"), message_object, thread_id=thread_id, thread_type=thread_type)
+                return
+                
             settings = read_settings(bot.uid)
     
             user_message = command.replace(f"{bot.prefix}meme ", "").strip().lower()
@@ -153,6 +157,32 @@ def meme(bot, message_object, author_id, thread_id, thread_type, command):
             if response is not None:
                 if len(parts) == 1:
                     temp_image_path = create_menu_image({"response": response}, 1, bot, author_id)
+                    reaction = [
+                        "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
+                        "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
+                        "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
+                        "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
+                        "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
+                        "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
+                        "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
+                        "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
+                        "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
+                        "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
+                        "🍓", "🍋", "🍑", "🥥", "🥐", "🥪", "🍝", "🍣",
+                        "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
+                        "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
+                        "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
+                        "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
+                        "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
+                        "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
+                        "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
+                        "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
+                        "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
+                        "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
+                        "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
+                        "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
+                    ]
+                    bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
                     bot.sendLocalImage(
                         temp_image_path, thread_id=thread_id, thread_type=thread_type,
                         message=Message(text=response), height=500, width=1280, ttl=1200000
@@ -345,31 +375,12 @@ txa = {
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
-    cmd = message_text[len(prefix):].split()[0].lower()
+    if not message_text:
+        return
     
-    dispatch_map = {
-        'meme': meme
-    }
+    cmd = message_text[len(prefix):].split()[0].lower() if len(message_text) > len(prefix) else ''
     
-    func = dispatch_map.get(cmd)
-    if func:
-        import inspect
-        sig = inspect.signature(func)
-        args_map = {
-            'bot': bot,
-            'client': bot,
-            'message_object': message_object,
-            'thread_id': thread_id,
-            'thread_type': thread_type,
-            'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
-        }
-        args = []
-        for param_name in sig.parameters:
-            if param_name in args_map:
-                args.append(args_map[param_name])
-            else:
-                args.append(None)
-        func(*args)
+    if cmd != 'meme':
+        return
+    
+    meme(bot, message_object, author_id, thread_id, thread_type, message_text)
