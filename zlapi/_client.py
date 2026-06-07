@@ -3236,12 +3236,12 @@ class ZaloAPI(object):
 					"desc": message.text if message else "" or "",
 					"width": width,
 					"height": height,
-					"rawUrl": uploadImage["normalUrl"],
+					"rawUrl": uploadImage.get("oriUrl") or uploadImage.get("hdUrl") or uploadImage["normalUrl"],
 					"thumbUrl": uploadImage["thumbUrl"],
 					"hdUrl": uploadImage["hdUrl"],
-					"thumbSize": "53932",
-					"fileSize": "247671",
-					"hdSize": "344622",
+					"thumbSize": str(uploadImage.get("thumbSize") or uploadImage.get("thumb_size") or "53932"),
+					"fileSize": str(uploadImage.get("oriSize") or uploadImage.get("fileSize") or uploadImage.get("size") or "247671"),
+					"hdSize": str(uploadImage.get("hdSize") or uploadImage.get("hd_size") or uploadImage.get("oriSize") or "344622"),
 					"zsource": -1,
 					"jcp": json.dumps({"sendSource": 1, "convertible": "jxl"}),
 					"ttl": ttl,
@@ -3252,14 +3252,14 @@ class ZaloAPI(object):
 			if message and message.mention:
 				payload["params"]["mentionInfo"] = message.mention
 			
+			payload["params"]["normalUrl"] = uploadImage.get("normalUrl") or uploadImage.get("oriUrl") or uploadImage.get("hdUrl")
+			payload["params"]["oriUrl"] = uploadImage.get("oriUrl") or uploadImage.get("hdUrl") or uploadImage.get("normalUrl")
 			if thread_type == ThreadType.USER:
 				url = "https://tt-files-wpa.chat.zalo.me/api/message/photo_original/send"
 				payload["params"]["toid"] = str(thread_id)
-				payload["params"]["normalUrl"] = uploadImage["normalUrl"]
 			elif thread_type == ThreadType.GROUP:
 				url = "https://tt-files-wpa.chat.zalo.me/api/group/photo_original/send"
 				payload["params"]["grid"] = str(thread_id)
-				payload["params"]["oriUrl"] = uploadImage["normalUrl"]
 			else:
 				raise ZaloUserError("Thread type is invalid")
 		
@@ -3329,12 +3329,12 @@ class ZaloAPI(object):
 					"totalItemInGroup": len(imagePathList),
 					"isGroupLayout": 1,
 					"idInGroup": i,
-					"rawUrl": uploadImage["normalUrl"],
+					"rawUrl": uploadImage.get("oriUrl") or uploadImage.get("hdUrl") or uploadImage["normalUrl"],
 					"thumbUrl": uploadImage["thumbUrl"],
 					"hdUrl": uploadImage["hdUrl"],
-					"thumbSize": "53932",
-					"fileSize": "247671",
-					"hdSize": "344622",
+					"thumbSize": str(uploadImage.get("thumbSize") or uploadImage.get("thumb_size") or "53932"),
+					"fileSize": str(uploadImage.get("oriSize") or uploadImage.get("fileSize") or uploadImage.get("size") or "247671"),
+					"hdSize": str(uploadImage.get("hdSize") or uploadImage.get("hd_size") or uploadImage.get("oriSize") or "344622"),
 					"zsource": -1,
 					"jcp": json.dumps({"sendSource": 1, "convertible": "jxl"}),
 					"ttl": ttl,
@@ -3345,12 +3345,12 @@ class ZaloAPI(object):
 			if message and message.mention:
 				payload["params"]["mentionInfo"] = message.mention
 			
+			payload["params"]["normalUrl"] = uploadImage.get("normalUrl") or uploadImage.get("oriUrl") or uploadImage.get("hdUrl")
+			payload["params"]["oriUrl"] = uploadImage.get("oriUrl") or uploadImage.get("hdUrl") or uploadImage.get("normalUrl")
 			if thread_type == ThreadType.USER:
 				payload["params"]["toid"] = str(thread_id)
-				payload["params"]["normalUrl"] = uploadImage["normalUrl"]
 			elif thread_type == ThreadType.GROUP:
 				payload["params"]["grid"] = str(thread_id)
-				payload["params"]["oriUrl"] = uploadImage["normalUrl"]
 			else:
 				raise ZaloUserError("Thread type is invalid")
 			
@@ -4460,7 +4460,7 @@ class ZaloAPI(object):
 	"""
 	END EVENTS
 	"""
-	def sendTodo(self, target_id, content, mid, author_id, thread_type, thread_id=None):
+	def sendTodo(self, target_id, content, mid, author_id, thread_type, thread_id=None, dueDate=-1):
 	    """Send todo notification to a User/Group.
 	    
 	    Args:
@@ -4470,6 +4470,7 @@ class ZaloAPI(object):
 	        author_id (str): Author ID
 	        thread_type (ThreadType): ThreadType.USER, ThreadType.GROUP
 	        thread_id (int | str): Group ID if thread_type is GROUP
+	        dueDate (int): Due date timestamp (Unix timestamp)
 	        
 	    Returns:
 	        dict: A dictionary containing response data
@@ -4502,7 +4503,7 @@ class ZaloAPI(object):
 	    payload = {
 	        "params": {
 	            "assignees": json.dumps([target_id]),
-	            "dueDate": -1,
+	            "dueDate": dueDate,
 	            "content": content,
 	            "description": content,
 	            "extra": json.dumps({

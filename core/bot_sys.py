@@ -1185,7 +1185,7 @@ def remove_admin(bot, author_id, mentioned_uids):
     write_settings(bot.uid, settings)
     return response
 
-def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None):
+def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None, message_object=None, thread_id=None, thread_type=None):
     if not is_admin(bot, author_id):
         return "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
     approved_users = settings.setdefault("approved_users", [])
@@ -1202,6 +1202,22 @@ def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None):
             if expiry_time:
                 expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
                 response += f"➜ Đã thêm người dùng ✅ {get_user_name_by_id(bot, uid)} vào danh sách được duyệt đến {expiry_str} ✅\n"
+                
+                # Tạo Zalo Todo nhắc hẹn nếu có thời hạn
+                if message_object and thread_id and thread_type:
+                    try:
+                        todo_content = f"Hạn dùng TXA Bot của {get_user_name_by_id(bot, uid)}"
+                        bot.sendTodo(
+                            target_id=uid,
+                            content=todo_content,
+                            mid=message_object.msgId,
+                            author_id=author_id,
+                            thread_type=thread_type,
+                            thread_id=thread_id if thread_type == ThreadType.GROUP else None,
+                            dueDate=int(expiry_time * 1000)
+                        )
+                    except Exception as todo_err:
+                        print(f"[ERROR] Không thể tạo Zalo Todo nhắc hẹn: {todo_err}")
             else:
                 response += f"➜ Đã thêm người dùng ✅ {get_user_name_by_id(bot, uid)} vào danh sách được duyệt vô thời hạn ✅\n"
             
@@ -1227,6 +1243,22 @@ def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None):
             if expiry_time:
                 expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
                 response += f"➜ Đã cập nhật hạn duyệt dùng BOT cho người dùng ✅ {get_user_name_by_id(bot, uid)} đến {expiry_str} ✅\n"
+                
+                # Tạo Zalo Todo nhắc hẹn nếu có thời hạn
+                if message_object and thread_id and thread_type:
+                    try:
+                        todo_content = f"Hạn dùng TXA Bot của {get_user_name_by_id(bot, uid)}"
+                        bot.sendTodo(
+                            target_id=uid,
+                            content=todo_content,
+                            mid=message_object.msgId,
+                            author_id=author_id,
+                            thread_type=thread_type,
+                            thread_id=thread_id if thread_type == ThreadType.GROUP else None,
+                            dueDate=int(expiry_time * 1000)
+                        )
+                    except Exception as todo_err:
+                        print(f"[ERROR] Không thể tạo Zalo Todo nhắc hẹn: {todo_err}")
                 
                 try:
                     inbox_text = f"🎉 Chào bạn, Admin đã gia hạn quyền sử dụng TXA Bot của bạn đến {expiry_str}! Hãy tiếp tục trải nghiệm nhé. 🌸"
@@ -2637,7 +2669,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = f"➜ Vui lòng @tag tên người dùng sau lệnh: {bot.prefix}bot approved add 🤧\n➜ Ví dụ: {bot.prefix}bot approved add @username ✅"
                             else:
                                 mentioned_uids = extract_uids_from_mentions(message_object)
-                                response = add_approved(bot, author_id, mentioned_uids, settings)
+                                response = add_approved(bot, author_id, mentioned_uids, settings, message_object=message_object, thread_id=thread_id, thread_type=thread_type)
                         elif sub_action == 'remove':
                             if len(parts) < 4:
                                 response = f"➜ Vui lòng @tag tên người dùng sau lệnh: {bot.prefix}bot approved remove 🤧\n➜ Ví dụ: {bot.prefix}bot approved remove @username ✅"

@@ -137,7 +137,7 @@ def handle_timeout(bot, message_object, thread_id, thread_type):
     global game_active
     if not game_active:
         return
-    bot.sendReaction(message_object, "❌", thread_id, thread_type)
+    bot.sendReaction(message_object, "😢", thread_id, thread_type)
     bot.replyMessage(Message(text="➜ ❌ Bạn đã hết thời gian trả lời! Trò chơi kết thúc."), 
                     message_object, thread_id=thread_id, thread_type=thread_type)
     reset_game()
@@ -282,7 +282,7 @@ def handle_wrong_attempt(bot, message_object, thread_id, thread_type):
     global wrong_attempts
     wrong_attempts += 1
     for _ in range(wrong_attempts):
-        bot.sendReaction(message_object, "❌", thread_id, thread_type)
+        bot.sendReaction(message_object, "😢", thread_id, thread_type)
     if wrong_attempts >= 3:
         handle_defeat(bot, message_object, current_player, thread_id, thread_type)
         return True
@@ -332,7 +332,7 @@ def process_valid_word(bot, message_object, author_id, thread_id, thread_type, p
         correct_attempts += 1
         
         for _ in range(correct_attempts):
-            bot.sendReaction(message_object, "✅", thread_id, thread_type)
+            bot.sendReaction(message_object, "❤️", thread_id, thread_type)
         
         response = f"{get_user_name_by_id(bot, author_id)} {next_word}"
         start_timeout(bot, message_object, thread_id, thread_type)
@@ -1663,6 +1663,37 @@ class bot(ZaloAPI):
         self.log_bot_message(message, thread_id, thread_type)
         return super().send(message, thread_id, thread_type, mark_message, ttl)
 
+    def sendReaction(self, messageObject, reactionIcon, thread_id, thread_type, reactionType=75):
+        self.log_bot_message(f"🎭 [THẢ CẢM XÚC] {reactionIcon}", thread_id, thread_type)
+        return super().sendReaction(messageObject, reactionIcon, thread_id, thread_type, reactionType)
+
+    def sendMultiReaction(self, reactionObj, reactionIcon, thread_id, thread_type, reactionType=75):
+        self.log_bot_message(f"🎭 [THẢ CẢM XÚC HÀNG LOẠT] {reactionIcon}", thread_id, thread_type)
+        return super().sendMultiReaction(reactionObj, reactionIcon, thread_id, thread_type, reactionType)
+
+    def sendLocalImage(self, imagePath, thread_id, thread_type, width=2560, height=2560, message=None, custom_payload=None, ttl=0):
+        msg_text = message.text if isinstance(message, Message) else message or ''
+        self.log_bot_message(f"🖼️ [GỬI ẢNH] {msg_text} (Đường dẫn: {imagePath})", thread_id, thread_type)
+        return super().sendLocalImage(imagePath, thread_id, thread_type, width, height, message, custom_payload, ttl)
+
+    def sendMultiLocalImage(self, imagePathList, thread_id, thread_type, width=2560, height=2560, message=None, ttl=0):
+        msg_text = message.text if isinstance(message, Message) else message or ''
+        self.log_bot_message(f"🖼️ [GỬI NHIỀU ẢNH] {msg_text} (Danh sách: {imagePathList})", thread_id, thread_type)
+        return super().sendMultiLocalImage(imagePathList, thread_id, thread_type, width, height, message, ttl)
+
+    def sendRemoteVideo(self, videoUrl, thumbnailUrl, duration, thread_id, thread_type, width=1280, height=720, message=None, ttl=0):
+        msg_text = message.text if isinstance(message, Message) else message or ''
+        self.log_bot_message(f"🎥 [GỬI VIDEO] {msg_text}\nURL video: {videoUrl}", thread_id, thread_type)
+        return super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
+
+    def sendSticker(self, stickerType, stickerId, cateId, thread_id, thread_type, ttl=0):
+        self.log_bot_message(f"✨ [GỬI STICKER] ID: {stickerId}, Cate: {cateId}", thread_id, thread_type)
+        return super().sendSticker(stickerType, stickerId, cateId, thread_id, thread_type, ttl)
+
+    def sendLink(self, linkUrl, title, thread_id, thread_type, thumbnailUrl=None, domainUrl=None, desc=None, message=None, ttl=0):
+        self.log_bot_message(f"🔗 [GỬI LINK] Tiêu đề: {title}\nURL: {linkUrl}", thread_id, thread_type)
+        return super().sendLink(linkUrl, title, thread_id, thread_type, thumbnailUrl, domainUrl, desc, message, ttl)
+
     def log_bot_message(self, message, thread_id, thread_type):
         try:
             message_text = message.text if hasattr(message, 'text') else str(message)
@@ -1858,6 +1889,38 @@ class bot(ZaloAPI):
 
     def onMessage(self, mid, author_id, message, message_object, thread_id, thread_type):
         try:
+            # Check if this is a reaction event
+            if isinstance(message, dict) and "rIcon" in message:
+                try:
+                    r_icon = message.get("rIcon", "")
+                    r_author_name = get_user_name_by_id(self, author_id)
+                    r_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
+                    r_colors = random.sample(colors, 8)
+                    
+                    print(f"\n{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    if thread_type == ThreadType.USER:
+                        print(f"{hex_to_ansi(r_colors[1])}{Style.BRIGHT}🎭 PHẢN ỨNG TIN NHẮN RIÊNG TƯ (PRIVATE REACTION){Style.RESET_ALL}")
+                    else:
+                        print(f"{hex_to_ansi(r_colors[1])}{Style.BRIGHT}🎭 PHẢN ỨNG TIN NHẮN NHÓM (GROUP REACTION){Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(r_colors[2])}{Style.BRIGHT}│- Biểu tượng: {r_icon}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(r_colors[3])}{Style.BRIGHT}│- ID người phản ứng: {author_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(r_colors[6])}{Style.BRIGHT}│- Tên người phản ứng: {r_author_name}{Style.RESET_ALL}")
+                    
+                    if thread_type == ThreadType.GROUP:
+                        try:
+                            g_info = self.fetchGroupInfo(thread_id)
+                            g_name = g_info.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                        except:
+                            g_name = 'N/A'
+                        print(f"{hex_to_ansi(r_colors[4])}{Style.BRIGHT}│- Tên nhóm: {g_name} ({thread_id}){Style.RESET_ALL}")
+                    
+                    print(f"{hex_to_ansi(r_colors[5])}{Style.BRIGHT}│- Thời gian: {r_time}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}\n")
+                except Exception as log_err:
+                    print(f"[ERROR] Lỗi khi in log phản ứng: {log_err}")
+                return
+
             settings = read_settings(self.uid)
             allowed_thread_ids = settings.get('allowed_thread_ids', [])
             admin_bot = settings.get("admin_bot", [])
@@ -1868,7 +1931,29 @@ class bot(ZaloAPI):
             prefix = self.prefix
             allowed_thread_ids = get_allowed_thread_ids(self)
 
-            message_text = message.text if isinstance(message, Message) else str(message)
+            # DEBUG TIKTOK
+            try:
+                msg_str = str(message)
+                msg_obj_str = str(message_object)
+                if "tiktok" in msg_str.lower() or "tiktok" in msg_obj_str.lower():
+                    with open("debug_tiktok.txt", "a", encoding="utf-8") as f:
+                        f.write(f"\n=== TIKTOK MSG AT {time.strftime('%H:%M:%S - %d/%m/%Y')} ===\n")
+                        f.write(f"Type of message: {type(message)}\n")
+                        f.write(f"message content representation: {msg_str}\n")
+                        f.write(f"message content keys/dict: {getattr(message, '__dict__', None) if hasattr(message, '__dict__') else message}\n")
+                        f.write(f"message_object representation: {msg_obj_str}\n")
+                        f.write(f"message_object keys/dict: {getattr(message_object, '__dict__', None) if hasattr(message_object, '__dict__') else message_object}\n")
+                        f.write(f"================================================\n")
+            except Exception as debug_err:
+                print(f"[DEBUG] Error writing debug_tiktok.txt: {debug_err}")
+
+            if isinstance(message, Message):
+                message_text = message.text
+            elif isinstance(message, MessageObject):
+                message_text = message.title if getattr(message, 'title', None) else str(message)
+            else:
+                message_text = str(message)
+            
             # Clean leading mentions (like @Tbot) and whitespace
             message_text = re.sub(r'^@[\S]+[\s]*', '', message_text).lstrip()
             message_lower = message_text.lower()
@@ -2265,12 +2350,12 @@ class bot(ZaloAPI):
                     sub_action = cmd_parts[1].lower()
                     if sub_action == "on":
                         response = bot_on_group(self, thread_id)
-                        self.sendReaction(message_object, "✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "❤️", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
                     elif sub_action == "off":
                         response = bot_off_group(self, thread_id)
-                        self.sendReaction(message_object, "✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "❤️", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
 
@@ -2323,12 +2408,12 @@ class bot(ZaloAPI):
                         return
 
                     try:
-                        self.sendReaction(message_object, "⏳", thread_id, thread_type)
+                        self.sendReaction(message_object, "👍", thread_id, thread_type)
                         self.updateAutoDeleteChat(ttl=ttl_ms, threadId=thread_id, isGroup=True)
-                        self.sendReaction(message_object, "✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "❤️", thread_id, thread_type)
                         self.replyMessage(Message(text=f"✅ Đã thiết lập tin nhắn tự xóa của nhóm thành: {time_str}."), message_object, thread_id, thread_type)
                     except Exception as e:
-                        self.sendReaction(message_object, "❌", thread_id, thread_type)
+                        self.sendReaction(message_object, "😢", thread_id, thread_type)
                         self.replyMessage(Message(text=f"❌ Thất bại khi cài đặt tin nhắn tự xóa: {str(e)}"), message_object, thread_id, thread_type)
                     return
 

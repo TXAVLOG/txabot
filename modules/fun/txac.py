@@ -3,7 +3,7 @@ CONFIG = {
     "title": "Giải trí",
     "group_by_parent": False,
     "modules": {
-        "cauthinh/main.py": {"emoji": "🤭", "title": "Thả thính", "cmds": ["tha_thinh"]},
+        "cauthinh/main.py": {"emoji": "🤭", "title": "Thả thính", "cmds": ["tha_thinh", "thathinh", "love"]},
         "func_war/main.py": {"emoji": "🧨", "title": "Spam", "cmds": ["allwar"]},
         "text/main.py": {"emoji": "💬", "title": "Nội dung", "cmds": ["create_image"]},
         "2c/main.py": {"emoji": "❖", "title": "2c", "cmds": ["2c"]},

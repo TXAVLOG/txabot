@@ -23,7 +23,7 @@ CONFIG = {
         "spamjoin/main.py": {"emoji": "❖", "title": "Spamjoin", "cmds": ["spamjoin"]},
         "treo/main.py": {"emoji": "❖", "title": "Treo", "cmds": ["treo"]},
         "uptime/main.py": {"emoji": "❖", "title": "Uptime", "cmds": ["uptime"]},
-        "func_duyet/main.py": {"emoji": "🔑", "title": "Duyet quyen", "cmds": ["duyet", "unduyet"]},
+        "func_duyet/main.py": {"emoji": "🔑", "title": "Duyệt quyền & QL key", "cmds": ["duyet", "unduyet", "capkey", "huykey", "listkey"]},
         "func_group_lock/main.py": {"emoji": "🔒", "title": "Khóa nhóm", "cmds": ["lock", "lockgroup", "unlockgroup"]},
         "tiktok/main.py": {"emoji": "🎵", "title": "TikTok", "cmds": ["tiktok", "downtik", "tt"]}
     }

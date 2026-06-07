@@ -125,7 +125,10 @@ def handle_tha_thinh_command(message, message_object, thread_id, thread_type, au
     try:
         settings = read_settings(client.uid)
     
-        user_message = message.replace(f"{client.prefix}love ", "").strip().lower()
+        cmd = message.strip()[len(client.prefix):].split()[0].lower()
+        user_message = message.replace(f"{client.prefix}{cmd} ", "") if f"{client.prefix}{cmd} " in message else ""
+        user_message = user_message.strip().lower()
+
         if user_message == "on":
             if not is_admin(client, author_id):  
                     response = "❌Bạn không phải admin bot!"
@@ -143,10 +146,20 @@ def handle_tha_thinh_command(message, message_object, thread_id, thread_type, au
         
         if not (settings.get("love", {}).get(thread_id, False)):
             return
+        
+        if not user_message:
+            client.send(
+                Message(text=f"Vui lòng chỉ nhập tên 1 chữ để thả thính. Ví dụ: '{client.prefix}{cmd} Shin' hoặc '{client.prefix}{cmd} Thủy'"),
+                thread_id=thread_id,
+                thread_type=thread_type,
+                ttl=15000
+            )
+            return
+
         parts = user_message.split()
         if len(parts) != 1:
             client.send(
-                Message(text="Vui lòng chỉ nhập tên 1 chữ để thả thính. Ví dụ: 'love Shin' hoặc 'love Thủy'"),
+                Message(text=f"Vui lòng chỉ nhập tên 1 chữ để thả thính. Ví dụ: '{client.prefix}{cmd} Shin' hoặc '{client.prefix}{cmd} Thủy'"),
                 thread_id=thread_id,
                 thread_type=thread_type,
                 ttl=15000
@@ -211,7 +224,7 @@ txa = {
     "name": "pro_thinh",
     "desc": "Thả thính bằng AI hoặc câu thả thính ngẫu nhiên. Hỗ trợ thả thính với tên người dùng. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['tha_thinh']
+    "command": ['tha_thinh', 'thathinh', 'love']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -219,7 +232,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'tha_thinh': handle_tha_thinh_command
+        'tha_thinh': handle_tha_thinh_command,
+        'thathinh': handle_tha_thinh_command,
+        'love': handle_tha_thinh_command
     }
     
     func = dispatch_map.get(cmd)
