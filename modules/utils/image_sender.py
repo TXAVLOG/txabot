@@ -251,12 +251,13 @@ class ImageSender:
             # Gửi ảnh
             ttl = self.config[type_name].get("ttl", 300000)
             if message_object:
+                # If we have a message object, use replyMessage first or just send the image
+                # Since sendLocalImage doesn't support replyTo, send the image normally
                 bot.sendLocalImage(
                     temp_file,
                     thread_id=thread_id,
                     thread_type=thread_type,
                     message=Message(text=caption),
-                    replyTo=message_object.msgId if hasattr(message_object, 'msgId') else message_object.get('msgId'),
                     ttl=ttl
                 )
             else:
