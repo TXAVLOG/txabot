@@ -361,124 +361,127 @@ def handle_tygia_off(bot, thread_id):
     return "🚦Nhóm chưa có thông tin cấu hình tygia để ⭕️ Tắt 🤗"
 
 def handle_hoan_doi_command(bot, message_object, author_id, thread_id, thread_type, command):
-    def hoan_doi():
-        settings = read_settings(bot.uid)
-        allowed_thread_ids = settings.get('allowed_thread_ids', [])
-        admin_bot = settings.get("admin_bot", [])
-        banned_users = settings.get("banned_users", [])
-        cmd_used = command.split()[0].lower() if command else ""
-        user_message = command[len(cmd_used):].strip().lower() if command else ""
+    settings = read_settings(bot.uid)
+    allowed_thread_ids = settings.get('allowed_thread_ids', [])
+    admin_bot = settings.get("admin_bot", [])
+    banned_users = settings.get("banned_users", [])
+    
+    cmd_used = command.split()[0].lower() if command else ""
+    user_message = command[len(cmd_used):].strip().lower() if command else ""
+    
+    if user_message == "on":
+        if not is_admin(bot, author_id):  
+            response = "❌Bạn không phải admin bot!"
+        else:
+            response = handle_tygia_on(bot, thread_id)
+        bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
+        return "no_reaction"
+    elif user_message == "off":
+        if not is_admin(bot, author_id):  
+            response = "❌Bạn không phải admin bot!"
+        else:
+            response = handle_tygia_off(bot, thread_id)
+        bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
+        return "no_reaction"
         
-        if user_message == "on":
-            if not is_admin(bot, author_id):  
-                response = "❌Bạn không phải admin bot!"
-            else:
-                response = handle_tygia_on(bot, thread_id)
-            bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
-            return
-        elif user_message == "off":
-            if not is_admin(bot, author_id):  
-                response = "❌Bạn không phải admin bot!"
-            else:
-                response = handle_tygia_off(bot, thread_id)
-            bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
-            return
-        
-        if not (settings.get("tygia", {}).get(thread_id, False)):
-            return
+    if not (settings.get("tygia", {}).get(thread_id, False)):
+        return False
 
-        if author_id in banned_users:
-            return
+    if author_id in banned_users:
+        return False
 
-        if author_id not in admin_bot and thread_id not in allowed_thread_ids:
-            return
+    if author_id not in admin_bot and thread_id not in allowed_thread_ids:
+        return False
 
+    parts = command.split()
+    
+    if len(parts) == 1:
+        user_name = get_user_name_by_id(bot, author_id)
+        response = (
+            f"{user_name}\n"
+            "🎉 Chào mừng đến với menu Hoán Đổi! ⚙️\n"
+            f"   ➜ {cmd_used} [số tiền] [USD] [VND]: xem tỷ giá hoán đổi USD 💱\n"
+        )
+        os.makedirs(CACHE_PATH, exist_ok=True)
+        image_path = generate_menu_image(bot, author_id, thread_id, thread_type)
+        if not image_path:
+            bot.sendMessage("❌ Không thể tạo ảnh menu!", thread_id, thread_type)
+            return "no_reaction"
+            
+        reaction = [
+            "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
+            "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
+            "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
+            "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
+            "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
+            "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
+            "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
+            "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
+            "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
+            "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
+            "🍓", "🍋", "🍑", "🥥", "🥐", "🥪", "🍝", "🍣",
+            "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
+            "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
+            "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
+            "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
+            "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
+            "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
+            "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
+            "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
+            "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
+            "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
+            "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
+            "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
+        ]
+        if random.random() > 0.3:
+            bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        bot.sendLocalImage(
+            imagePath=image_path,
+            message=Message(text=response, mention=Mention(author_id, length=len(user_name), offset=0)),
+            thread_id=thread_id,
+            thread_type=thread_type,
+            width=1920,
+            height=600,
+            ttl=240000
+        )
         try:
-            parts = command.split()
-            response = None  
+            if os.path.exists(image_path):
+                os.remove(image_path)
+        except Exception as e:
+            print(f"❌ Lỗi khi xóa ảnh: {e}")
+        return "no_reaction"
 
-            if len(parts) == 1:
-                user_name = get_user_name_by_id(bot, author_id)
-                response = (
-                    f"{user_name}\n"
-                    "🎉 Chào mừng đến với menu Hoán Đổi! ⚙️\n"
-                    f"   ➜ {cmd_used} [số tiền] [USD] [VND]: xem tỷ giá hoán đổi USD 💱\n"
-                )
-            else:
-                if parts[1].lower() == 'hoandoi':
-                    if len(parts) < 5:
-                        response = f"➜ ❌ Sai cú pháp! Dùng: {cmd_used} [số tiền] [USD] [VND]"
-                    else:
-                        try:
-                            amount = float(parts[2])
-                            from_currency = parts[3].upper()
-                            to_currency = parts[4].upper()
-                            response = get_exchange_rate(amount, from_currency, to_currency)
-                        except ValueError:
-                            response = "➜ ❌ Số tiền cần đổi phải là số hợp lệ."
+    def hoan_doi():
+        try:
+            response = None  
+            if parts[1].lower() == 'hoandoi':
+                if len(parts) < 5:
+                    response = f"➜ ❌ Sai cú pháp! Dùng: {cmd_used} [số tiền] [USD] [VND]"
                 else:
-                    if len(parts) < 4:
-                        response = f"➜ ❌ Sai cú pháp! Dùng: {cmd_used} [số tiền] [USD] [VND]"
-                    else:
-                        try:
-                            amount = float(parts[1])
-                            from_currency = parts[2].upper()
-                            to_currency = parts[3].upper()
-                            response = get_exchange_rate(amount, from_currency, to_currency)
-                        except ValueError:
-                            response = "➜ ❌ Số tiền cần đổi phải là số hợp lệ."
+                    try:
+                        amount = float(parts[2])
+                    except ValueError:
+                        bot.replyMessage(Message(text="➜ ❌ Số tiền cần đổi phải là số hợp lệ."), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
+                        return
+                    from_currency = parts[3].upper()
+                    to_currency = parts[4].upper()
+                    response = get_exchange_rate(amount, from_currency, to_currency)
+            else:
+                if len(parts) < 4:
+                    response = f"➜ ❌ Sai cú pháp! Dùng: {cmd_used} [số tiền] [USD] [VND]"
+                else:
+                    try:
+                        amount = float(parts[1])
+                    except ValueError:
+                        bot.replyMessage(Message(text="➜ ❌ Số tiền cần đổi phải là số hợp lệ."), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
+                        return
+                    from_currency = parts[2].upper()
+                    to_currency = parts[3].upper()
+                    response = get_exchange_rate(amount, from_currency, to_currency)
 
             if response is not None:
-                if len(parts) == 1:
-                    os.makedirs(CACHE_PATH, exist_ok=True)
-                    image_path = generate_menu_image(bot, author_id, thread_id, thread_type)
-                    if not image_path:
-                        bot.sendMessage("❌ Không thể tạo ảnh menu!", thread_id, thread_type)
-                        return
-                    user_name = get_user_name_by_id(bot, author_id)
-                    reaction = [
-                        "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
-                        "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
-                        "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
-                        "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
-                        "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
-                        "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
-                        "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
-                        "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
-                        "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
-                        "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
-                        "🍓", "🍋", "🍑", "🥥", "🥐", "🥪", "🍝", "🍣",
-                        "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
-                        "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
-                        "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
-                        "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
-                        "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
-                        "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
-                        "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
-                        "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
-                        "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
-                        "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
-                        "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
-                        "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
-                    ]
-                    bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-                    bot.sendLocalImage(
-                        imagePath=image_path,
-                        message=Message(text=response, mention=Mention(author_id, length=len(user_name), offset=0)),
-                        thread_id=thread_id,
-                        thread_type=thread_type,
-                        width=1920,
-                        height=600,
-                        ttl=240000
-                    )
-                    
-                    try:
-                        if os.path.exists(image_path):
-                            os.remove(image_path)
-                    except Exception as e:
-                        print(f"❌ Lỗi khi xóa ảnh: {e}")
-                else:
-                    bot.replyMessage(Message(text=response), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
+                bot.replyMessage(Message(text=response), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
         except Exception as e:
             print(f"Error: {e}")
             bot.replyMessage(Message(text="➜ 🐞 Đã xảy ra lỗi gì đó 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
@@ -545,4 +548,4 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                 args.append(args_map[param_name])
             else:
                 args.append(None)
-        func(*args)
+        return func(*args)

@@ -163,7 +163,9 @@ def handle_sms_command(message, message_object, thread_id, thread_type, author_i
         remaining_time = cooldown - int((current_time - last_sms_time).total_seconds())
         remaining_minutes = remaining_time // 60
         remaining_seconds = remaining_time % 60
-        bot.sendReaction(message_object, "⏱️", thread_id, thread_type)
+        if random.random() > 0.3:
+            bot.sendReaction(message_object, "⏱️", thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         return
 
     current_processing_number = sdt

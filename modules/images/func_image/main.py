@@ -129,6 +129,7 @@ def handle_girlnguc_command(bot, message_object, thread_id, thread_type, author_
 
 def handle_girlnude_command(bot, message_object, thread_id, thread_type, author_id):
     """Gửi ảnh girl nude"""
+    bot.sendReaction(message_object, "Con cặc🍆", thread_id, thread_type)
     error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "girlnude")
     if error:
         bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)

@@ -215,7 +215,9 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
         "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
         "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕"
     ]
-    bot.sendReaction(message_object, random.choice(reactions), thread_id, thread_type)
+    if random.random() > 0.3:
+        bot.sendReaction(message_object, random.choice(reactions), thread_id, thread_type)
+    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
     
     if image_path and os.path.exists(image_path):
         try:

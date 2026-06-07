@@ -13,9 +13,8 @@ from core.bot_sys import get_user_name_by_id
 from zlapi.models import *
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BACKGROUND_PATH = os.path.join(BASE_DIR, "background")
-CACHE_PATH = os.path.join(BASE_DIR, "modules", "cache")
+BACKGROUND_PATH = "background/"
+CACHE_PATH = "modules/cache/"
 OUTPUT_IMAGE_PATH = os.path.join(CACHE_PATH, "giavang.png")
 
 def get_dominant_color(image_path):
@@ -474,7 +473,9 @@ def handle_gia_vang_command(bot, message_object, author_id, thread_id, thread_ty
                         "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
                         "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
                     ]
-                    bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                    if random.random() > 0.3:
+                        bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                     bot.sendLocalImage(
                         imagePath=image_path,
                         message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),

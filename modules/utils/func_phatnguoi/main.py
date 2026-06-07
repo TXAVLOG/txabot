@@ -416,92 +416,99 @@ def handle_phatnguoi_off(bot, thread_id):
     return "🚦Nhóm chưa có thông tin cấu hình phatnguoi để ⭕️ Tắt 🤗"
 
 def phatnguoi(bot, message_object, author_id, thread_id, thread_type, command):
+    settings = read_settings(bot.uid)
+    cmd_text = command or ""
+    
+    # Parse command word to support dynamic prefix/command length
+    words = cmd_text.strip().split()
+    if not words:
+        return False
+    cmd_word = words[0]
+    user_message = cmd_text[len(cmd_word):].strip().lower()
+    
+    if user_message == "on":
+        if not is_admin(bot, author_id):  
+            response = "❌Bạn không phải admin bot!"
+        else:
+            response = handle_phatnguoi_on(bot, thread_id)
+        bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
+        return "no_reaction"
+    elif user_message == "off":
+        if not is_admin(bot, author_id):  
+            response = "❌Bạn không phải admin bot!"
+        else:
+            response = handle_phatnguoi_off(bot, thread_id)
+        bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
+        return "no_reaction"
+        
+    if not (settings.get("phatnguoi", {}).get(thread_id, False)):
+        return False
+        
+    parts = cmd_text.split()
+    user_name = get_user_name_by_id(bot, author_id)
+    bot_prefix = cmd_word
+    
+    if len(parts) < 2:
+        response = (
+            f"🚦{user_name}  ⚙️\n"
+            f"➜ {bot_prefix} [biển số xe]: Tra cứu thông tin phạt nguội.\n"
+            "📌 Bot sẽ tự nhận diện loại xe (ô tô, xe tải, xe máy, xe máy điện).\n"
+            f"VD: {bot_prefix} 60K-36752\n"
+            "🤖 BOT luôn sẵn sàng phục vụ bạn! 🌸"
+        )
+        os.makedirs(CACHE_PATH, exist_ok=True)
+        image_path = generate_menu_image(bot, author_id, thread_id, thread_type)
+        if not image_path:
+            bot.sendMessage("❌ Không thể tạo ảnh menu!", thread_id, thread_type)
+            return "no_reaction"
+
+        reaction = [
+            "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
+            "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
+            "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
+            "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
+            "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
+            "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
+            "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
+            "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
+            "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
+            "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
+            "🍓", "🍋", "🍑", "🥥", "🥐", "🥪", "🍝", "🍣",
+            "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
+            "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
+            "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
+            "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
+            "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
+            "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
+            "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
+            "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
+            "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
+            "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
+            "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
+            "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
+        ]
+        
+        if random.random() > 0.3:
+            bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        bot.sendLocalImage(
+            imagePath=image_path,
+            message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
+            thread_id=thread_id,
+            thread_type=thread_type,
+            width=1600,
+            height=560,
+            ttl=240000
+        )
+        try:
+            if os.path.exists(image_path):
+                os.remove(image_path)
+        except Exception as e:
+            print(f"❌ Lỗi khi xóa ảnh: {e}")
+        return "no_reaction"
+
     def send_phatnguoi_response():
         try:
-            settings = read_settings(bot.uid)
-            cmd_text = command or ""
-    
-            user_message = cmd_text.replace(f"{bot.prefix}phatnguoi ", "").strip().lower()
-            if user_message == "on":
-                if not is_admin(bot, author_id):  
-                    response = "❌Bạn không phải admin bot!"
-                else:
-                    response = handle_phatnguoi_on(bot, thread_id)
-                bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
-                return
-            elif user_message == "off":
-                if not is_admin(bot, author_id):  
-                    response = "❌Bạn không phải admin bot!"
-                else:
-                    response = handle_phatnguoi_off(bot, thread_id)
-                bot.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
-                return
-            
-            if not (settings.get("phatnguoi", {}).get(thread_id, False)):
-                return
-            bot_prefix = f"{bot.prefix}phatnguoi"
-            parts = cmd_text.split()
-            user_name = get_user_name_by_id(bot, author_id)
-
-            if len(parts) < 2:
-                response = (
-                    f"🚦{user_name}  ⚙️\n"
-                    f"➜ {bot_prefix} [biển số xe]: Tra cứu thông tin phạt nguội.\n"
-                    "📌 Bot sẽ tự nhận diện loại xe (ô tô, xe tải, xe máy, xe máy điện).\n"
-                    f"VD: {bot_prefix} 60K-36752\n"
-                    "🤖 BOT luôn sẵn sàng phục vụ bạn! 🌸"
-                )
-                os.makedirs(CACHE_PATH, exist_ok=True)
-    
-                image_path = generate_menu_image(bot, author_id, thread_id, thread_type)
-                if not image_path:
-                    bot.sendMessage("❌ Không thể tạo ảnh menu!", thread_id, thread_type)
-                    return
-
-                reaction = [
-                    "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
-                    "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
-                    "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
-                    "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
-                    "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
-                    "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
-                    "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
-                    "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
-                    "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
-                    "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
-                    "🍓", "🍋", "🍑", "🥥", "🥐", "🥪", "🍝", "🍣",
-                    "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
-                    "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
-                    "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
-                    "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
-                    "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
-                    "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
-                    "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
-                    "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
-                    "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
-                    "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
-                    "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
-                    "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
-                ]
-                
-                bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-                bot.sendLocalImage(
-                    imagePath=image_path,
-                    message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
-                    thread_id=thread_id,
-                    thread_type=thread_type,
-                    width=1600,
-                    height=560,
-                    ttl=240000
-                )
-                
-                try:
-                    if os.path.exists(image_path):
-                        os.remove(image_path)
-                except Exception as e:
-                    print(f"❌ Lỗi khi xóa ảnh: {e}")
-                return  # Thêm return để tránh lỗi tiếp tục xử lý
-
             plate_number = parts[1].upper()
             # Danh sách các URL để thử theo thứ tự ưu tiên
             urls = [
@@ -594,9 +601,15 @@ def phatnguoi(bot, message_object, author_id, thread_id, thread_type, command):
                 Message(text="➜ 🐞 Đã xảy ra lỗi gì đó 🤧"),
                 message_object, thread_id=thread_id, thread_type=thread_type
             )
+        finally:
+            try:
+                bot.sendReaction(message_object, "/-remove", thread_id, thread_type, reactionType=-1)
+            except Exception as e:
+                print(f"Lỗi khi xóa reaction phạt nguội: {e}")
 
     thread = threading.Thread(target=send_phatnguoi_response)
     thread.start()
+    return "no_reaction"
 
 txa = {
     "name": "pro_phatnguoi",
@@ -635,4 +648,4 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                 args.append(args_map[param_name])
             else:
                 args.append(None)
-        func(*args)
+        return func(*args)

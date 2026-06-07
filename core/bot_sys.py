@@ -3001,7 +3001,9 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             response = list_banned_users(bot)
 
                 else:
-                    bot.sendReaction(message_object, "❌", thread_id, thread_type)
+                    if random.random() > 0.3:
+                        bot.sendReaction(message_object, "❌", thread_id, thread_type)
+                    bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
             
             if response:
                 if len(parts) == 1:
@@ -3041,7 +3043,9 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     selected_reactions = random.sample(reaction, num_reactions)
 
                     for emoji in selected_reactions:
-                        bot.sendReaction(message_object, emoji, thread_id, thread_type)
+                        if random.random() > 0.3:
+                            bot.sendReaction(message_object, emoji, thread_id, thread_type)
+                        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                     bot.sendLocalImage(
                         imagePath=image_path,
                         message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -3088,7 +3092,9 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     selected_reactions = random.sample(reaction, num_reactions)
 
                     for emoji in selected_reactions:
-                        bot.sendReaction(message_object, emoji, thread_id, thread_type)
+                        if random.random() > 0.3:
+                            bot.sendReaction(message_object, emoji, thread_id, thread_type)
+                        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                     bot.replyMessage(Message(text=response),message_object, thread_id=thread_id, thread_type=thread_type,ttl=9000)
         
         except Exception as e:

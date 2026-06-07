@@ -3,6 +3,7 @@ import os
 sys.dont_write_bytecode = True
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
+import inspect
 import importlib
 import io
 import json
@@ -137,7 +138,9 @@ def handle_timeout(bot, message_object, thread_id, thread_type):
     global game_active
     if not game_active:
         return
-    bot.sendReaction(message_object, "😢", thread_id, thread_type)
+    if random.random() > 0.3:
+        bot.sendReaction(message_object, "😢", thread_id, thread_type)
+    bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
     bot.replyMessage(Message(text="➜ ❌ Bạn đã hết thời gian trả lời! Trò chơi kết thúc."), 
                     message_object, thread_id=thread_id, thread_type=thread_type)
     reset_game()
@@ -282,7 +285,9 @@ def handle_wrong_attempt(bot, message_object, thread_id, thread_type):
     global wrong_attempts
     wrong_attempts += 1
     for _ in range(wrong_attempts):
-        bot.sendReaction(message_object, "😢", thread_id, thread_type)
+        if random.random() > 0.3:
+            bot.sendReaction(message_object, "😢", thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
     if wrong_attempts >= 3:
         handle_defeat(bot, message_object, current_player, thread_id, thread_type)
         return True
@@ -332,7 +337,9 @@ def process_valid_word(bot, message_object, author_id, thread_id, thread_type, p
         correct_attempts += 1
         
         for _ in range(correct_attempts):
-            bot.sendReaction(message_object, "❤️", thread_id, thread_type)
+            if random.random() > 0.3:
+                bot.sendReaction(message_object, "❤️", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         
         response = f"{get_user_name_by_id(bot, author_id)} {next_word}"
         start_timeout(bot, message_object, thread_id, thread_type)
@@ -1010,7 +1017,9 @@ def tim_kiem_yanhh3d(bot, message_object, author_id, thread_id, thread_type, mes
                 "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
             ]
             
-            bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            if random.random() > 0.3:
+                bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
             bot.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -1531,7 +1540,13 @@ class DynamicCommandHandler:
             return False
             
         try:
-            import inspect
+            if random.random() > 0.3:
+                self.client.sendReaction(message_object, "⏳", thread_id, thread_type)
+            self.client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        except Exception as react_err:
+            print(f"[DynamicCommandHandler] Lỗi gửi waiting reaction: {react_err}")
+            
+        try:
             sig = inspect.signature(handler)
             args_map = {
                 'self': self.client,
@@ -1553,12 +1568,39 @@ class DynamicCommandHandler:
                 else:
                     args.append(None)
                     
-            handler(*args)
+            result = handler(*args)
+            
+            if result is False:
+                try:
+                    self.client.sendReaction(message_object, "/-remove", thread_id, thread_type, reactionType=-1)
+                except Exception as react_err:
+                    print(f"[DynamicCommandHandler] Lỗi xóa reaction: {react_err}")
+                return True
+                
+            if result == "no_reaction":
+                return True
+                
+            try:
+                success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
+                if random.random() > 0.3:
+                    self.client.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
+                self.client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            except Exception as react_err:
+                print(f"[DynamicCommandHandler] Lỗi gửi success reaction: {react_err}")
+                
             return True
         except Exception as e:
             print(f"Lỗi khi thực thi lệnh '{command_name}': {e}")
             import traceback
             traceback.print_exc()
+            
+            try:
+                if random.random() > 0.3:
+                    self.client.sendReaction(message_object, "❌", thread_id, thread_type)
+                self.client.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+            except Exception as react_err:
+                print(f"[DynamicCommandHandler] Lỗi gửi fail reaction: {react_err}")
+                
             try:
                 self.client.sendMessage(f"❌ Lỗi khi thực thi lệnh '{command_name}': {e}", thread_id, thread_type)
             except Exception as send_err:
@@ -1608,8 +1650,8 @@ class bot(ZaloAPI):
         self.stop_event = threading.Event()
         self.message_history = {}
         self.last_admin_notify = {}
-        self.version ="1.0"
-        self.date_update ='05-06-26'
+        self.version ="1.1"
+        self.date_update ='07-06-26'
         # Automatically update Zalo profile display name if it's not "TXA Bot"
         try:
             profile = self.fetchAccountInfo().profile
@@ -1831,24 +1873,42 @@ class bot(ZaloAPI):
                     print(f"[ERROR] deleteGroupMsg quote error: {e}")
                     
             elif message_object.mentions:
+                # Parse number of messages to delete from command text
+                # Format: !del @name [number]
+                parts = message_text.split()
+                num_to_delete = 1  # Default: delete 1 message
+                for p in parts:
+                    try:
+                        n = int(p)
+                        if 1 <= n <= 100:
+                            num_to_delete = n
+                            break
+                    except ValueError:
+                        continue
+                
                 for mention in message_object.mentions:
                     target_uid = mention.get('uid')
                     if not target_uid:
                         continue
                     history = self.message_history.get(thread_id, [])
-                    found_msg = None
+                    
+                    # Collect messages from this user
+                    msgs_to_delete = []
                     for m in reversed(history):
                         if m['msgId'] == message_object.msgId:
                             continue
                         if m['author_id'] == target_uid:
-                            found_msg = m
-                            break
+                            msgs_to_delete.append(m)
+                            if len(msgs_to_delete) >= num_to_delete:
+                                break
                     
-                    if found_msg:
+                    # Delete all found messages
+                    for found_msg in msgs_to_delete:
                         try:
                             self.deleteGroupMsg(found_msg['msgId'], target_uid, found_msg['cliMsgId'], thread_id)
                             deleted_any = True
-                            history.remove(found_msg)
+                            if found_msg in history:
+                                history.remove(found_msg)
                         except Exception as e:
                             print(f"[ERROR] deleteGroupMsg mention error: {e}")
             
@@ -2350,12 +2410,16 @@ class bot(ZaloAPI):
                     sub_action = cmd_parts[1].lower()
                     if sub_action == "on":
                         response = bot_on_group(self, thread_id)
-                        self.sendReaction(message_object, "❤️", thread_id, thread_type)
+                        if random.random() > 0.3:
+                            self.sendReaction(message_object, "❤️", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
                     elif sub_action == "off":
                         response = bot_off_group(self, thread_id)
-                        self.sendReaction(message_object, "❤️", thread_id, thread_type)
+                        if random.random() > 0.3:
+                            self.sendReaction(message_object, "❤️", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
 
@@ -2408,12 +2472,18 @@ class bot(ZaloAPI):
                         return
 
                     try:
-                        self.sendReaction(message_object, "👍", thread_id, thread_type)
+                        if random.random() > 0.3:
+                            self.sendReaction(message_object, "👍", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                         self.updateAutoDeleteChat(ttl=ttl_ms, threadId=thread_id, isGroup=True)
-                        self.sendReaction(message_object, "❤️", thread_id, thread_type)
+                        if random.random() > 0.3:
+                            self.sendReaction(message_object, "❤️", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=f"✅ Đã thiết lập tin nhắn tự xóa của nhóm thành: {time_str}."), message_object, thread_id, thread_type)
                     except Exception as e:
-                        self.sendReaction(message_object, "😢", thread_id, thread_type)
+                        if random.random() > 0.3:
+                            self.sendReaction(message_object, "😢", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
                         self.replyMessage(Message(text=f"❌ Thất bại khi cài đặt tin nhắn tự xóa: {str(e)}"), message_object, thread_id, thread_type)
                     return
 
@@ -2546,7 +2616,34 @@ class bot(ZaloAPI):
 
                 # Check if it was a donghua query
                 if cmd_name == "donghua":
-                    tim_kiem_yanhh3d(self, message_object, author_id, thread_id, thread_type, message_lower, message_text)
+                    try:
+                        if random.random() > 0.3:
+                            self.sendReaction(message_object, "⏳", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                    except Exception as react_err:
+                        print(f"[Main] Lỗi gửi waiting reaction cho donghua: {react_err}")
+                    
+                    try:
+                        tim_kiem_yanhh3d(self, message_object, author_id, thread_id, thread_type, message_lower, message_text)
+                        try:
+                            success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
+                            if random.random() > 0.3:
+                                self.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
+                            self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        except Exception as react_err:
+                            print(f"[Main] Lỗi gửi success reaction cho donghua: {react_err}")
+                    except Exception as e:
+                        print(f"Lỗi khi thực thi lệnh 'donghua': {e}")
+                        try:
+                            if random.random() > 0.3:
+                                self.sendReaction(message_object, "❌", thread_id, thread_type)
+                            self.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+                        except Exception as react_err:
+                            print(f"[Main] Lỗi gửi fail reaction cho donghua: {react_err}")
+                        try:
+                            self.sendMessage(f"❌ Lỗi khi thực thi lệnh 'donghua': {e}", thread_id, thread_type)
+                        except Exception as send_err:
+                            print(f"[ERROR] couldn't send error message: {send_err}")
                     return
 
             # Check general auto hooks

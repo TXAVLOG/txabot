@@ -210,7 +210,7 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         text_lines = [
             f"Hi, {greeting_name}",
             f"💞 Menu Đuổi Hình Bắt Chữ 🆎",
-            f"{bot.prefix}bc on/off: 🚀 Bật/Tắt tính năng",
+            f"{bot.prefix}dhbc on/off: 🚀 Bật/Tắt tính năng",
             "😁 Bot Sẵn Sàng Phục 🖤",
             f"🤖Bot: {bot.me_name} 💻Version: {bot.version} 📅Update {bot.date_update}"
         ]
@@ -735,20 +735,24 @@ def handle_bc_on(bot, thread_id):
         settings["bc"] = {}
     settings["bc"][thread_id] = True
     write_settings(bot.uid, settings)
-    return f"🚦Lệnh {bot.prefix}bc đã được Bật 🚀 trong nhóm này ✅"
+    return f"🚦Lệnh {bot.prefix}dhbc đã được Bật 🚀 trong nhóm này ✅"
 
 def handle_bc_off(bot, thread_id):
     settings = read_settings(bot.uid)
     if "bc" in settings and thread_id in settings["bc"]:
         settings["bc"][thread_id] = False
         write_settings(bot.uid, settings)
-        return f"🚦Lệnh {bot.prefix}bc đã Tắt ⭕️ trong nhóm này ✅"
-    return "🚦Nhóm chưa có thông tin cấu hình bc để ⭕️ Tắt 🤗"
+        return f"🚦Lệnh {bot.prefix}dhbc đã Tắt ⭕️ trong nhóm này ✅"
+    return "🚦Nhóm chưa có thông tin cấu hình dhbc để ⭕️ Tắt 🤗"
 
 def handle_dhbc_command(client, message_object, author_id, thread_id, thread_type, message):
     try:
         settings = read_settings(client.uid)
-        user_message = message.replace(f"{client.prefix}bc ", "").strip().lower()
+        words = message.strip().split()
+        if not words:
+            return False
+        cmd_word = words[0]
+        user_message = message[len(cmd_word):].strip().lower()
         if user_message == "on":
             if not is_admin(client, author_id):  
                 response = "❌Bạn không phải admin bot!"
@@ -765,10 +769,10 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
             return
         
         if not (settings.get("bc", {}).get(thread_id, False)):
-            return
+            return False
         
         content = message.strip().split()
-        commands = "bc"
+        commands = "dhbc"
     
         if len(content) < 2:
             msg = "".join([
@@ -812,7 +816,9 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
                 "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
             ]
             
-            client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            if random.random() > 0.3:
+                client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
             client.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=msg, mention=Mention(author_id, length=len(f"{get_user_name_by_id(client, author_id)}"), offset=0)),
@@ -828,7 +834,7 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
                     os.remove(image_path)
             except Exception as e:
                 print(f"❌ Lỗi khi xóa ảnh: {e}")
-            return  # Thêm return để tránh lỗi tiếp tục xử lý
+            return "no_reaction"  # Thêm return để tránh lỗi tiếp tục xử lý
 
         if len(content) >= 2:
             command = content[1].lower()
@@ -853,7 +859,7 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
         if content[1] == "duavit":
             if len(content) < 3:
                 client.sendMessage(
-                    Message(text="❌ Vui lòng chọn số vịt bằng cách nhập: [-bc duavit [số vịt]]"),
+                    Message(text=f"❌ Vui lòng chọn số vịt bằng cách nhập: [{client.prefix}{commands} duavit [số vịt]]"),
                     thread_id=thread_id,
                     thread_type=thread_type,
                 )
@@ -894,7 +900,7 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
                 for msg_id, data in session.items():
                     if time.time() - data['timestamp'] > timeLimit:
                         client.sendMessage(
-                            Message(text="⏰ Bạn hết thời gian trả lời!\nVui lòng nhập [-bc batdau] để bắt đầu chơi tiếp."),
+                            Message(text=f"⏰ Bạn hết thời gian trả lời!\nVui lòng nhập [{client.prefix}{commands} batdau] để bắt đầu chơi tiếp."),
                             thread_id=thread_id,
                             thread_type=thread_type,
                         )
@@ -953,4 +959,4 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                 args.append(args_map[param_name])
             else:
                 args.append(None)
-        func(*args)
+        return func(*args)

@@ -639,7 +639,9 @@ def handle_create_image_command(message, message_object, thread_id, thread_type,
                 "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
             ]
             
-            client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            if random.random() > 0.3:
+                client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
             client.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(client, author_id)}"), offset=0)),

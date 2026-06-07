@@ -333,7 +333,9 @@ def handle_details_command(bot, message_object, thread_id, thread_type, author_i
 
     temp_file = None
     try:
-        active.sendReaction(message_object, "⏳", thread_id, thread_type)
+        if random.random() > 0.3:
+            active.sendReaction(message_object, "⏳", thread_id, thread_type)
+        active.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         temp_file = create_details_image(active, uptime_str, thread_id)
         active.sendLocalImage(
             temp_file,
@@ -342,7 +344,9 @@ def handle_details_command(bot, message_object, thread_id, thread_type, author_i
             width=1280,
             height=1200
         )
-        active.sendReaction(message_object, "✅", thread_id, thread_type)
+        if random.random() > 0.3:
+            active.sendReaction(message_object, "✅", thread_id, thread_type)
+        active.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
     except Exception as e:
         print(f"[details] Error: {e}")
         active.sendMessage(f"❌ Lỗi khi tải chi tiết cấu hình bot: {e}", thread_id, thread_type)

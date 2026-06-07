@@ -182,7 +182,9 @@ def meme(bot, message_object, author_id, thread_id, thread_type, command):
                         "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
                         "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
                     ]
-                    bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                    if random.random() > 0.3:
+                        bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                     bot.sendLocalImage(
                         temp_image_path, thread_id=thread_id, thread_type=thread_type,
                         message=Message(text=response), height=500, width=1280, ttl=1200000

@@ -1149,7 +1149,9 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             author_id = "Đéo Biết"
 
         action = random.choice(reactions)
-        client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+        if random.random() > 0.3:
+            client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+        client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
 
         try:
             image_path = generate_menu_image(client, author_id, thread_id, thread_type)
@@ -1195,7 +1197,9 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
 
     query = ' '.join(content[1:])
     action = random.choice(reactions)
-    client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+    if random.random() > 0.3:
+        client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+    client.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
     
     print(f"tìm từ bài hát: {query}")
     

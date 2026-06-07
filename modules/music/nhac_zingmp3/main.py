@@ -587,7 +587,9 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
     # Help/No search keyword
     if len(content) < 2:
         action = random.choice(reactions)
-        client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+        if random.random() > 0.3:
+            client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+        client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         
         caption = f"""🚦{username}
 ➜ Vui lòng nhập từ khóa tìm kiếm sau lệnh {client.prefix}mp3 🎵
@@ -600,7 +602,9 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
     # Chart query
     query = ' '.join(content[1:])
     action = random.choice(reactions)
-    client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+    if random.random() > 0.3:
+        client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+    client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
 
     if query.lower() == "chart":
         pending_msg = client.replyMessage(Message(text="⏳ Đang tải bảng xếp hạng ZingMP3..."), message_object, thread_id, thread_type)

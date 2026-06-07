@@ -467,7 +467,9 @@ def handle_make_command(message, message_object, thread_id, thread_type, author_
                 "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
             ]
             
-            self.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            if random.random() > 0.3:
+                self.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
             self.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=welcome_message, mention=Mention(author_id, length=len(f"{get_user_name_by_id(self, author_id)}"), offset=0)),

@@ -777,7 +777,9 @@ def handle_tx_command(bot, message_object, author_id, thread_id, thread_type, co
                         "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
                         "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
                     ]
-                    bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                    if random.random() > 0.3:
+                        bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                     bot.sendLocalImage(
                         temp_image_path, thread_id=thread_id, thread_type=thread_type,
                         message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)), height=500, width=1280, ttl=1200000

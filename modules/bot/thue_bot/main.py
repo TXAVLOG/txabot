@@ -848,7 +848,9 @@ def handle_thuebot_command(message, message_object, thread_id, thread_type, auth
                 "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
             ]
             
-            client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            if random.random() > 0.3:
+                client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+            client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
             client.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=msg, mention=Mention(author_id, length=len(user_name), offset=1)),

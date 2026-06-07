@@ -755,7 +755,9 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
     # Help/No search keyword
     if len(content) < 2:
         action = random.choice(reactions)
-        client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+        if random.random() > 0.3:
+            client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+        client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         
         caption = f"""🚦{username}
 ➜ Vui lòng nhập từ khóa tìm kiếm sau lệnh {client.prefix}nct 🎵
@@ -767,7 +769,9 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
     # Regular search query
     query = ' '.join(content[1:])
     action = random.choice(reactions)
-    client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+    if random.random() > 0.3:
+        client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
+    client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
 
     pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tìm bài hát trên NhacCuaTui..."), message_object, thread_id, thread_type)
     songs = search_music_nct(query)

@@ -15,9 +15,8 @@ from io import BytesIO
 from core.bot_sys import get_user_name_by_id, is_admin, read_settings, write_settings
 from zlapi.models import *
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BACKGROUND_PATH = os.path.join(BASE_DIR, "background")
-CACHE_PATH = os.path.join(BASE_DIR, "modules", "cache")
+BACKGROUND_PATH = "background/"
+CACHE_PATH = "modules/cache/"
 OUTPUT_IMAGE_PATH = os.path.join(CACHE_PATH, "news.png")
 
 HEADERS = {
@@ -131,7 +130,9 @@ def news(bot, message_object, author_id, thread_id, thread_type, command):
                     "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
                 ]
                 
-                bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                if random.random() > 0.3:
+                    bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+                bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
                 bot.sendLocalImage(
                     imagePath=image_path,
                     message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),

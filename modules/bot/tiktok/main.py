@@ -53,7 +53,9 @@ def txa_command(bot, message_object, author_id, thread_id, thread_type, message)
         
         # Gửi reaction 👍
         try:
-            bot.sendReaction(message_object, "👍", thread_id, thread_type)
+            if random.random() > 0.3:
+                bot.sendReaction(message_object, "👍", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         except Exception as react_err:
             print(f"[TikTok] Lỗi gửi reaction: {react_err}")
         
@@ -105,14 +107,18 @@ def txa_command(bot, message_object, author_id, thread_id, thread_type, message)
         
         # Gửi reaction ❤️ sau khi hoàn thành
         try:
-            bot.sendReaction(message_object, "❤️", thread_id, thread_type)
+            if random.random() > 0.3:
+                bot.sendReaction(message_object, "❤️", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
         except Exception as react_err:
             print(f"[TikTok] Lỗi gửi reaction hoàn thành: {react_err}")
         
     except Exception as e:
         # Gửi reaction 😢 nếu lỗi
         try:
-            bot.sendReaction(message_object, "😢", thread_id, thread_type)
+            if random.random() > 0.3:
+                bot.sendReaction(message_object, "😢", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
         except Exception as react_err:
             print(f"[TikTok] Lỗi gửi reaction lỗi: {react_err}")
         send_msg(bot, thread_id, thread_type, f"❌ Lỗi: {str(e)}", reply_to=message_object)
