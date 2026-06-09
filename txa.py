@@ -1639,6 +1639,23 @@ class DynamicCommandHandler:
                 print(f"[ERROR] couldn't send error message: {send_err}")
             return True
 
+def create_fancy_text_style(segments):
+    """
+    Tạo text và style JSON cho tin nhắn Zalo với nhiều hiệu ứng.
+    segments: list[dict] mỗi dict có 'text' và 'styles' (list các st string).
+    """
+    full_text = "".join(s["text"] for s in segments)
+    style_list = []
+    offset = 0
+    for seg in segments:
+        text = seg["text"]
+        length = len(text)
+        for st in seg.get("styles", []):
+            style_list.append({"start": offset, "len": length, "st": st})
+        offset += length
+    return full_text, json.dumps({"styles": style_list, "ver": 0})
+
+
 class bot(ZaloAPI):
     def __init__(self, api_key, secret_key, imei=None, session_cookies=None, prefix='', is_main_bot=None):
         super().__init__(api_key, secret_key, imei, session_cookies)
@@ -1699,6 +1716,31 @@ class bot(ZaloAPI):
         except Exception as e:
             logging.error(f"Lỗi khi kiểm tra/đổi tên Zalo: {e}")
             self.me_name = "TXA Bot"
+        # Notify after restart
+        try:
+            if os.path.exists('restart_target.json'):
+                with open('restart_target.json', 'r', encoding='utf-8') as f:
+                    restart_data = json.load(f)
+                target_thread_id = restart_data.get('thread_id')
+                target_thread_type_str = restart_data.get('thread_type', '')
+                target_thread_type = ThreadType.GROUP if 'GROUP' in target_thread_type_str else ThreadType.USER
+                if target_thread_id:
+                    restart_msg = "🚀 TXA Bot đã khởi động lại thành công!\n⚡ Hệ thống đã sẵn sàng hoạt động."
+                    line1_len = len("🚀 TXA Bot đã khởi động lại thành công!\n")
+                    line2_len = len("⚡ Hệ thống đã sẵn sàng hoạt động.")
+                    total_len = line1_len + line2_len
+                    restart_style = MultiMsgStyle([
+                        MessageStyle(style="color", color="00e5ff", offset=0, length=line1_len, auto_format=False),
+                        MessageStyle(style="bold", offset=0, length=line1_len, auto_format=False),
+                        MessageStyle(style="italic", offset=0, length=line1_len, auto_format=False),
+                        MessageStyle(style="color", color="ffd700", offset=line1_len, length=line2_len, auto_format=False),
+                        MessageStyle(style="bold", offset=line1_len, length=line2_len, auto_format=False),
+                        MessageStyle(style="underline", offset=line1_len, length=line2_len, auto_format=False),
+                    ])
+                    self.send(Message(text=restart_msg, style=restart_style), target_thread_id, target_thread_type)
+                os.remove('restart_target.json')
+        except Exception as e:
+            print(f"[DEBUG] Restart notify error: {e}")
         self.group_info_cache = {}
         all_group = self.fetchAllGroups()
         allowed_thread_ids = list(all_group.gridVerMap.keys())

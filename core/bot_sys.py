@@ -1,4 +1,4 @@
-
+﻿
 import colorsys
 from datetime import datetime, timedelta
 import difflib
@@ -3252,6 +3252,77 @@ def get_allow_goodbye(bot, thread_id: str) -> bool:
     settings = read_settings(bot.uid)
     return settings.get("goodbye", {}).get(thread_id, False)
 
+DEFAULT_WELCOME_CAPTION = "🎉 Chào mừng {user} đã đến với {type} {group}!\n👤 Hiện tại {type} đã có {member} thành viên.\n💬 Chúc bạn vui vẻ và tuân thủ nội quy nhóm!"
+DEFAULT_BYE_CAPTION = "👋 Tạm biệt {user}!\n📊 Nhóm {group} còn {member} thành viên.\n💫 Hẹn gặp lại bạn trên hành trình phía trước!"
+
+def _format_caption(caption, user_name, group_name, total_members, type_name, admin_name):
+    return caption.replace("{user}", user_name).replace("{group}", group_name).replace("{member}", str(total_members)).replace("{type}", type_name).replace("{admin}", admin_name)
+
+BANNER_COLORS = ["#f00e0e", "#f8f700", "#09f926", "#233ee6", "#46d0e5", "#9b23e6", "#f91be4", "#fe1e1e", "#da2df2", "#fbfbfb"]
+
+def _styled_banner_msg(text, mention=None):
+    """Create a Message with rainbow colored text for banner captions."""
+    lines = text.split('\n')
+    styles = []
+    offset = 0
+    for i, line in enumerate(lines):
+        color = BANNER_COLORS[i % len(BANNER_COLORS)]
+        styles.append(MessageStyle(style="color", color=color, offset=offset, length=len(line), auto_format=False))
+        offset += len(line) + 1
+    if lines:
+        styles.append(MessageStyle(style="font", size="14", offset=0, length=offset - 1, auto_format=False))
+    return Message(text=text, style=MultiMsgStyle(styles), mention=mention)
+
+MUSIC_COLORS = ["#00e5ff", "#ff4081", "#ffeb3b", "#00e676", "#ff9100", "#e040fb", "#18ffff", "#ff1744"]
+
+def _music_styled_msg(text, **kwargs):
+    """Create a styled Message with italic and neon colors for music modules."""
+    lines = text.split('\n')
+    styles = []
+    offset = 0
+    for i, line in enumerate(lines):
+        color = MUSIC_COLORS[i % len(MUSIC_COLORS)]
+        styles.append(MessageStyle(style="color", color=color, offset=offset, length=len(line), auto_format=False))
+        offset += len(line) + 1
+    if lines:
+        styles.append(MessageStyle(style="italic", offset=0, length=offset - 1, auto_format=False))
+        styles.append(MessageStyle(style="font", size="13", offset=0, length=offset - 1, auto_format=False))
+    return Message(text=text, style=MultiMsgStyle(styles), **kwargs)
+
+def get_welcome_caption(bot, thread_id: str) -> str:
+    settings = read_settings(bot.uid)
+    return settings.get("welcome_caption", {}).get(thread_id, DEFAULT_WELCOME_CAPTION)
+
+def set_welcome_caption(bot, thread_id: str, caption: str):
+    settings = read_settings(bot.uid)
+    if "welcome_caption" not in settings:
+        settings["welcome_caption"] = {}
+    settings["welcome_caption"][thread_id] = caption
+    write_settings(bot.uid, settings)
+
+def reset_welcome_caption(bot, thread_id: str):
+    settings = read_settings(bot.uid)
+    if "welcome_caption" in settings and thread_id in settings["welcome_caption"]:
+        del settings["welcome_caption"][thread_id]
+        write_settings(bot.uid, settings)
+
+def get_bye_caption(bot, thread_id: str) -> str:
+    settings = read_settings(bot.uid)
+    return settings.get("bye_caption", {}).get(thread_id, DEFAULT_BYE_CAPTION)
+
+def set_bye_caption(bot, thread_id: str, caption: str):
+    settings = read_settings(bot.uid)
+    if "bye_caption" not in settings:
+        settings["bye_caption"] = {}
+    settings["bye_caption"][thread_id] = caption
+    write_settings(bot.uid, settings)
+
+def reset_bye_caption(bot, thread_id: str):
+    settings = read_settings(bot.uid)
+    if "bye_caption" in settings and thread_id in settings["bye_caption"]:
+        del settings["bye_caption"][thread_id]
+        write_settings(bot.uid, settings)
+
 def _is_banner_enabled(settings, thread_id, event_type) -> bool:
     if event_type == GroupEventType.LEAVE:
         return settings.get("goodbye", {}).get(thread_id, False)
@@ -3290,33 +3361,27 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 ow_name = "Quản trị viên"
 
         prefix = getattr(bot, 'prefix', '!')
-        join_msg = (
-            f"🎉 Chào mừng {user_name} vào nhóm {group_name}!\n"
-            f"👤 Thành viên thứ {total_members}"
-            + (f" | Duyệt bởi {ow_name}" if ow_name else "")
-            + f"\n📌 Gõ {prefix}menu để khám phá bot\n"
-            f"💬 Chúc bạn vui vẻ và tuân thủ nội quy nhóm!"
-        )
-        leave_msg = (
-            f"👋 Tạm biệt {user_name}!\n"
-            f"📊 Nhóm {group_name} còn {total_members} thành viên\n"
-            f"💫 Hẹn gặp lại bạn trên hành trình phía trước!"
-        )
+        type_name = "nhóm"
+        welcome_caption = get_welcome_caption(bot, thread_id)
+        bye_caption = get_bye_caption(bot, thread_id)
+
+        join_msg = _format_caption(welcome_caption, user_name, group_name, total_members, type_name, ow_name)
+        leave_msg = _format_caption(bye_caption, user_name, group_name, total_members, type_name, ow_name)
 
         event_config = {
             GroupEventType.JOIN: {
-                'main_text': f'Chào mừng, {user_name}',
-                'group_name_text': group_name,
-                'credit_text': f"Được duyệt bởi {ow_name}" if ow_name else "Đã được duyệt vào nhóm",
-                'banner_sub': f"Thành viên thứ {total_members}  •  Gõ {prefix}menu để xem lệnh bot",
+                'main_text': f'🎉 Chào mừng, {user_name}',
+                'group_name_text': f"📌 {group_name}",
+                'credit_text': f"✅ Được duyệt bởi {ow_name}" if ow_name else "✅ Đã được duyệt vào nhóm",
+                'banner_sub': f"👤 Thành viên thứ {total_members}  •  🔥 Gõ {prefix}menu để khám phá bot",
                 'msg': join_msg,
                 'mention': Mention(uid=uid, offset=12, length=len(user_name))
             },
             GroupEventType.LEAVE: {
-                'main_text': f'Tạm biệt, {user_name}',
-                'group_name_text': group_name,
-                'credit_text': "Đã rời khỏi nhóm",
-                'banner_sub': f"Nhóm còn {total_members} thành viên",
+                'main_text': f'👋 Tạm biệt, {user_name}',
+                'group_name_text': f"📌 {group_name}",
+                'credit_text': "🚪 Đã rời khỏi nhóm",
+                'banner_sub': f"📊 Nhóm còn {total_members} thành viên",
                 'msg': leave_msg,
                 'mention': Mention(uid=uid, offset=11, length=len(user_name))
             },
@@ -3518,7 +3583,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                     thread_type=thread_type,
                     width=banner_width,
                     height=banner_height,
-                    message=Message(text=config['msg'], mention=config.get('mention')),
+                    message=_styled_banner_msg(config['msg'], mention=config.get('mention')),
                     ttl=60000 * 60
                 )
         except Exception as e:
@@ -3782,3 +3847,4 @@ def start_member_check_thread(bot, allowed_thread_ids: List[str]):
 
     thread = threading.Thread(target=check_members_loop, daemon=True)
     thread.start()
+

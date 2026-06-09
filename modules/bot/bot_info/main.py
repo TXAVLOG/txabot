@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import os
@@ -6,6 +6,7 @@ import glob
 import random
 import re
 import string
+import sys
 import threading
 import time
 from typing import List, Tuple
@@ -14,6 +15,7 @@ import emoji
 import requests
 from zlapi.models import *
 from config import *
+import config
 from core.bot_sys import (
     is_group_admin_or_creator,
     cleanup_pending_messages,
@@ -56,6 +58,9 @@ BOT_SUB_COMMANDS = [
     {"name": "Hủy Kho ảnh", "cmd": "{prefix}unduyet <@tag/ID>", "desc": "🌸 Hủy duyệt quyền Kho ảnh đối với thành viên", "oa": False},
     {"name": "Xóa tin nhắn", "cmd": "{prefix}del @user [count]", "desc": "🗑️ Xóa count tin gần nhất của user được tag; vẫn hỗ trợ reply hoặc xóa tin kề trước", "oa": False},
     {"name": "Tự động duyệt mem", "cmd": "{prefix}bot autoapprove on/off", "desc": "✅ Bật / Tắt tự động duyệt thành viên yêu cầu vào nhóm", "oa": True},
+    {"name": "Thông tin Bot", "cmd": "{prefix}bot mybot", "desc": "🤖 Xem thông tin Bot của bạn", "oa": False},
+    {"name": "Đổi Prefix", "cmd": "{prefix}bot prefix [ký tự]", "desc": "🔧 Đổi prefix lệnh Bot (admin)", "oa": False},
+    {"name": "Khởi động lại Bot", "cmd": "{prefix}bot reset", "desc": "♻️ Khởi động lại Bot (admin)", "oa": False},
 ]
 
 txa = {
@@ -2426,6 +2431,92 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = "➜ Số lần và phút phạt phải là số nguyên 🤧"
                         else:
                             response = f"➜ Cú pháp: {prefix}bot policy {policy_type} [on/off] hoặc {prefix}bot policy {policy_type} [lần] [phút] [mute/kick/warn]"
+                elif action == 'mybot':
+                    import datetime as _dt
+                    uptime_sec = int(time.time() - bot.start_time)
+                    uptime_str = str(_dt.timedelta(seconds=uptime_sec))
+                    response = (
+                        f"🤖 [ THÔNG TIN BOT ]\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"➜ 🆔 Tên: {bot.me_name}\n"
+                        f"➜ 🔢 Version: {bot.version}\n"
+                        f"➜ 📅 Update: {bot.date_update}\n"
+                        f"➜ ⌨️ Prefix: {bot.prefix}\n"
+                        f"➜ ⏱️ Uptime: {uptime_str}\n"
+                        f"➜ 🆔 UID: {bot.uid}\n"
+                        f"━━━━━━━━━━━━━━━━━━━━"
+                    )
+
+                elif action == 'prefix':
+                    if not is_admin(author_id):
+                        response = "❌ Bạn không phải admin bot!"
+                    elif len(parts) < 3:
+                        response = f"➜ Vui lòng nhập prefix mới sau lệnh: {prefix}bot prefix 🤧\n➜ Ví dụ: {prefix}bot prefix ! ✅"
+                    else:
+                        new_prefix = parts[2].strip()
+                        if not new_prefix:
+                            response = "➜ Prefix không được để trống 🤧"
+                        elif len(new_prefix) > 5:
+                            response = "➜ Prefix tối đa 5 ký tự 🤧"
+                        else:
+                            bot.prefix = new_prefix
+
+                            # Lưu vào txa.json để persist qua restart
+                            try:
+                                config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "txa.json")
+                                if os.path.exists(config_path):
+                                    with open(config_path, "r", encoding="utf-8") as f:
+                                        txa_config = json.load(f)
+                                    if "data" in txa_config and len(txa_config["data"]) > 0:
+                                        txa_config["data"][0]["prefix"] = new_prefix
+                                    else:
+                                        txa_config["data"] = [{"prefix": new_prefix}]
+                                    with open(config_path, "w", encoding="utf-8") as f:
+                                        json.dump(txa_config, f, ensure_ascii=False, indent=4)
+                            except Exception as e:
+                                print(f"[PREFIX SAVE] Lỗi lưu txa.json: {e}")
+
+                            # Cập nhật runtime config module
+                            config.prefix = new_prefix
+
+                            response = f"✅ Đã đổi prefix thành: {new_prefix}"
+
+                elif action == 'reset':
+                    if not is_admin(author_id):
+                        response = "❌ Bạn không phải admin bot!"
+                    else:
+                        reset_text = (
+                            f"🔄 [ KHỞI ĐỘNG LẠI BOT ]\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"➜ 🤖 Bot: {bot.me_name}\n"
+                            f"➜ ⏱️ Uptime: {str(timedelta(seconds=int(time.time() - bot.start_time)))}\n"
+                            f"➜ 🔄 Trạng thái: Đang khởi động lại...\n"
+                            f"━━━━━━━━━━━━━━━━━━━━"
+                        )
+                        # Styled reset message
+                        lines = reset_text.split('\n')
+                        styles = []
+                        offset = 0
+                        colors = ["#ff4081", "#00e5ff", "#ffeb3b", "#00e676", "#aa00ff"]
+                        for i, line in enumerate(lines):
+                            color = colors[i % len(colors)]
+                            styles.append(MessageStyle(style="color", color=color, offset=offset, length=len(line), auto_format=False))
+                            offset += len(line) + 1
+                        if lines:
+                            styles.append(MessageStyle(style="bold", offset=0, length=offset - 1, auto_format=False))
+                        bot.replyMessage(
+                            Message(text=reset_text, style=MultiMsgStyle(styles)),
+                            message_object, thread_id=thread_id, thread_type=thread_type
+                        )
+                        # Save restart target so bot can notify after reboot
+                        try:
+                            with open('restart_target.json', 'w', encoding='utf-8') as f:
+                                json.dump({'thread_id': thread_id, 'thread_type': str(thread_type)}, f)
+                        except Exception as e:
+                            print(f"[DEBUG] Lỗi lưu restart_target: {e}")
+                        time.sleep(2)
+                        os.execl(sys.executable, sys.executable, *sys.argv)
+
                 else:
                     bot.replyMessage(Message(text=f"➜ Lệnh [{prefix}bot {action}] không được hỗ trợ 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
             

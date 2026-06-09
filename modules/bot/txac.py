@@ -13,6 +13,8 @@ CONFIG = {
         "func_disbox/main.py": {"emoji": "❖", "title": "Disbox", "cmds": ["disbox"]},
         "func_kickall/main.py": {"emoji": "❖", "title": "Kickall", "cmds": ["kickall"]},
         "func_leave/main.py": {"emoji": "❖", "title": "Leave", "cmds": ["leave_group"]},
+        "func_welcome/main.py": {"emoji": "👋", "title": "Welcome & Bye", "cmds": ["welcome", "bye"]},
+        "func_group_link/main.py": {"emoji": "🔗", "title": "Link nhóm", "cmds": ["link"]},
         "func_pin/main.py": {"emoji": "❖", "title": "Pinterest", "cmds": ["pin"]},
         "func_spamsms/main.py": {"emoji": "❖", "title": "Spamsms", "cmds": ["sms"]},
         "func_spam_call/main.py": {"emoji": "❖", "title": "Spamcall", "cmds": ["spamcall"]},

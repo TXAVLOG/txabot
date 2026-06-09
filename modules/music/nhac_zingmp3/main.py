@@ -12,6 +12,7 @@ from io import BytesIO
 import emoji
 from colorsys import hsv_to_rgb, rgb_to_hsv
 from zlapi.models import *
+from core.bot_sys import _music_styled_msg
 
 API_KEY = "X5BM3w8N7MKozC0B85o4KMlzLZKhV00y"
 SECRET_KEY = "acOrvUS15XRW2o9JksiK1KgQ6Vbds8ZW"
@@ -467,7 +468,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             del user_states[author_id]
             text = f"🚦{username} Thời gian chọn bài hát đã hết hạn! Vui lòng tìm kiếm lại nhé."
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            msg = Message(text=text, mention=mention)
+            msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             return
 
@@ -477,7 +478,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         if selector_index < 0 or selector_index >= len(songs):
             text = f"🚦{username}, số thứ tự không hợp lệ: {content[1]}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         # Recall the search image
@@ -521,7 +522,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 👤 Ca sĩ: {artists}
 ⏳ Bé đang tải nhạc, đợi tí nha... 🎧"""
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+        client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
         # Get stream link
         stream_res = request_zing("/api/v2/song/get/streaming", {"id": encode_id})
@@ -534,7 +535,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
         if not stream_url:
             text = f"🚦{username}, bài hát này yêu cầu tài khoản VIP hoặc không có link stream miễn phí 🤧"
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         # Single image
@@ -553,7 +554,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
             if not upload_url:
                 text = f"🚦{username}, không thể tải nhạc lên server trung gian 🤧"
-                client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+                client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
                 return
 
             if song_image_path and os.path.exists(song_image_path):
@@ -574,11 +575,11 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                         line = " ".join([w.get("data", "") for w in sent.get("words", [])]).strip()
                         if line:
                             lyrics_text += line + "\n"
-                    client.send(Message(text=lyrics_text), thread_id, thread_type, ttl=180000)
+                    client.send(_music_styled_msg(text=lyrics_text), thread_id, thread_type, ttl=180000)
             
         except Exception as e:
             print("ZingMP3 play error:", e)
-            client.replyMessage(Message(text=f"🚦{username}, đã xảy ra lỗi khi tải nhạc: {str(e)}"), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=f"🚦{username}, đã xảy ra lỗi khi tải nhạc: {str(e)}"), message_object, thread_id, thread_type, ttl=60000)
 
         if author_id in user_states:
             del user_states[author_id]
@@ -596,7 +597,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 ➜ Ví dụ: {client.prefix}mp3 dừng thương
 ➜ Lấy BXH HOT nhất: {client.prefix}mp3 chart"""
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        client.replyMessage(Message(text=caption, mention=mention), message_object, thread_id, thread_type)
+        client.replyMessage(_music_styled_msg(text=caption, mention=mention), message_object, thread_id, thread_type)
         return
 
     # Chart query
@@ -607,7 +608,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
     client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
 
     if query.lower() == "chart":
-        pending_msg = client.replyMessage(Message(text="⏳ Đang tải bảng xếp hạng ZingMP3..."), message_object, thread_id, thread_type)
+        pending_msg = client.replyMessage(_music_styled_msg(text="⏳ Đang tải bảng xếp hạng ZingMP3..."), message_object, thread_id, thread_type)
         chart_res = request_zing("/api/v2/page/get/chart-home")
 
         if not chart_res or "data" not in chart_res or "RTChart" not in chart_res["data"]:
@@ -617,7 +618,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                 except:
                     pass
             text = f"🚦{username}, không thể lấy bảng xếp hạng ZingMP3."
-            client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+            client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
             return
 
         items = chart_res["data"]["RTChart"].get("items", [])[:20]
@@ -628,7 +629,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                 except:
                     pass
             text = f"🚦{username}, bảng xếp hạng rỗng."
-            client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+            client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
             return
 
         songs_list = []
@@ -686,7 +687,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
             with Image.open(image_path) as img:
                 w, h = img.size
-            sent_msg = client.sendLocalImage(image_path, message=Message(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
+            sent_msg = client.sendLocalImage(image_path, message=_music_styled_msg(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
             if sent_msg:
                 user_states[author_id]['search_msg'] = sent_msg
             delete_file(image_path)
@@ -699,7 +700,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         return
 
     # Regular search query
-    pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tìm bài hát trên ZingMP3..."), message_object, thread_id, thread_type)
+    pending_msg = client.replyMessage(_music_styled_msg(text="⏳ Chờ bé một tí, đang tìm bài hát trên ZingMP3..."), message_object, thread_id, thread_type)
     search_res = request_zing("/api/v2/search", {"q": query, "type": "song", "count": 20, "allowCorrect": 1})
 
     if not search_res or "data" not in search_res or "items" not in search_res["data"]:
@@ -709,7 +710,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             except:
                 pass
         text = f"🚦{username}, không tìm thấy bài hát nào trên ZingMP3."
-        client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
         return
 
     items = search_res["data"]["items"][:20]
@@ -769,13 +770,13 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
         with Image.open(image_path) as img:
             w, h = img.size
-        sent_msg = client.sendLocalImage(image_path, message=Message(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
+        sent_msg = client.sendLocalImage(image_path, message=_music_styled_msg(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
         if sent_msg:
             user_states[author_id]['search_msg'] = sent_msg
         delete_file(image_path)
     else:
         text = f"🚦{username}, gặp lỗi khi tạo danh sách hình ảnh bài hát."
-        client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
 
     if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
         try:

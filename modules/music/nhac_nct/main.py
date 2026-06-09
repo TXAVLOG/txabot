@@ -13,6 +13,7 @@ from io import BytesIO
 import emoji
 from colorsys import hsv_to_rgb, rgb_to_hsv
 from zlapi.models import *
+from core.bot_sys import _music_styled_msg
 
 user_states = {}
 SEARCH_TIMEOUT = 120
@@ -784,7 +785,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
             del user_states[author_id]
             text = f"🚦{username} Thời gian chọn bài hát đã hết hạn! Vui lòng tìm kiếm lại nhé."
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            msg = Message(text=text, mention=mention)
+            msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             return
 
@@ -794,7 +795,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         if selector_index < 0 or selector_index >= len(songs):
             text = f"🚦{username}, số thứ tự không hợp lệ: {content[1]}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         # Recall the search image
@@ -832,7 +833,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 ☁️ Nguồn: NhacCuaTui
 ⏳ Bé đang tải nhạc, đợi tí nha... 🎧"""
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+        client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
         # Get stream url & stats
         nct_details = get_nct_song_details(song_link)
@@ -843,7 +844,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
         if not stream_url:
             text = f"🚦{username}, không tìm thấy link stream hoặc bài hát yêu cầu tài khoản VIP 🤧"
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         # Single image
@@ -862,7 +863,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
             if not upload_url:
                 text = f"🚦{username}, không thể tải nhạc lên server trung gian 🤧"
-                client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+                client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
                 return
 
             if song_image_path and os.path.exists(song_image_path):
@@ -875,7 +876,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
         except Exception as e:
             print("NCT play error:", e)
-            client.replyMessage(Message(text=f"🚦{username}, đã xảy ra lỗi khi tải nhạc: {str(e)}"), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=f"🚦{username}, đã xảy ra lỗi khi tải nhạc: {str(e)}"), message_object, thread_id, thread_type, ttl=60000)
 
         if author_id in user_states:
             del user_states[author_id]
@@ -893,7 +894,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 ➜ Ví dụ: {client.prefix}nct dừng thương
 ➜ Lấy BXH HOT nhất: {client.prefix}nct chart hoặc {client.prefix}nct bxh"""
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        client.replyMessage(Message(text=caption, mention=mention), message_object, thread_id, thread_type)
+        client.replyMessage(_music_styled_msg(text=caption, mention=mention), message_object, thread_id, thread_type)
         return
 
     # Regular search query or Chart query
@@ -907,10 +908,10 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
     is_chart_query = (query.lower() in ["chart", "bxh"]) or (cmd == "nctchart")
 
     if is_chart_query:
-        pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tải bảng xếp hạng NhacCuaTui..."), message_object, thread_id, thread_type)
+        pending_msg = client.replyMessage(_music_styled_msg(text="⏳ Chờ bé một tí, đang tải bảng xếp hạng NhacCuaTui..."), message_object, thread_id, thread_type)
         songs = get_nct_chart()
     else:
-        pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tìm bài hát trên NhacCuaTui..."), message_object, thread_id, thread_type)
+        pending_msg = client.replyMessage(_music_styled_msg(text="⏳ Chờ bé một tí, đang tìm bài hát trên NhacCuaTui..."), message_object, thread_id, thread_type)
         songs = search_music_nct(query)
 
     if not songs:
@@ -920,7 +921,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
             except:
                 pass
         text = f"🚦{username}, không tìm thấy bài hát nào trên NhacCuaTui."
-        client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
         return
 
     songs = songs[:20]
@@ -937,13 +938,13 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
         with Image.open(image_path) as img:
             w, h = img.size
-        sent_msg = client.sendLocalImage(image_path, message=Message(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
+        sent_msg = client.sendLocalImage(image_path, message=_music_styled_msg(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
         if sent_msg:
             user_states[author_id]['search_msg'] = sent_msg
         delete_file(image_path)
     else:
         text = f"🚦{username}, gặp lỗi khi tạo danh sách hình ảnh bài hát."
-        client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
 
     if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
         try:

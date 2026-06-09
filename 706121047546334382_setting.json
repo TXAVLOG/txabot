@@ -212,5 +212,7 @@
             "22:06",
             "23:30"
         ]
-    }
+    },
+    "welcome_caption": {},
+    "bye_caption": {}
 }

@@ -1,5 +1,5 @@
 import subprocess
-from core.bot_sys import is_admin
+from core.bot_sys import is_admin, _music_styled_msg
 from zlapi.models import *
 import requests
 from bs4 import BeautifulSoup
@@ -1026,7 +1026,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             del user_states[author_id]
             text = f"🚦{username} Thời Gian Phản Hồi Hết Ròi Vui Lòng Chọn Scl <Tên bài hát> Khác Để Nghe Nhạc Nhé..!"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            msg = Message(text=text, mention=mention)
+            msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             return
 
@@ -1037,7 +1037,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[DEBUG] Số thứ tự không hợp lệ: {content[1]}")
             text = f"🚦{username}, số thứ tự không hợp lệ: {content[1]}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         # Recall the search image
@@ -1093,7 +1093,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
 🔗 Link : {link}
 ⏳Chờ Lấy Nhạc Nhé...🎧"""
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        msg = Message(text=text, mention=mention)
+        msg = _music_styled_msg(text=text, mention=mention)
 
         if temp_cover_path and os.path.exists(temp_cover_path):
             try:
@@ -1104,7 +1104,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 print(f"[DEBUG] Đã gửi và xóa ảnh thumbnail tạm: {temp_cover_path}")
             except Exception as e:
                 print(f"[ERROR] Lỗi khi gửi ảnh thumbnail: {e}")
-                client.replyMessage(Message(text=text.replace("[ảnh]", ""), mention=mention), message_object, thread_id, thread_type, ttl=60000)
+                client.replyMessage(_music_styled_msg(text=text.replace("[ảnh]", ""), mention=mention), message_object, thread_id, thread_type, ttl=60000)
         else:
             client.replyMessage(msg.replace("[ảnh]", ""), message_object, thread_id, thread_type, ttl=60000)
 
@@ -1113,7 +1113,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[DEBUG] bug rồi sếp ơi: {title}")
             text = f"🚦{username}, không thể tạo ảnh cho bài: {title}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         if is_valid_image_url(cover_url):
@@ -1133,7 +1133,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[DEBUG] Không tải được âm thanh cho bài: {title}")
             text = f"🚦{username}, không thể tải: {title}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         safe_title = re.sub(r'[<>:"/\\|?*]', '_', title).replace(' ', '_')
@@ -1142,7 +1142,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[DEBUG] Lỗi lưu tệp âm thanh cho bài: {title}")
             text = f"🚦{username}, lỗi lưu tệp âm thanh cho bài: {title}. Vui lòng thử lại."
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         upload_response = upload_to_uguu(file_path)
@@ -1152,7 +1152,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[DEBUG] Lỗi tải lên tệp âm thanh cho bài: {title}")
             text = f"🚦{username}, lỗi tải lên tệp âm thanh cho bài: {title}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         try:
@@ -1160,7 +1160,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 width, height = img.size
             text = f"🚦{username}, cùng chill theo nhạc nào"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            msg = Message(text=text, mention=mention)
+            msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             time.sleep(0)
             client.sendLocalImage(song_image_path, thread_id, thread_type, width=width, height=height, ttl=600000)
@@ -1176,7 +1176,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[ERROR] Lỗi khi gửi bài hát: {e}")
             text = f"🚦{username}, lỗi khi gửi bài hát: {str(e)}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
         del user_states[author_id]
@@ -1228,10 +1228,10 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 print(f"[DEBUG] Đã gửi và xóa ảnh: {image_path}")
             except Exception as e:
                 print(f"[ERROR] Lỗi khi gửi ảnh menu: {e}")
-                client.replyMessage(Message(text=f"{caption}\n❌ Lỗi khi gửi ảnh: {str(e)}"), message_object, thread_id, thread_type)
+                client.replyMessage(_music_styled_msg(text=f"{caption}\n❌ Lỗi khi gửi ảnh: {str(e)}"), message_object, thread_id, thread_type)
         else:
             error_msg = f"{caption}\n❌ Không tạo được ảnh menu. Kiểm tra thư mục background/ và font/."
-            client.replyMessage(Message(text=error_msg), message_object, thread_id, thread_type)
+            client.replyMessage(_music_styled_msg(text=error_msg), message_object, thread_id, thread_type)
             print("✅ Đã gửi menu dạng văn bản do lỗi ảnh!")
         return
 
@@ -1245,7 +1245,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
     
     pending_msg = None
     try:
-        pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tìm kiếm bài hát..."), message_object, thread_id, thread_type)
+        pending_msg = client.replyMessage(_music_styled_msg(text="⏳ Chờ bé một tí, đang tìm kiếm bài hát..."), message_object, thread_id, thread_type)
     except Exception as e:
         print(f"[ERROR] Không thể gửi tin nhắn chờ: {e}")
         
@@ -1259,7 +1259,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 print(f"[ERROR] Không thể thu hồi tin nhắn chờ: {e}")
         text = f"🚦{username}, không tìm thấy bài hát."
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+        client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
         return
 
     user_states[author_id] = {
@@ -1276,7 +1276,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 width, height = img.size
                 text = f"🚦{username}, Nhập {client.prefix}Scl <số> để chọn bài 🎯\n 💞Ví Dụ: {client.prefix}scl 3 ✅"
                 mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-                msg = Message(text=text, mention=mention)
+                msg = _music_styled_msg(text=text, mention=mention)
             sent_msg = client.sendLocalImage(image_path, message=msg, thread_id=thread_id, thread_type=thread_type, width=width, height=height, ttl=600000)
             if sent_msg:
                 user_states[author_id]['search_msg'] = sent_msg
@@ -1284,11 +1284,11 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             print(f"[ERROR] Lỗi gửi ảnh danh sách: {e}")
             text = f"🚦{username}, không thể gửi ảnh danh sách: {str(e)}"
             mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-            client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
     else:
         text = f"🚦{username}, không thể tạo ảnh danh sách bài hát."
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
-        client.replyMessage(Message(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+        client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
     if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
         try:
