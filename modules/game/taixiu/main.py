@@ -934,7 +934,19 @@ def create_menu1_image(command_names, page, bot, author_id):
 
 txa = {
     "name": "pro_taixiu",
-    "desc": "Game tài xỉu với hệ thống ví tiền, nạp tiền, top người chơi. Hỗ trợ nhiều lệnh quản lý tài khoản. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "taixiu": "Bảng tài xỉu",
+        "top": "Xem BXH người chơi",
+        "taoma": "Tạo mã code (Admin)",
+        "sudung": "Nhập mã nhận xu",
+        "vitien": "Xem số dư ví",
+        "naptien": "Chuyển tiền người khác",
+        "daily": "Điểm danh hàng ngày",
+        "dangky": "Đăng ký tài khoản mới",
+        "xoataikhoan": "Xóa tài khoản (Admin)",
+        "vohantien": "Cấp vô hạn tiền (Admin)",
+        "tx": "Lệnh chính chơi tài xỉu"
+    },
     "author": "TXA",
     "command": ['taixiu', 'top', 'taoma', 'sudung', 'vitien', 'naptien', 'daily', 'dangky', 'xoataikhoan', 'vohantien', 'tx']
 }

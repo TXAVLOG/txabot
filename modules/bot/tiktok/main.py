@@ -13,7 +13,14 @@ CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../
 
 txa = {
     "name": "TikTok API",
-    "desc": "Tải video, tìm kiếm và lấy thông tin TikTok bằng API KaiRobot",
+    "desc": {
+        "tiktok": "Tải video TikTok",
+        "downtik": "Tải video TikTok",
+        "tt": "Tải video TikTok",
+        "tiktokinfo": "Thông tin kênh TikTok",
+        "in4tiktok": "Thông tin kênh TikTok",
+        "tiktoksearch": "Tìm kiếm video TikTok"
+    },
     "author": "TXA",
     "command": ["tiktok", "downtik", "tt", "tiktokinfo", "in4tiktok", "tiktoksearch"]
 }
@@ -163,6 +170,51 @@ def _normalize_download(data):
     return video_url, cover_url, title, duration, width, height
 
 
+def _find_tiktok_com_url(obj):
+    if isinstance(obj, str) and obj.startswith("http") and "tiktok.com" in obj:
+        return obj
+    if isinstance(obj, dict):
+        for v in obj.values():
+            res = _find_tiktok_com_url(v)
+            if res:
+                return res
+    if isinstance(obj, list):
+        for item in obj:
+            res = _find_tiktok_com_url(item)
+            if res:
+                return res
+    return ""
+
+
+def _get_tiktok_share_url(item):
+    # Try to extract video id and author name
+    video_id = _pick(item, "id", "video_id", "aweme_id")
+    author_id = _pick(item, "author.unique_id", "author.uniqueId", "author.nickname")
+    if video_id and author_id:
+        return f"https://www.tiktok.com/@{author_id}/video/{video_id}"
+        
+    # Check if there is an existing share_url or web_url
+    for key in ("share_url", "web_url", "url", "link"):
+        val = _pick(item, key)
+        if isinstance(val, str) and "tiktok.com" in val:
+            return val
+            
+    # Try finding any url containing tiktok.com in the object
+    found = _find_tiktok_com_url(item)
+    if found:
+        return found
+        
+    # Extract from tikwm play url if possible
+    play_url = _find_url(item, ("play", "wmplay", "hdplay", "url"))
+    if play_url and "tikwm.com" in play_url:
+        match = re.search(r'/play/(\d+)', play_url)
+        if match and author_id:
+            return f"https://www.tiktok.com/@{author_id}/video/{match.group(1)}"
+            
+    return play_url or "Không có link"
+
+
+
 def _download_via_kairobot(link):
     data = _api_get("/tiktok/download", {"url": link})
     return _normalize_download(data)
@@ -204,6 +256,33 @@ def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_typ
     except Exception:
         pass
 
+    # If user sent a direct mp4 play link instead of a tiktok page url
+    if "tiktok.com" not in link and ("tikwm.com/video/media/play" in link or link.endswith(".mp4")):
+        try:
+            _send_text(bot, thread_id, thread_type, f"✅ Đang gửi video trực tiếp...\nLink: {link}", message_object)
+            bot.sendRemoteVideo(
+                videoUrl=link,
+                thumbnailUrl="https://i.imgur.com/f3nK6z5.jpeg",
+                duration=10000,
+                thread_id=thread_id,
+                thread_type=thread_type,
+                width=1080,
+                height=1920,
+                message=Message(text=f"Tiêu đề: TikTok video\n🔗 Link: {link}")
+            )
+            try:
+                bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            except Exception:
+                pass
+            return
+        except Exception as e:
+            try:
+                bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+            except Exception:
+                pass
+            _send_text(bot, thread_id, thread_type, f"❌ Lỗi khi gửi trực tiếp: {str(e)}", message_object)
+            return
+
     try:
         try:
             video_url, cover_url, title, duration, width, height = _download_via_kairobot(link)
@@ -218,7 +297,7 @@ def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_typ
         _send_text(bot, thread_id, thread_type, f"✅ Đang tải video TikTok...\nTiêu đề: {title}", message_object)
         bot.sendRemoteVideo(
             videoUrl=video_url,
-            thumbnailUrl=cover_url or "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl",
+            thumbnailUrl=cover_url or "https://i.imgur.com/f3nK6z5.jpeg",
             duration=int(float(duration or 10)) * 1000,
             thread_id=thread_id,
             thread_type=thread_type,
@@ -302,12 +381,12 @@ def handle_tiktok_search(bot, message_object, author_id, thread_id, thread_type,
             likes = _pick(item, "digg_count", "like_count", "stats.diggCount", "stats.likeCount", default=0)
             plays = _pick(item, "play_count", "playCount", "stats.playCount", default=0)
             author_name = _pick(item, "author.unique_id", "author.uniqueId", "author.nickname", default="Không có tác giả")
-            link = _find_url(item, ("share_url", "url", "link", "web_url"))
+            link = _get_tiktok_share_url(item)
             lines.append(f"[ {i} ]. Tiêu đề: {title}")
             lines.append(f"   - Tác giả: {author_name}")
             lines.append(f"   - Lượt xem: {_format_number(plays)}")
             lines.append(f"   - Lượt thích: {_format_number(likes)}")
-            lines.append(f"   - Link: {link or 'Không có link'}")
+            lines.append(f"   - Link: {link}")
             lines.append("")
         text = "\n".join(lines)
         if len(text) > 2500:

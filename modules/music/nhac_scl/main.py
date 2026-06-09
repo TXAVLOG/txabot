@@ -1299,7 +1299,10 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
 
 txa = {
     "name": "pro_scl",
-    "desc": "Nghe nhạc từ SoundCloud. Hỗ trợ tìm kiếm và gửi bài hát vào nhóm. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "scl": "Nghe nhạc SoundCloud",
+        "nhac": "Nghe nhạc SoundCloud"
+    },
     "author": "TXA",
     "command": ['scl', 'nhac']
 }

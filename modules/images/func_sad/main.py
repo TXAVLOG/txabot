@@ -93,7 +93,10 @@ def handle_sadbykai_command(message, message_object, thread_id, thread_type, aut
 
 txa = {
     "name": "pro_sad",
-    "desc": "Gửi ảnh buồn/triste vào nhóm. Hỗ trợ các ảnh mood buồn. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "sadbykai": "Ảnh buồn tâm trạng",
+        "sadd": "Ảnh buồn tâm trạng"
+    },
     "author": "TXA",
     "command": ['sadbykai', 'sadd']
 }

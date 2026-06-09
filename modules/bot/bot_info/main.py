@@ -60,7 +60,12 @@ BOT_SUB_COMMANDS = [
 
 txa = {
     "name": "Bot Help & Settings",
-    "desc": "Xem hướng dẫn sử dụng và cấu hình cài đặt của Bot",
+    "desc": {
+        "bot": "Xem hướng dẫn và cấu hình Bot",
+        "del": "Xóa tin nhắn gần nhất",
+        "xoa": "Xóa tin nhắn nhanh",
+        "delete": "Xóa tin nhắn"
+    },
     "author": "TXA",
     "command": ["bot", "del", "xoa", "delete"]
 }

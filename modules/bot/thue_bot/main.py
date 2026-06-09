@@ -1235,7 +1235,20 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
 
 txa = {
     "name": "pro_thue_bot",
-    "desc": "Quản lý thuê bot: tạo, khóa, mở khóa, xóa bot. Hỗ trợ nhiều lệnh quản lý bot con. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "create": "Tạo Bot con mới",
+        "lock": "Khóa hoạt động Bot",
+        "unlock": "Mở khóa hoạt động Bot",
+        "list_bots": "Xem danh sách Bot",
+        "reset": "Khởi động lại Bot",
+        "change_prefix": "Đổi Prefix của Bot",
+        "active": "Kích hoạt hạn dùng Bot",
+        "bot_info": "Xem thông tin Bot",
+        "share": "Chia sẻ ngày dùng Bot",
+        "update": "Cập nhật IMEI/Cookie",
+        "setbox": "Cấu hình box quản lý",
+        "thuebot": "Menu thuê Bot"
+    },
     "author": "TXA",
     "command": ['create', 'lock', 'unlock', 'list_bots', 'reset', 'change_prefix', 'active', 'bot_info', 'share', 'update', 'setbox', 'thuebot']
 }

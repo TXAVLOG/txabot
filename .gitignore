@@ -23,6 +23,8 @@ debug_tiktok.txt
 *~
 
 # Sensitive / Config
+api-1.json
+
 
 # Cache & Temp
 cache/
@@ -32,6 +34,7 @@ modules/cache/
 *.jpeg
 !background/*.png
 !background/*.jpg
+api-*.json
 !background/*.jpeg
 !info.png
 

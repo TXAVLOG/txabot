@@ -954,7 +954,12 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
 txa = {
     "name": "pro_ncl",
-    "desc": "Nghe nhạc từ NhacCuaTui. Hỗ trợ tìm kiếm bài hát, playlist và gửi audio vào nhóm. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "ncl": "Nghe nhạc NhacCuaTui",
+        "nct": "Nghe nhạc NhacCuaTui",
+        "nhaccuatui": "Nghe nhạc NhacCuaTui",
+        "nctchart": "Bảng xếp hạng NCT"
+    },
     "author": "TXA",
     "command": ['ncl', 'nct', 'nhaccuatui', 'nctchart']
 }

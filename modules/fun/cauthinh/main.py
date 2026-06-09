@@ -222,7 +222,11 @@ def handle_tha_thinh_command(message, message_object, thread_id, thread_type, au
 
 txa = {
     "name": "pro_thinh",
-    "desc": "Thả thính bằng AI hoặc câu thả thính ngẫu nhiên. Hỗ trợ thả thính với tên người dùng. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "tha_thinh": "Thả thính đối phương",
+        "thathinh": "Thả thính đối phương",
+        "love": "Thả thính/Xem độ hợp"
+    },
     "author": "TXA",
     "command": ['tha_thinh', 'thathinh', 'love']
 }

@@ -201,16 +201,48 @@ def get_wikipedia_info(search_term):
         "Mô tả": content
     }
 
+def _read_kairobot_config():
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), "txa.json")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            bot_data = (config.get("data") or [{}])[0]
+            base_url = bot_data.get("kairobot_base_url") or os.getenv("KAIROBOT_BASE_URL") or "https://kairobot.qzz.io"
+            api_key = bot_data.get("kairobot_api_key") or bot_data.get("apikey") or os.getenv("KAIROBOT_APIKEY") or ""
+            return base_url.rstrip("/"), api_key.strip()
+    except Exception:
+        pass
+    return "https://kairobot.qzz.io", ""
+
 def check_word(player_word, last_part):
     if not player_word or not last_part:
         return False
-    if player_word in words and player_word.split()[0] == last_part:
+    if player_word.split()[0] != last_part:
+        return False
+
+    # Check via word-chain API first
+    base_url, api_key = _read_kairobot_config()
+    if api_key:
+        try:
+            url = f"{base_url}/games/word-chain"
+            resp = requests.get(url, params={"apikey": api_key, "word": player_word}, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("success") is not False:
+                    if player_word not in words:
+                        save_word_to_file(player_word)
+                    return True
+        except Exception as api_err:
+            print(f"[WordChain API] Fallback due to error: {api_err}")
+
+    # Fallback to local dictionary and Wikipedia
+    if player_word in words:
         return True
     wiki_info = get_wikipedia_info(player_word)
     if "Lỗi" not in wiki_info and wiki_info["Mô tả"]:
-        if player_word.split()[0] == last_part:
-            save_word_to_file(player_word)
-            return True
+        save_word_to_file(player_word)
+        return True
     return False
 
 def update_leaderboard(bot, user_id, user_name, words_used):

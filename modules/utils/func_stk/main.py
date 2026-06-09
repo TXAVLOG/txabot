@@ -246,7 +246,10 @@ def handle_autostk_command(message, message_object, thread_id, thread_type, auth
 
 txa = {
     "name": "pro_stk",
-    "desc": "Tạo sticker từ ảnh hoặc video. Reply vào ảnh/video để tạo sticker. Admin có thể bật/tắt tính năng và rải sticker auto.",
+    "desc": {
+        "stk": "Tạo sticker từ ảnh",
+        "autostk": "Tự động gửi sticker"
+    },
     "author": "TXA",
     "command": ['stk', 'autostk']
 }

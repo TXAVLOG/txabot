@@ -191,12 +191,15 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                         display_title = title
 
                         for cmd in cmds:
+                            cmd_info = txacommand.loaded_commands.get(cmd, {})
+                            cmd_desc = cmd_info.get('desc', display_title)
+                            
                             columns[col_idx].append({
                                 "type": "cmd",
                                 "cmd": f"{prefix}{cmd}",
-                                "desc": display_title
+                                "desc": cmd_desc
                             })
-
+                            
     user_name = get_user_name_by_id(bot, author_id)
     line1 = f"{user_name}\n"
     line2 = "➜ 🤖 HỆ THỐNG MENU PHÍM TẮT TXABOT\n"

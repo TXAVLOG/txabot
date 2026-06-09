@@ -6,7 +6,18 @@ image_sender = ImageSender()
 
 txa = {
     "name": "Ảnh ngẫu nhiên",
-    "desc": "Gửi các thể loại ảnh ngẫu nhiên (girl, cosplay, anime, boy, sexy, nude, v.v.)",
+    "desc": {
+        "girl": "Ảnh gái ngẫu nhiên",
+        "zgirl": "Ảnh gái ngẫu nhiên",
+        "cosplay": "Ảnh Cosplay ngẫu nhiên",
+        "anime": "Ảnh Anime ngẫu nhiên",
+        "boy": "Ảnh trai ngẫu nhiên",
+        "boy6mui": "Ảnh trai 6 múi",
+        "girlsexy": "Ảnh gái sexy",
+        "girlnguc": "Ảnh gái ngực khủng",
+        "girlnude": "Ảnh gái nude",
+        "girllon": "Ảnh gái nhạy cảm"
+    },
     "author": "TXA",
     "command": ["girl", "zgirl", "cosplay", "anime", "boy", "boy6mui", "girlsexy", "girlnguc", "girlnude", "girllon"]
 }

@@ -213,7 +213,13 @@ def addallfriongr(message, message_object, thread_id, thread_type, author_id, se
 
 txa = {
     "name": "pro_friend",
-    "desc": "Quản lý kết bạn: block, unblock, kết bạn, xóa kết bạn. Hỗ trợ gửi lời mời kết bạn đến toàn nhóm. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "block": "Chặn kết bạn",
+        "unblock": "Mở chặn kết bạn",
+        "kb": "Kết bạn Zalo",
+        "xkb": "Xóa kết bạn",
+        "kbgr": "Kết bạn cả nhóm"
+    },
     "author": "TXA",
     "command": ['block', 'unblock', 'kb', 'xkb', 'kbgr']
 }

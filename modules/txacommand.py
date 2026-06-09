@@ -126,21 +126,24 @@ def load_modules():
                     
                     # Clean up description dynamically
                     raw_desc = txa_config.get('desc', '')
-                    clean_desc = raw_desc
-                    if clean_desc:
-                        if clean_desc == f"Tính năng {raw_name}":
-                            clean_desc = f"Tính năng {clean_name}"
-                        elif clean_desc.startswith("Tính năng pro_"):
-                            clean_desc = "Tính năng " + clean_desc[14:].replace("_", " ")
-                        elif clean_desc.startswith("pro_"):
-                            clean_desc = clean_desc[4:].replace("_", " ")
-                        elif clean_desc == raw_name:
-                            clean_desc = clean_name
-                    else:
-                        clean_desc = f"Tính năng {clean_name}"
                     
                     # Register commands
                     for cmd in commands_to_register:
+                        cmd_desc = raw_desc.get(cmd, '') if isinstance(raw_desc, dict) else raw_desc
+                        
+                        clean_desc = cmd_desc
+                        if clean_desc:
+                            if clean_desc == f"Tính năng {raw_name}":
+                                clean_desc = f"Tính năng {clean_name}"
+                            elif clean_desc.startswith("Tính năng pro_"):
+                                clean_desc = "Tính năng " + clean_desc[14:].replace("_", " ")
+                            elif clean_desc.startswith("pro_"):
+                                clean_desc = clean_desc[4:].replace("_", " ")
+                            elif clean_desc == raw_name:
+                                clean_desc = clean_name
+                        else:
+                            clean_desc = f"Tính năng {clean_name}"
+                            
                         loaded_commands[cmd] = {
                             'function': txa_command_fn,
                             'name': clean_name,

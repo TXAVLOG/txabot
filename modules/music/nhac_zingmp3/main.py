@@ -786,7 +786,10 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
 txa = {
     "name": "pro_zingmp3",
-    "desc": "Nghe nhạc chất lượng cao từ ZingMP3. Hỗ trợ tìm kiếm bài hát, playlist và gửi audio vào nhóm. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "mp3": "Nghe nhạc ZingMP3",
+        "zingchart": "Bảng xếp hạng ZingMP3"
+    },
     "author": "TXA",
     "command": ['mp3', 'zingchart']
 }

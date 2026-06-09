@@ -106,7 +106,10 @@ def command_allan_for_link(message, message_object, thread_id, thread_type, auth
 
 txa = {
     "name": "pro_allan",
-    "desc": "Tự động like, reaction, và tương tác với tin nhắn trong nhóm. Hỗ trợ nhiều loại reaction. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "lmao": "Thả icon cười/Tương tác nhóm",
+        "all": "Tương tác tag all"
+    },
     "author": "TXA",
     "command": ['lmao', 'all']
 }

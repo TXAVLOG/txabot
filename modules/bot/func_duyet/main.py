@@ -4,7 +4,15 @@ from zlapi.models import Message, ThreadType, Mention
 
 txa = {
     "name": "Duyệt quyền và quản lý key",
-    "desc": "Duyệt/hủy duyệt quyền kho ảnh và Quản lý Key Vàng/Key Bạc trong nhóm.",
+    "desc": {
+        "duyet": "Duyệt dùng Bot",
+        "unduyet": "Hủy duyệt dùng Bot",
+        "capkey": "Cấp key vàng/bạc",
+        "huykey": "Hủy key",
+        "listkey": "Danh sách key",
+        "duyetmedia": "Duyệt gửi media",
+        "duyetanh": "Duyệt gửi ảnh"
+    },
     "author": "TXA",
     "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh"]
 }

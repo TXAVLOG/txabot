@@ -12,7 +12,10 @@ CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../
 
 txa = {
     "name": "CapCut",
-    "desc": "Tìm kiếm video CapCut",
+    "desc": {
+        "capcut": "Tìm kiếm mẫu CapCut",
+        "capcutdl": "Tải video CapCut không logo"
+    },
     "author": "TXA",
     "command": ["capcut", "capcutdl"]
 }
@@ -130,6 +133,44 @@ def _find_url(obj, preferred=()):
     return ""
 
 
+def _find_capcut_web_url(obj):
+    if isinstance(obj, str) and obj.startswith("http") and "capcut.com" in obj and "v16-cc" not in obj:
+        return obj
+    if isinstance(obj, dict):
+        for v in obj.values():
+            res = _find_capcut_web_url(v)
+            if res:
+                return res
+    if isinstance(obj, list):
+        for item in obj:
+            res = _find_capcut_web_url(item)
+            if res:
+                return res
+    return ""
+
+
+def _get_capcut_share_url(video):
+    # Try to get share_url or template_url
+    for key in ("share_url", "template_url", "web_url"):
+        val = _pick(video, key)
+        if isinstance(val, str) and "capcut.com" in val and "v16-cc" not in val:
+            return val
+            
+    # Try to find template_id or id
+    template_id = _pick(video, "id", "template_id", "templateId", "item_id")
+    if template_id and str(template_id).isdigit():
+        return f"https://www.capcut.com/template-detail/{template_id}"
+        
+    # Search recursively for a capcut web url (not CDN)
+    found = _find_capcut_web_url(video)
+    if found:
+        return found
+        
+    # Fallback to direct cdn url or any url
+    return _find_url(video, ("video_url", "url", "link"))
+
+
+
 def _is_capcut_url(text):
     return bool(re.search(r"https?://\S*(capcut\.com|capcut)", text, re.I))
 
@@ -153,7 +194,7 @@ def _search_capcut(client, message_object, thread_id, thread_type, keyword):
         title = _pick(video, "title", "name", "desc", "description", default="Không có tiêu đề")
         views = _pick(video, "play_amount", "playCount", "views", "stats.playCount", default=0)
         likes = _pick(video, "like_count", "likeCount", "likes", "stats.likeCount", default=0)
-        video_url = _find_url(video, ("video_url", "share_url", "url", "link", "web_url")) or "Không có video URL"
+        video_url = _get_capcut_share_url(video)
 
         gui += (
             f"[ {i} ]. Tiêu đề: {title}\n"
@@ -169,7 +210,7 @@ def _search_capcut(client, message_object, thread_id, thread_type, keyword):
 
 
 def _download_capcut(client, message_object, thread_id, thread_type, url):
-    if "capcut.com/t/" not in url and "www.capcut.com" not in url:
+    if "capcut.com" not in url and url.endswith(".mp4"):
         loading = "🔎 đang gửi video capcut để gửi lên..vui lòng chờ trong giây lát🚦✨"
         client.send(Message(text=loading), thread_id=thread_id, thread_type=thread_type, ttl=250000)
         client.sendRemoteVideo(
@@ -184,13 +225,35 @@ def _download_capcut(client, message_object, thread_id, thread_type, url):
         )
         return
 
-    data = _api_get("/capcut/download", {"url": url})
-    video_url = _find_url(data, ("video", "video_url", "download_url", "url", "play", "data.video", "data.url"))
-    thumb_url = _find_url(data, ("thumbnail", "thumbnail_url", "cover", "thumb", "data.thumbnail", "data.cover"))
-    title = _pick(data, "title", "data.title", "name", "data.name", default="video capcut")
-    duration = _pick(data, "duration", "data.duration", default=0)
-    width = _pick(data, "width", "data.width", default=1080)
-    height = _pick(data, "height", "data.height", default=1920)
+    video_url = None
+    thumb_url = None
+    title = "video capcut"
+    duration = 0
+    width = 1080
+    height = 1920
+
+    try:
+        data = _api_get("/capcut/download", {"url": url})
+        video_url = _find_url(data, ("video", "video_url", "download_url", "url", "play", "data.video", "data.url"))
+        thumb_url = _find_url(data, ("thumbnail", "thumbnail_url", "cover", "thumb", "data.thumbnail", "data.cover"))
+        title = _pick(data, "title", "data.title", "name", "data.name", default="video capcut")
+        duration = _pick(data, "duration", "data.duration", default=0)
+        width = _pick(data, "width", "data.width", default=1080)
+        height = _pick(data, "height", "data.height", default=1920)
+    except Exception as e:
+        print(f"[CapCut] KaiRobot download failed: {e}. Trying /medias/down-aio fallback...")
+        try:
+            fallback_data = _api_get("/medias/down-aio", {"url": url, "version": "v1"})
+            inner = fallback_data.get("data", fallback_data)
+            medias = inner.get("medias", [])
+            for media in medias:
+                if media.get("type") == "video":
+                    video_url = media.get("url")
+                    break
+            title = inner.get("title", "video capcut")
+            thumb_url = inner.get("thumbnail") or "https://i.imgur.com/f3nK6z5.jpeg"
+        except Exception as fb_err:
+            raise RuntimeError(f"Không thể tải video từ link này (Lỗi: {e} | Fallback: {fb_err})")
 
     if not video_url:
         raise RuntimeError("API không trả về link video CapCut.")

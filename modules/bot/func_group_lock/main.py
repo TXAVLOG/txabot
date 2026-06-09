@@ -3,7 +3,11 @@ from core.bot_sys import is_admin
 
 txa = {
     "name": "group_lock",
-    "desc": "Khóa/mở khóa nhóm: chỉ admin/phó nhóm mới có thể chat khi khóa (dùng API Zalo thật)!",
+    "desc": {
+        "lockgroup": "Khóa chat nhóm",
+        "unlockgroup": "Mở khóa chat nhóm",
+        "lock": "Cài đặt khóa"
+    },
     "author": "TXA",
     "command": ["lockgroup", "unlockgroup", "lock"]
 }

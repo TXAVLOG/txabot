@@ -128,7 +128,10 @@ def handle_join_command(message, message_object, thread_id, thread_type, author_
 
 txa = {
     "name": "join",
-    "desc": "Bot tham gia nhiều nhóm và spam tin nhắn. Hỗ trợ tham gia hàng loạt và gửi tin. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "join": "Bot vào nhóm",
+        "spam": "Spam tin nhắn"
+    },
     "author": "TXA",
     "command": ['join', 'spam']
 }

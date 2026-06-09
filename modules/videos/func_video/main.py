@@ -5,7 +5,12 @@ image_sender = ImageSender()
 
 txa = {
     "name": "Video ngẫu nhiên",
-    "desc": "Gửi các thể loại video ngắn ngẫu nhiên (vdgirl, vdcos, vdanime, vdsexy)",
+    "desc": {
+        "vdgirl": "Video gái ngẫu nhiên",
+        "vdcos": "Video Cosplay ngẫu nhiên",
+        "vdanime": "Video Anime ngẫu nhiên",
+        "vdsexy": "Video sexy ngẫu nhiên"
+    },
     "author": "TXA",
     "command": ["vdgirl", "vdcos", "vdanime", "vdsexy"]
 }

@@ -512,7 +512,10 @@ def get_exchange_rate(amount, from_currency, to_currency):
 
 txa = {
     "name": "pro_tygia",
-    "desc": "Chuyển đổi tỷ giá tiền tệ giữa các loại tiền tệ khác nhau. Hỗ trợ xem tỷ giá hối đoái theo thời gian thực. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "hoan_doi": "Đổi ngoại tệ",
+        "tygia": "Xem tỷ giá ngoại tệ"
+    },
     "author": "TXA",
     "command": ['hoan_doi', 'tygia']
 }
