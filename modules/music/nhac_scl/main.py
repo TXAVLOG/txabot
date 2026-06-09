@@ -410,6 +410,46 @@ def get_username(link):
 
 def search_songs(query):
     try:
+        client_id = wait_for_client_id()
+        api_search_url = (
+            "https://api-v2.soundcloud.com/search/tracks"
+            f"?q={requests.utils.quote(query)}"
+            f"&client_id={client_id}"
+            "&limit=20"
+            "&offset=0"
+            "&linked_partitioning=1"
+            "&app_version=1745942984"
+            "&app_locale=en"
+        )
+        api_response = requests.get(api_search_url, headers=get_headers(), timeout=15)
+        if api_response.status_code == 200:
+            api_data = api_response.json()
+            api_tracks = api_data.get("collection", [])
+            songs = []
+            seen_links = set()
+            for track in api_tracks:
+                link = track.get("permalink_url")
+                title = track.get("title", "").strip()
+                if not link or not title or link in seen_links:
+                    continue
+                cover_url = track.get("artwork_url") or track.get("user", {}).get("avatar_url") or ""
+                if cover_url:
+                    cover_url = cover_url.replace("-large", "-t500x500")
+                songs.append((
+                    link,
+                    title,
+                    cover_url,
+                    track.get("playback_count", 0),
+                    track.get("likes_count", 0),
+                    track.get("comment_count", 0),
+                    track.get("user", {}).get("username", "Unknown")
+                ))
+                seen_links.add(link)
+                if len(songs) >= 20:
+                    break
+            if songs:
+                return songs
+
         base_url = 'https://soundcloud.com'
         search_url = f'https://m.soundcloud.com/search?q={requests.utils.quote(query)}'
         response = requests.get(search_url, headers=get_headers())
@@ -973,7 +1013,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
 
     content = message.strip().split()
 
-    if len(content) == 2 and content[0].lower() == f"{client.prefix}scl" and content[1].isdigit():
+    if len(content) == 2 and content[0].lower() in [f"{client.prefix}scl", f"{client.prefix}nhac"] and content[1].isdigit():
         print(f"[DEBUG] Người dùng chọn bài với số: {content[1]}")
 
         if author_id not in user_states:
@@ -1261,7 +1301,7 @@ txa = {
     "name": "pro_scl",
     "desc": "Nghe nhạc từ SoundCloud. Hỗ trợ tìm kiếm và gửi bài hát vào nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['scl']
+    "command": ['scl', 'nhac']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -1269,7 +1309,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'scl': handle_nhac_command
+        'scl': handle_nhac_command,
+        'nhac': handle_nhac_command
     }
     
     func = dispatch_map.get(cmd)

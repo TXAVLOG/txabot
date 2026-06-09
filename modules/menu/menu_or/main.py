@@ -399,9 +399,116 @@ def handle_menu_or_commands(message, message_object, thread_id, thread_type, aut
         thread_type=thread_type,
         width=1920,
         height=600,
-        ttl=240000
+        ttl=60000
     )
     
+    try:
+        if os.path.exists(image_path):
+            os.remove(image_path)
+    except Exception as e:
+        print(f"❌ Lỗi khi xóa ảnh: {e}")
+
+def build_hidden_columns(bot):
+    import modules.txacommand as txacommand
+    from modules.menu.pro_menu.main import HIDDEN_MODULE_TOKENS, chunk_list
+
+    prefix = getattr(bot, 'prefix', '!')
+    category_titles = {
+        "bot": ("🤖", "Lệnh ẩn hệ thống"),
+        "menu": ("🩴", "Menu ẩn"),
+        "utils": ("🔧", "Tiện ích ẩn"),
+        "downloader": ("📥", "Tải xuống ẩn"),
+        "ai": ("🧠", "AI ẩn"),
+        "fun": ("🤭", "Giải trí ẩn"),
+        "images": ("👩‍💼", "Kho ảnh ẩn"),
+        "videos": ("🎬", "Kho video ẩn"),
+        "game": ("🎮", "Trò chơi ẩn"),
+        "music": ("🎵", "Âm nhạc ẩn"),
+        "news": ("🗞️", "Tin tức ẩn"),
+    }
+    column_mapping = {
+        "bot": 0,
+        "utils": 1, "downloader": 1, "ai": 1,
+        "fun": 2, "images": 2, "videos": 2,
+        "game": 3, "music": 3, "news": 3, "menu": 3,
+    }
+    columns = [[], [], [], []]
+    seen_modules = set()
+    hidden_by_parent = {}
+
+    for _, info in txacommand.loaded_commands.items():
+        module_path = info.get('module_path', '')
+        if module_path in seen_modules:
+            continue
+        if not any(token in module_path for token in HIDDEN_MODULE_TOKENS):
+            continue
+
+        parts = module_path.split('.')
+        parent_dir = parts[1] if len(parts) > 1 else "bot"
+        command_field = info.get('command', [])
+        if isinstance(command_field, list):
+            cmds = [str(c).lower().strip() for c in command_field if str(c).strip()]
+        else:
+            cmds = [str(command_field).lower().strip()]
+        if not cmds:
+            continue
+
+        title = info.get('name') or module_path.split('.')[-2].replace('_', ' ').title()
+        if title.startswith("pro_"):
+            title = title[4:]
+        title = title.replace("_", " ").title()
+        hidden_by_parent.setdefault(parent_dir, []).append((cmds, title))
+        seen_modules.add(module_path)
+
+    for parent_dir, entries in hidden_by_parent.items():
+        col_idx = column_mapping.get(parent_dir, 0)
+        emoji_cat, title_cat = category_titles.get(parent_dir, ("🐳", f"{parent_dir.title()} ẩn"))
+        columns[col_idx].append({"type": "title", "text": f"{emoji_cat} {title_cat}".upper()})
+        for cmds, title in entries:
+            for cmd_chunk in chunk_list(cmds, 4):
+                columns[col_idx].append({
+                    "type": "cmd",
+                    "cmd": "/".join([f"{prefix}{cmd}" for cmd in cmd_chunk]),
+                    "desc": title
+                })
+
+    if not any(columns):
+        columns[0].append({"type": "title", "text": "🍼 TÍNH NĂNG ẨN"})
+        columns[0].append({"type": "cmd", "cmd": f"{prefix}menu", "desc": "Chưa có lệnh ẩn được nạp"})
+    return columns
+
+def handle_menu_or_commands(message, message_object, thread_id, thread_type, author_id, bot):
+    from modules.menu.pro_menu.main import generate_menu_image
+
+    user_name = get_user_name_by_id(bot, author_id)
+    columns = build_hidden_columns(bot)
+    command_names = (
+        f"{user_name}\n"
+        f"➜ 🍼 MENU LỆNH ẨN TXABOT\n"
+        f"➜ Các lệnh này không hiển thị trong {bot.prefix}menu chính.\n"
+        f"➜ Một số lệnh yêu cầu Admin BOT hoặc quyền cao hơn."
+    )
+
+    os.makedirs(CACHE_PATH, exist_ok=True)
+    image_path = generate_menu_image(bot, author_id, thread_id, thread_type, columns)
+    if not image_path:
+        bot.replyMessage(Message(text=command_names), message_object, thread_id, thread_type)
+        return
+
+    reaction = ["❌", "🤧", "😊", "🔥", "👍", "💖", "🚀", "😍", "😂", "😎", "🙌", "🌟", "🍀", "🎉", "💡"]
+    if random.random() > 0.3:
+        bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
+    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    bot.sendLocalImage(
+        imagePath=image_path,
+        message=Message(text=command_names, mention=Mention(author_id, length=len(user_name), offset=0)),
+        thread_id=thread_id,
+        thread_type=thread_type,
+        width=1920,
+        height=1000,
+        ttl=60000
+    )
+
     try:
         if os.path.exists(image_path):
             os.remove(image_path)

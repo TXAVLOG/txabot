@@ -325,7 +325,7 @@ class ZaloAPI(object):
 				"jxl": 0,
 				"chunkId": 1
 			},
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 		}
 		
@@ -385,7 +385,7 @@ class ZaloAPI(object):
 				"avatar_size": 120,
 				"imei": self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"os": 8,
 			"browser": 0
@@ -431,7 +431,7 @@ class ZaloAPI(object):
 		phone = "84" + str(phoneNumber) if str(phoneNumber)[:1] != "0" else "84" + str(phoneNumber)[1:]
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"params": self._encode({
 				"phone": phone,
@@ -476,7 +476,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -536,7 +536,7 @@ class ZaloAPI(object):
 		"""
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -594,7 +594,7 @@ class ZaloAPI(object):
 				"avatar_size": 120,
 				"actiontime": 0
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -626,7 +626,7 @@ class ZaloAPI(object):
 		"""
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -719,7 +719,7 @@ class ZaloAPI(object):
 				"imei": self._imei,
 				"src": 1
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0,
 		}
@@ -755,7 +755,7 @@ class ZaloAPI(object):
 				"last_type": last_type,
 				"imei": self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -891,7 +891,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -952,7 +952,7 @@ class ZaloAPI(object):
 		files = [("fileContent", open(filePath, "rb"))]
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"params": self._encode({
 				"avatarSize": 120,
@@ -1016,7 +1016,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1068,7 +1068,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1114,7 +1114,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1160,7 +1160,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1205,7 +1205,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1287,7 +1287,7 @@ class ZaloAPI(object):
 				"imei": self._imei,
 				"zsource": 601
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1344,7 +1344,7 @@ class ZaloAPI(object):
 				"originHeight": 640,
 				"imei": self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1387,7 +1387,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1515,7 +1515,7 @@ class ZaloAPI(object):
 				"grid": str(groupId),
 				"imei":self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1563,7 +1563,7 @@ class ZaloAPI(object):
 				"imei": self._imei,
 				"language": "vi"
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1613,7 +1613,7 @@ class ZaloAPI(object):
 				memberTypes.append(-1)
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1669,7 +1669,7 @@ class ZaloAPI(object):
 			members = [str(members)]
 			
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1722,7 +1722,7 @@ class ZaloAPI(object):
 			members = [str(members)]
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"params": self._encode({
 				"grid": str(groupId),
@@ -1772,7 +1772,7 @@ class ZaloAPI(object):
 			members = [str(members)]
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"params": self._encode({
 				"grid": str(groupId),
@@ -1828,7 +1828,7 @@ class ZaloAPI(object):
 				"members": members,
 				"imei": self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1880,7 +1880,7 @@ class ZaloAPI(object):
 				"members": members,
 				"imei": self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -1919,7 +1919,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2098,7 +2098,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"params": self._encode({
 				"grid": str(groupId),
@@ -2148,7 +2148,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2204,7 +2204,7 @@ class ZaloAPI(object):
 				"grid": str(groupId),
 				"imei": self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2256,7 +2256,7 @@ class ZaloAPI(object):
 				"members": members,
 				"isApprove": 1 if isApprove else 0
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2298,7 +2298,7 @@ class ZaloAPI(object):
 				"poll_id": int(pollId),
 				"imei":self._imei
 			}),
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2357,7 +2357,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2421,7 +2421,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2468,7 +2468,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2545,7 +2545,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -2619,7 +2619,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -2702,7 +2702,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -2760,7 +2760,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -2827,7 +2827,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -2902,7 +2902,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -3006,7 +3006,7 @@ class ZaloAPI(object):
 		extension = has_extension[-1:][0] if len(has_extension) >= 2 else extension
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -3101,7 +3101,7 @@ class ZaloAPI(object):
 			raise ZaloAPIException("Unable to get url content")
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -3198,7 +3198,7 @@ class ZaloAPI(object):
 					fileSize = fileSize if fileSize else 0
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -3271,7 +3271,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -3451,7 +3451,7 @@ class ZaloAPI(object):
 		fileChecksum = hashlib.md5(open(gifPath, "rb").read()).hexdigest()
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"type": 1,
 			"params": {
@@ -3523,7 +3523,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -3705,7 +3705,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -3790,7 +3790,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -3854,7 +3854,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -3925,7 +3925,7 @@ class ZaloAPI(object):
 			ZaloAPIException: If request failed
 		"""
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -3983,7 +3983,7 @@ class ZaloAPI(object):
 		destination_id = "0" if thread_type == ThreadType.USER else thread_id
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30
 		}
 		
@@ -4054,7 +4054,7 @@ class ZaloAPI(object):
 		destination_id = "0" if thread_type == ThreadType.USER else thread_id
 		
 		params = {
-			"zpw_ver": 641,
+			"zpw_ver": 685,
 			"zpw_type": 30,
 			"nretry": 0
 		}
@@ -4178,7 +4178,7 @@ class ZaloAPI(object):
 	
 	async def _listen_ws(self, thread=False, reconnect=5):
 		self._condition.clear()
-		params = {"zpw_ver": 641, "zpw_type": 30, "t": _util.now()}
+		params = {"zpw_ver": 685, "zpw_type": 30, "t": _util.now()}
 		url = self._state._config["zpw_ws"][0] + "?" + urllib.parse.urlencode(params)
 		
 		user_agent = self._state._headers.get("User-Agent") or _util.HEADERS["User-Agent"]

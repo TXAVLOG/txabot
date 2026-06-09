@@ -62,7 +62,7 @@ CONFIG_FILE = "txa.json"
 logging.basicConfig(level=logging.INFO)
 
 def load_config():
-    """Tải dữ liệu từ config.json."""
+    """Tải dữ liệu từ txa.json."""
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -72,12 +72,12 @@ def load_config():
         return default_config
 
 def save_config(config):
-    """Lưu dữ liệu vào config.py."""
+    """Lưu dữ liệu vào txa.json."""
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        logging.error(f"Error saving config.json: {str(e)}")
+        logging.error(f"Error saving txa.json: {str(e)}")
 
 def send_message(client, message_object, thread_id, thread_type, text):
     """Gửi tin nhắn trả lời."""
@@ -1237,7 +1237,7 @@ txa = {
     "name": "pro_thue_bot",
     "desc": "Quản lý thuê bot: tạo, khóa, mở khóa, xóa bot. Hỗ trợ nhiều lệnh quản lý bot con. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['create', 'lock', 'unlock', 'list_bots', 'del', 'reset', 'change_prefix', 'active', 'bot_info', 'share', 'update', 'setbox', 'thuebot']
+    "command": ['create', 'lock', 'unlock', 'list_bots', 'reset', 'change_prefix', 'active', 'bot_info', 'share', 'update', 'setbox', 'thuebot']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

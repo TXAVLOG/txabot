@@ -3,14 +3,15 @@
         {
             "prefix": "!",
             "session_cookies": {
+                "_ga_907M127EPP": "GS2.1.s1780235830$o1$g0$t1780235836$j54$l0$h0",
                 "_zlang": "vn",
-                "_ga": "GA1.2.608104631.1780196827",
-                "_gid": "GA1.2.716064856.1780196827",
-                "_ga_3EM8ZPYYN3": "GS2.2.s1780196827$o1$g0$t1780196827$j60$l0$h0",
-                "zpsid": "11MU.440357158.27.bItydaTP6XDX22K9IraQ4p8gQ2TpQIacS6WlApPFJqS1oi_tHXMy22rP6XC",
-                "zpw_sek": "uE0t.440357158.a0.7846kRVCwfgHdTM0bipgcipkZ_6LziYg_EU-p_kffyxqfh3Ize6ppe7-fgtsyTUuohtyp-EAUKzJpQ4yhARgcW",
                 "__zi": "3000.SSZzejyD6zOgdh2mtnLQWYQN_RAG01ICFjIXe9fEM8WwcUwXcKzUXN6PxA7LJr2BU9pbepSu.1",
                 "__zi-legacy": "3000.SSZzejyD6zOgdh2mtnLQWYQN_RAG01ICFjIXe9fEM8WwcUwXcKzUXN6PxA7LJr2BU9pbepSu.1",
+                "_ga": "GA1.2.608104631.1780196827",
+                "_gid": "GA1.2.2039182025.1780851448",
+                "_ga_3EM8ZPYYN3": "GS2.2.s1780851448$o2$g0$t1780851448$j60$l0$h0",
+                "zpsid": "fPrw.440357158.31.48X58ZNAQ80JcrUQESfeW42v6hG1-bkr0ljTk0zmieJjPsojDCVBfL_AQ80",
+                "zpw_sek": "qNMK.440357158.a0.3tg-jIYjTViE_4hX2Qrr-rEF490AbrUIJEmjh7-UBBf5nKs_7-n7jttPFOjFa4ZPLPVF8InrsFy5h7jO3STr-m",
                 "app.event.zalo.me": "1929088958951518796"
             },
             "imei": "f1ffdca0-78e3-4231-8623-eec36e0d337a-b87543ecbc0ba610d9f06f9f2c432a46",
@@ -20,7 +21,9 @@
             "status": true,
             "gemini_api_key": "",
             "gemini_model": "gemini-3.1-pro-preview",
-            "openweather_api_key": "a04afb351782e60364704c65d3ac1601"
+            "openweather_api_key": "a04afb351782e60364704c65d3ac1601",
+            "kairobot_api_key": "d7ae3f5ae66ab7b2b0f60e17c023b2",
+            "kairobot_base_url": "https://kairobot.qzz.io"
         }
     ]
 }

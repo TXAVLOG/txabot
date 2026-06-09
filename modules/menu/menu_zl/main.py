@@ -1115,7 +1115,7 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
                 thread_type=thread_type,
                 width=1920,
                 height=600,
-                ttl=240000
+                ttl=60000
             )
             
             try:

@@ -6,7 +6,7 @@ txa = {
     "name": "Duyệt quyền và quản lý key",
     "desc": "Duyệt/hủy duyệt quyền kho ảnh và Quản lý Key Vàng/Key Bạc trong nhóm.",
     "author": "TXA",
-    "command": ["duyet", "unduyet", "capkey", "huykey", "listkey"]
+    "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh"]
 }
 
 def duyet_cmd(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -487,6 +487,45 @@ def listkey_cmd(bot, message_object, thread_id, thread_type, author_id, message_
         
     bot.replyMessage(Message(text=response), message_object, thread_id, thread_type)
 
+def duyetmedia_cmd(bot, message_object, thread_id, thread_type, author_id, message_text):
+    if not is_admin(bot, author_id):
+        bot.replyMessage(
+            Message(text="❌ Bạn không có quyền sử dụng lệnh này (Chỉ dành cho Admin Bot)."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    parts = message_text.split()
+    if len(parts) < 2:
+        bot.replyMessage(
+            Message(text="⚠️ Vui lòng nhập trạng thái bật/tắt.\n➜ Cú pháp: !duyetmedia <on/off> hoặc <bat/tat>"),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    action = parts[1].lower()
+    settings = read_settings(bot.uid)
+
+    if action in ["on", "bat", "bật"]:
+        settings["media_commands_active"] = True
+        write_settings(bot.uid, settings)
+        bot.replyMessage(
+            Message(text="✅ Đã bật tính năng sử dụng các lệnh gửi ảnh/video. Người dùng được duyệt có thể sử dụng bình thường."),
+            message_object, thread_id, thread_type
+        )
+    elif action in ["off", "tat", "tắt"]:
+        settings["media_commands_active"] = False
+        write_settings(bot.uid, settings)
+        bot.replyMessage(
+            Message(text="🚫 Đã tắt tính năng sử dụng các lệnh gửi ảnh/video đối với tất cả thành viên (trừ Admin)."),
+            message_object, thread_id, thread_type
+        )
+    else:
+        bot.replyMessage(
+            Message(text="⚠️ Trạng thái không hợp lệ! Vui lòng chọn 'on' hoặc 'off' (hoặc 'bat' / 'tat')."),
+            message_object, thread_id, thread_type
+        )
+
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()
@@ -496,7 +535,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         'unduyet': unduyet_cmd,
         'capkey': capkey_cmd,
         'huykey': huykey_cmd,
-        'listkey': listkey_cmd
+        'listkey': listkey_cmd,
+        'duyetmedia': duyetmedia_cmd,
+        'duyetanh': duyetmedia_cmd
     }
     
     func = dispatch_map.get(cmd)

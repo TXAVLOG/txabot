@@ -8,6 +8,7 @@ CONFIG = {
         "func_make/main.py": {"emoji": "❖", "title": "Make", "cmds": ["make"]},
         "func_mst/main.py": {"emoji": "❖", "title": "Mst", "cmds": ["mst"]},
         "func_phatnguoi/main.py": {"emoji": "❖", "title": "Phatnguoi", "cmds": ["phatnguoi"]},
-        "func_stk/main.py": {"emoji": "❖", "title": "Stk", "cmds": ["stk"]}
+        "func_stk/main.py": {"emoji": "❖", "title": "Sticker", "cmds": ["stk", "autostk"]},
+        "ngl/main.py": {"emoji": "✉️", "title": "NGL", "cmds": ["ngl"]}
     }
 }

@@ -61,43 +61,43 @@ def detect_language(text):
 def translate_response(text, target_lang):
     return text
 
-def handle_chat_on(bot, thread_id):
+def handle_gpt_on(bot, thread_id):
     settings = read_settings(bot.uid)
-    if "chat" not in settings:
-        settings["chat"] = {}
-    settings["chat"][thread_id] = True
+    if "gpt" not in settings:
+        settings["gpt"] = {}
+    settings["gpt"][thread_id] = True
     write_settings(bot.uid, settings)
-    return "Ok, bật chat rồi nha, giờ thì quậy tưng bừng với TXABOT đây! 😎"
+    return "Ok, bật gpt rồi nha, giờ thì quậy tưng bừng với TXABOT đây! 😎"
 
-def handle_chat_off(bot, thread_id):
+def handle_gpt_off(bot, thread_id):
     settings = read_settings(bot.uid)
-    if "chat" in settings and thread_id in settings["chat"]:
-        settings["chat"][thread_id] = False
+    if "gpt" in settings and thread_id in settings["gpt"]:
+        settings["gpt"][thread_id] = False
         write_settings(bot.uid, settings)
-        return "Tắt chat rồi, buồn thiệt chứ, nhưng cần TXABOT thì cứ réo nhé! 😌"
-    return "Nhóm này chưa bật chat mà, tắt gì nổi đâu đại ca! 😂"
+        return "Tắt gpt rồi, buồn thiệt chứ, nhưng cần TXABOT thì cứ réo nhé! 😌"
+    return "Nhóm này chưa bật gpt mà, tắt gì nổi đâu đại ca! 😂"
 
-def handle_chat_command(message, message_object, thread_id, thread_type, author_id, client):
+def handle_gpt_command(message, message_object, thread_id, thread_type, author_id, client):
     settings = read_settings(client.uid)
-    user_message = message.replace(f"{client.prefix}chat ", "").strip().lower()
+    user_message = message.replace(f"{client.prefix}gpt ", "").strip().lower()
     current_time = datetime.now()
 
     if user_message == "on":
         if not is_admin(client, author_id):  
             response = "❌Bạn không phải admin bot!"
         else:
-            response = handle_chat_on(client, thread_id)
+            response = handle_gpt_on(client, thread_id)
         client.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
         return
     elif user_message == "off":
         if not is_admin(client, author_id):  
             response = "❌Bạn không phải admin bot!"
         else:
-            response = handle_chat_off(client, thread_id)
+            response = handle_gpt_off(client, thread_id)
         client.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
         return
 
-    if not (settings.get("chat", {}).get(thread_id, False)):
+    if not (settings.get("gpt", {}).get(thread_id, False)):
         return
 
     if author_id in last_message_times:
@@ -255,7 +255,7 @@ txa = {
     "name": "pro_gemini",
     "desc": "Chat với AI Gemini. Hỗ trợ trả lời câu hỏi và hội thoại tự nhiên. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['chat']
+    "command": ['gpt']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -263,7 +263,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'chat': handle_chat_command
+        'gpt': handle_gpt_command
     }
     
     func = dispatch_map.get(cmd)

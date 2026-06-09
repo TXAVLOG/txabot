@@ -1978,6 +1978,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                 response = (
                         f"{get_user_name_by_id(bot, author_id)}\n"
                         f"➜ {bot.prefix}bot info/policy: ♨️ Thông tin/Tác giả/Thời gian/Chính sách BOT\n"
+                        f"➜ {bot.prefix}bot policy [loại] [lần] [phút] [mute/kick/warn]: 🧩 Loại: word/link/sticker/image/flood\n"
                         f"➜ {bot.prefix}bot setup on/off: ⚙️ Bật/Tắt Nội quy BOT (OA)\n"
                         f"➜ {bot.prefix}bot anti on/off/setup: 🚦Bật/Tắt Anti (OA)\n"
                         f"➜ {bot.prefix}bot newlink/dislink: 🔗 Tạo/hủy link nhóm (OA)\n"
@@ -2171,7 +2172,11 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             f"   VD: {bot.prefix}bot policy link on\n"
                             f"3️⃣ Cài đặt chi tiết hình phạt:\n"
                             f"   ➜ {bot.prefix}bot policy [loại] [lần] [phút] [hành_động]\n"
+                            f"   Loại: word / link / sticker / image / flood\n"
                             f"   Hành động: mute (Khóa mõm) / kick (Trục xuất) / warn (Cảnh báo)\n"
+                            f"   • mute: xóa nội dung vi phạm và khóa mõm trong [phút]\n"
+                            f"   • kick: xóa nội dung vi phạm và kick khi đủ [lần]\n"
+                            f"   • warn: cảnh báo khi đủ [lần], không khóa mõm\n"
                             f"   VD: {bot.prefix}bot policy word 3 60 mute\n"
                             f"   VD: {bot.prefix}bot policy link 2 30 kick"
                         )

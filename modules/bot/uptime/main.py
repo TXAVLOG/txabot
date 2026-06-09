@@ -117,11 +117,43 @@ def get_system_info():
     
     return info
 
+def _pct_value(text: str) -> float:
+    try:
+        return float(str(text).replace("%", "").strip())
+    except Exception:
+        return 0.0
+
+def _cover_resize(img: Image.Image, size: Tuple[int, int]) -> Image.Image:
+    target_w, target_h = size
+    src_w, src_h = img.size
+    scale = max(target_w / src_w, target_h / src_h)
+    new_size = (int(src_w * scale), int(src_h * scale))
+    img = img.resize(new_size, Image.Resampling.LANCZOS)
+    left = (img.width - target_w) // 2
+    top = (img.height - target_h) // 2
+    return img.crop((left, top, left + target_w, top + target_h))
+
+def _draw_shadow_text(draw, pos, text, font, fill, shadow=(0, 0, 0, 190), offset=(2, 3)):
+    x, y = pos
+    draw.text((x + offset[0], y + offset[1]), text, font=font, fill=shadow)
+    draw.text((x, y), text, font=font, fill=fill)
+
+def _draw_bar(draw, x, y, w, h, pct, color, label, value, font_label, font_value):
+    pct = max(0.0, min(100.0, pct))
+    draw.text((x, y - 30), label, font=font_label, fill=(220, 230, 255, 230))
+    vw = _text_w(font_value, value)
+    draw.text((x + w - vw, y - 31), value, font=font_value, fill=(255, 255, 255, 245))
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=h // 2, fill=(255, 255, 255, 28))
+    fill_w = int(w * pct / 100)
+    if fill_w > 0:
+        draw.rounded_rectangle([x, y, x + fill_w, y + h], radius=h // 2, fill=color)
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=h // 2, outline=(255, 255, 255, 32), width=1)
+
 # ── Image builder ────────────────────────────────────────────────────────────
 def create_uptime_image(bot_name: str, days: int, hours: int,
                         minutes: int, seconds: int, start_ts: float) -> str:
-    W, H = 1000, 800
-    PAD  = 50
+    W, H = 1280, 720
+    PAD = 52
 
     sys_info = get_system_info()
 
@@ -135,8 +167,8 @@ def create_uptime_image(bot_name: str, days: int, hours: int,
             bg_path = random.choice(imgs)
 
     if bg_path:
-        bg = Image.open(bg_path).convert("RGBA").resize((W, H))
-        bg = bg.filter(ImageFilter.GaussianBlur(radius=12))
+        bg = _cover_resize(Image.open(bg_path).convert("RGBA"), (W, H))
+        bg = bg.filter(ImageFilter.GaussianBlur(radius=8))
     else:
         bg = Image.new("RGBA", (W, H), (10, 18, 40, 255))
         draw_bg = ImageDraw.Draw(bg)
@@ -145,128 +177,133 @@ def create_uptime_image(bot_name: str, days: int, hours: int,
             c = tuple(int(a + (b - a) * r) for a, b in zip((5, 14, 41), (15, 60, 110)))
             draw_bg.line([(0, y), (W, y)], fill=c + (255,))
 
-    ov   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(ov)
 
-    # Glass card
-    draw.rounded_rectangle(
-        [PAD - 10, PAD - 10, W - PAD + 10, H - PAD + 10],
-        radius=32, fill=(8, 15, 35, 190), outline=(255, 255, 255, 30), width=2
-    )
+    draw.rectangle([0, 0, W, H], fill=(4, 8, 18, 92))
+    draw.polygon([(0, 0), (450, 0), (220, H), (0, H)], fill=(0, 229, 255, 22))
+    draw.polygon([(W, 0), (W - 520, 0), (W - 260, H), (W, H)], fill=(255, 64, 129, 24))
+    draw.rounded_rectangle([PAD - 12, PAD - 12, W - PAD + 12, H - PAD + 12],
+                           radius=34, fill=(8, 14, 28, 172),
+                           outline=(255, 255, 255, 34), width=2)
 
     # ── Fonts ──────────────────────────────────────────────────────────
-    f_title  = _font(FONT_TITLE, 52)
-    f_header = _font(FONT_TITLE, 28)
-    f_value  = _font(FONT_BOLD,  58)
-    f_label  = _font(FONT_TEXT,  22)
-    f_sub    = _font(FONT_TEXT,  20)
-    f_emoji  = _font(FONT_EMOJI, 52)
+    f_title = _font(FONT_BOLD, 52)
+    f_header = _font(FONT_TITLE, 30)
+    f_value = _font(FONT_BOLD, 62)
+    f_small_value = _font(FONT_BOLD, 38)
+    f_label = _font(FONT_TEXT, 21)
+    f_sub = _font(FONT_TEXT, 20)
+    f_tiny = _font(FONT_TEXT, 17)
+    f_emoji = _font(FONT_EMOJI, 54)
     f_emoji2 = _font(FONT_EMOJI, 28)
 
     # ── Title ──────────────────────────────────────────────────────────
-    draw_mixed(draw, "⚡ Uptime & System Info", (PAD + 10, PAD + 8),
-               f_title, f_emoji, (255, 214, 165, 255))
+    draw_mixed(draw, "⚡ TXABOT UPTIME", (PAD + 18, PAD + 6),
+               f_title, f_emoji, (255, 230, 170, 255))
 
     uptime_str = f"{days}d {hours}h {minutes}m {seconds}s"
-    draw_mixed(draw, f"🤖 {bot_name}  |  🗓️ {uptime_str}  |  💻 {sys_info['os']}",
-               (PAD + 10, PAD + 74), f_sub, f_emoji2, (200, 215, 255, 210))
+    draw_mixed(draw, f"🤖 {bot_name}  |  Uptime: {uptime_str}  |  OS: {sys_info['os']}",
+               (PAD + 18, PAD + 76), f_sub, f_emoji2, (225, 235, 255, 218))
 
-    draw.line([PAD, PAD + 116, W - PAD, PAD + 116],
-              fill=(255, 255, 255, 40), width=2)
+    draw.line([PAD + 18, PAD + 121, W - PAD - 18, PAD + 121],
+              fill=(255, 255, 255, 46), width=2)
 
-    # ── 4 metric boxes (1 hàng ngang) ─────────────────────────────────
+    # ── Time cards ────────────────────────────────────────────────────
     metrics = [
-        ("Ngày",  days,    (235,  86, 149)),
-        ("Giờ",   hours,   (255, 165,  40)),
-        ("Phút",  minutes, ( 34, 197,  94)),
-        ("Giây",  seconds, ( 59, 130, 246)),
+        ("NGÀY", days, (255, 93, 47)),
+        ("GIỜ", hours, (255, 193, 7)),
+        ("PHÚT", minutes, (34, 197, 94)),
+        ("GIÂY", seconds, (59, 130, 246)),
     ]
 
-    BOX_W   = 180
-    BOX_H   = 140
-    total_w = BOX_W * 4 + 24 * 3          # 4 boxes + 3 gaps
-    start_x = (W - total_w) // 2
-    box_y   = PAD + 136
+    card_x = PAD + 18
+    card_y = PAD + 155
+    card_w = 650
+    card_h = 286
+    draw.rounded_rectangle([card_x, card_y, card_x + card_w, card_y + card_h],
+                           radius=28, fill=(0, 0, 0, 105),
+                           outline=(255, 255, 255, 35), width=1)
+    draw_mixed(draw, "⏳ THỜI GIAN HOẠT ĐỘNG", (card_x + 28, card_y + 24),
+               f_header, f_emoji2, (255, 255, 255, 244))
+
+    box_w = 138
+    box_h = 150
+    gap = 18
+    start_x = card_x + 28
+    box_y = card_y + 94
 
     for i, (label, val, rgb) in enumerate(metrics):
-        bx = start_x + i * (BOX_W + 24)
+        bx = start_x + i * (box_w + gap)
         by = box_y
 
-        # Shadow
-        draw.rounded_rectangle(
-            [bx + 4, by + 4, bx + BOX_W + 4, by + BOX_H + 4],
-            radius=20, fill=(0, 0, 0, 80)
-        )
-        # Box
-        draw.rounded_rectangle(
-            [bx, by, bx + BOX_W, by + BOX_H],
-            radius=20, fill=rgb + (230,)
-        )
-        # Highlight strip top
-        draw.rounded_rectangle(
-            [bx + 8, by + 6, bx + BOX_W - 8, by + 30],
-            radius=10, fill=(255, 255, 255, 45)
-        )
-        # Value
+        draw.rounded_rectangle([bx + 5, by + 7, bx + box_w + 5, by + box_h + 7],
+                               radius=22, fill=(0, 0, 0, 82))
+        draw.rounded_rectangle([bx, by, bx + box_w, by + box_h],
+                               radius=22, fill=rgb + (226,),
+                               outline=(255, 255, 255, 52), width=1)
+        draw.rounded_rectangle([bx + 10, by + 9, bx + box_w - 10, by + 35],
+                               radius=13, fill=(255, 255, 255, 45))
         val_str = str(val)
-        vw = _text_w(f_value, val_str)
-        draw.text(
-            (bx + (BOX_W - vw) // 2, by + 30),
-            val_str, font=f_value, fill=(255, 255, 255, 255)
-        )
-        # Label
+        value_font = f_value if len(val_str) <= 2 else f_small_value
+        vw = _text_w(value_font, val_str)
+        _draw_shadow_text(draw, (bx + (box_w - vw) // 2, by + 38),
+                          val_str, value_font, (255, 255, 255, 255))
         lw = _text_w(f_label, label)
-        draw.text(
-            (bx + (BOX_W - lw) // 2, by + BOX_H - 34),
-            label, font=f_label, fill=(255, 255, 255, 230)
-        )
+        draw.text((bx + (box_w - lw) // 2, by + box_h - 35),
+                  label, font=f_label, fill=(255, 255, 255, 232))
 
-    # ── System info section ─────────────────────────────────────────
-    sys_y = box_y + BOX_H + 30
-    sys_metrics = [
-        ("📊 CPU Usage", sys_info['cpu_usage']),
-        ("💾 RAM Usage", sys_info['ram_used'] + " / " + sys_info['ram_total']),
-        ("🤖 Bot Memory", sys_info['proc_mem']),
-    ]
+    # ── System panel ─────────────────────────────────────────────────
+    panel_x = card_x + card_w + 30
+    panel_y = card_y
+    panel_w = W - PAD - 18 - panel_x
+    panel_h = card_h
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h],
+                           radius=28, fill=(0, 0, 0, 108),
+                           outline=(255, 255, 255, 35), width=1)
+    draw_mixed(draw, "SYSTEM STATUS", (panel_x + 28, panel_y + 24),
+               f_header, f_emoji2, (255, 255, 255, 244))
 
-    for i, (label, value) in enumerate(sys_metrics):
-        col_width = (W - PAD * 2) // 3
-        bx = PAD + i * col_width
-        by = sys_y
-        
-        draw.rounded_rectangle(
-            [bx, by, bx + col_width - 16, by + 70],
-            radius=16, fill=(255, 255, 255, 8), outline=(255, 255, 255, 20), width=1
-        )
-        
-        draw_mixed(draw, label, (bx + 16, by + 12), f_sub, f_emoji2, (200, 210, 255, 220))
-        vw = _text_w(f_header, value)
-        draw.text((bx + 16, by + 38), value, font=f_header, fill=(255, 255, 255, 240))
+    bar_x = panel_x + 30
+    bar_w = panel_w - 60
+    _draw_bar(draw, bar_x, panel_y + 104, bar_w, 18, _pct_value(sys_info["cpu_usage"]),
+              (0, 229, 255, 235), "CPU Usage", sys_info["cpu_usage"], f_sub, f_sub)
+    _draw_bar(draw, bar_x, panel_y + 174, bar_w, 18, _pct_value(sys_info["ram_pct"]),
+              (255, 64, 129, 235), "RAM Usage", sys_info["ram_pct"], f_sub, f_sub)
+    draw.text((bar_x, panel_y + 220), "RAM", font=f_tiny, fill=(180, 195, 230, 210))
+    draw.text((bar_x + 52, panel_y + 220),
+              f"{sys_info['ram_used']} / {sys_info['ram_total']}",
+              font=f_tiny, fill=(255, 255, 255, 230))
+    draw.text((bar_x, panel_y + 247), "BOT", font=f_tiny, fill=(180, 195, 230, 210))
+    draw.text((bar_x + 52, panel_y + 247), sys_info["proc_mem"],
+              font=f_tiny, fill=(255, 255, 255, 230))
 
-    # ── Last boot info ─────────────────────────────────────────────────
-    boot_y = sys_y + 85
+    # ── Bottom strip ──────────────────────────────────────────────────
+    boot_y = card_y + card_h + 28
     last_boot = datetime.fromtimestamp(start_ts).strftime("%d/%m/%Y  %H:%M:%S")
+    bottom_h = 116
+    draw.rounded_rectangle([card_x, boot_y, W - PAD - 18, boot_y + bottom_h],
+                           radius=26, fill=(255, 255, 255, 18),
+                           outline=(255, 255, 255, 28), width=1)
+    draw_mixed(draw, "🕐 KHỞI ĐỘNG LẦN CUỐI", (card_x + 30, boot_y + 24),
+               f_sub, f_emoji2, (190, 210, 255, 230))
+    draw.text((card_x + 30, boot_y + 58), last_boot,
+              font=f_header, fill=(255, 255, 255, 246))
+    status = "ONLINE"
+    sw = _text_w(f_header, status)
+    badge_x = W - PAD - 18 - 190
+    draw.rounded_rectangle([badge_x, boot_y + 30, badge_x + 150, boot_y + 78],
+                           radius=24, fill=(0, 230, 118, 210))
+    draw.text((badge_x + (150 - sw) // 2, boot_y + 38), status,
+              font=f_header, fill=(4, 18, 12, 255))
 
-    draw.rounded_rectangle(
-        [PAD, boot_y, W - PAD, boot_y + 66],
-        radius=16, fill=(255, 255, 255, 12), outline=(255, 255, 255, 25), width=1
-    )
-    draw_mixed(draw, "🕐 Khởi động lần cuối:",
-               (0, boot_y + 10), f_header, f_emoji2, (180, 210, 255, 210),
-               center_w=W)
-    bw = _text_w(f_sub, last_boot)
-    draw.text(
-        ((W - bw) // 2, boot_y + 38),
-        last_boot, font=f_sub, fill=(220, 235, 255, 240)
-    )
-
-    # ── Accent bar ─────────────────────────────────────────────────────
-    bar_y = H - PAD + 12
-    accent = [(255, 93, 47, 220), (123, 97, 255, 210), (34, 197, 94, 220), (59, 130, 246, 210)]
-    seg = (W - PAD * 2) // len(accent)
+    accent = [(255, 93, 47, 235), (255, 193, 7, 235), (0, 230, 118, 235), (0, 229, 255, 235), (255, 64, 129, 235)]
+    seg = (W - PAD * 2 - 36) // len(accent)
+    bar_y = H - PAD - 10
     for i, col in enumerate(accent):
-        sx = PAD + i * seg
-        draw.rounded_rectangle([sx, bar_y, sx + seg - 4, bar_y + 14], radius=7, fill=col)
+        sx = PAD + 18 + i * seg
+        draw.rounded_rectangle([sx, bar_y, sx + seg - 8, bar_y + 12],
+                               radius=6, fill=col)
 
     # ── Compose ────────────────────────────────────────────────────────
     final = Image.alpha_composite(bg, ov)
@@ -286,7 +323,7 @@ def handle_uptime_command(bot, message_object, thread_id, thread_type, author_id
     try:
         img_path = create_uptime_image(bot_name, d, h, m, s, start_ts)
         active.sendLocalImage(img_path, thread_id=thread_id, thread_type=thread_type,
-                              width=1000, height=800)
+                              width=1280, height=720)
     except Exception as e:
         print(f"[uptime] Error: {e}")
         try:

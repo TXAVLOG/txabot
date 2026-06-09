@@ -1,124 +1,331 @@
-import requests
-import sys
+import json
 import os
-import tempfile
 import re
+import tempfile
 
-# Thêm thư mục gốc vào sys.path để import được core.utils và zlapi models
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+import requests
+from zlapi.models import Message
 
-from core.utils import send_msg, send_media
-from zlapi.models import Message, ThreadType
+
+KAIROBOT_BASE_URL = os.getenv("KAIROBOT_BASE_URL", "https://kairobot.qzz.io").rstrip("/")
+CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
+
 
 txa = {
-    "name": "TikTok Downloader",
-    "desc": "Tải video TikTok không logo",
+    "name": "TikTok API",
+    "desc": "Tải video, tìm kiếm và lấy thông tin TikTok bằng API KaiRobot",
     "author": "TXA",
-    "command": ["tiktok", "downtik", "tt"]
+    "command": ["tiktok", "downtik", "tt", "tiktokinfo", "in4tiktok", "tiktoksearch"]
 }
 
-def txa_command(bot, message_object, author_id, thread_id, thread_type, message):
+
+def _read_api_key():
+    for key in ("KAIROBOT_APIKEY", "KAIROBOT_API_KEY", "TXA_APIKEY", "TXA_API_KEY"):
+        value = os.getenv(key)
+        if value:
+            return value.strip()
+
     try:
-        video_link = None
-        
-        # Trường hợp 1: message là string (tin nhắn văn bản đơn giản)
-        if isinstance(message, str):
-            parts = message.strip().split(maxsplit=1)
-            if len(parts) >= 2:
-                video_link = parts[1].strip()
-        
-        # Trường hợp 2: message là đối tượng Message có href/params (tin nhắn rich media)
-        content_obj = getattr(message_object, 'content', None)
-        if content_obj:
-            if not video_link and getattr(content_obj, 'href', None):
-                video_link = content_obj.href
-            if not video_link and getattr(content_obj, 'params', None):
-                import json
-                try:
-                    params_dict = json.loads(content_obj.params)
-                    if 'href' in params_dict:
-                        video_link = params_dict['href']
-                except:
-                    pass
-        
-        if not video_link:
-            send_msg(bot, thread_id, thread_type,
-                f"📌 Sử dụng: tiktok [link_tiktok]\nVí dụ: tiktok https://vt.tiktok.com/...",
-                reply_to=message_object)
-            return
-        
-        if not video_link.startswith("https://"):
-            send_msg(bot, thread_id, thread_type, "❌ Link TikTok phải bắt đầu bằng https://", reply_to=message_object)
-            return
-        
-        # Gửi reaction 👍
-        try:
-            if random.random() > 0.3:
-                bot.sendReaction(message_object, "👍", thread_id, thread_type)
-            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
-        except Exception as react_err:
-            print(f"[TikTok] Lỗi gửi reaction: {react_err}")
-        
-        # Gọi API từ tikwm.com
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-            "Accept": "*/*",
-            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Origin": "https://tikwm.com",
-            "Referer": "https://tikwm.com/"
-        }
-        
-        # First get the token
-        token_url = "https://tikwm.com/api/"
-        token_data = {"url": video_link, "hd": "1"}
-        response = requests.post(token_url, headers=headers, data=token_data, timeout=30)
-        response.raise_for_status()
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        bot_data = (config.get("data") or [{}])[0]
+        for key in ("kairobot_api_key", "kairobot_apikey", "apikey", "api_key"):
+            value = bot_data.get(key)
+            if value:
+                return str(value).strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _api_get(path, params):
+    api_key = _read_api_key()
+    if not api_key:
+        raise RuntimeError("Thiếu API key KaiRobot. Thêm `kairobot_api_key` vào txa.json hoặc set biến môi trường KAIROBOT_APIKEY.")
+
+    payload = dict(params)
+    payload["apikey"] = api_key
+    response = requests.get(f"{KAIROBOT_BASE_URL}{path}", params=payload, timeout=30)
+    try:
         data = response.json()
-        
-        if data.get("code") != 0 or "data" not in data:
-            send_msg(bot, thread_id, thread_type, "❌ Không thể lấy được video từ link này", reply_to=message_object)
-            return
-        
-        video_url = data["data"].get("play")
+    except Exception:
+        data = {"raw": response.text}
+
+    if response.status_code == 401:
+        msg = data.get("message") if isinstance(data, dict) else None
+        raise RuntimeError(msg or "API key KaiRobot không hợp lệ.")
+    response.raise_for_status()
+    if isinstance(data, dict) and data.get("success") is False:
+        raise RuntimeError(data.get("message") or data.get("error") or "API trả về trạng thái thất bại.")
+    return data
+
+
+def _send_text(bot, thread_id, thread_type, text, reply_to=None):
+    if reply_to:
+        bot.replyMessage(Message(text=text), reply_to, thread_id=thread_id, thread_type=thread_type)
+    else:
+        bot.send(Message(text=text), thread_id=thread_id, thread_type=thread_type)
+
+
+def _as_list(data):
+    if isinstance(data, list):
+        return data
+    if not isinstance(data, dict):
+        return []
+    for key in ("data", "result", "results", "items", "list", "videos", "aweme_list"):
+        value = data.get(key)
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict):
+            nested = _as_list(value)
+            if nested:
+                return nested
+    return []
+
+
+def _pick(obj, *keys, default=""):
+    if not isinstance(obj, dict):
+        return default
+    for key in keys:
+        value = obj
+        ok = True
+        for part in key.split("."):
+            if isinstance(value, dict) and part in value:
+                value = value[part]
+            else:
+                ok = False
+                break
+        if ok and value not in (None, ""):
+            return value
+    return default
+
+
+def _find_url(obj, preferred=()):
+    if isinstance(obj, str) and obj.startswith("http"):
+        return obj
+    if isinstance(obj, dict):
+        for key in preferred:
+            value = _pick(obj, key)
+            if isinstance(value, str) and value.startswith("http"):
+                return value
+            if isinstance(value, list):
+                nested = _find_url(value, preferred)
+                if nested:
+                    return nested
+        for value in obj.values():
+            nested = _find_url(value, preferred)
+            if nested:
+                return nested
+    if isinstance(obj, list):
+        for item in obj:
+            nested = _find_url(item, preferred)
+            if nested:
+                return nested
+    return ""
+
+
+def _format_number(value):
+    try:
+        return f"{int(value):,}".replace(",", ".")
+    except Exception:
+        return str(value or 0)
+
+
+def _extract_link(message, message_object):
+    if isinstance(message, str):
+        parts = message.strip().split(maxsplit=1)
+        if len(parts) >= 2:
+            return parts[1].strip()
+
+    content_obj = getattr(message_object, "content", None)
+    if content_obj:
+        href = getattr(content_obj, "href", None)
+        if href:
+            return href
+        params = getattr(content_obj, "params", None)
+        if params:
+            try:
+                params_dict = json.loads(params)
+                if params_dict.get("href"):
+                    return params_dict["href"]
+            except Exception:
+                pass
+    return ""
+
+
+def _normalize_download(data):
+    video_url = _find_url(data, ("video", "video_url", "download_url", "play", "wmplay", "hdplay", "url", "data.video", "data.play"))
+    cover_url = _find_url(data, ("cover", "thumbnail", "thumbnail_url", "origin_cover", "dynamic_cover", "data.cover"))
+    title = _pick(data, "title", "desc", "description", "data.title", "data.desc", default="TikTok video")
+    duration = _pick(data, "duration", "data.duration", default=10)
+    width = _pick(data, "width", "data.width", default=1080)
+    height = _pick(data, "height", "data.height", default=1920)
+    return video_url, cover_url, title, duration, width, height
+
+
+def _download_via_kairobot(link):
+    data = _api_get("/tiktok/download", {"url": link})
+    return _normalize_download(data)
+
+
+def _download_via_tikwm(link):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Origin": "https://tikwm.com",
+        "Referer": "https://tikwm.com/"
+    }
+    response = requests.post("https://tikwm.com/api/", headers=headers, data={"url": link, "hd": "1"}, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+    if data.get("code") != 0 or "data" not in data:
+        raise RuntimeError("Không thể lấy được video từ link này.")
+    item = data["data"]
+    return (
+        item.get("play") or item.get("hdplay") or item.get("wmplay"),
+        item.get("cover") or item.get("origin_cover"),
+        item.get("title") or "TikTok video",
+        item.get("duration") or 10,
+        item.get("width") or 1080,
+        item.get("height") or 1920,
+    )
+
+
+def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_type, message):
+    link = _extract_link(message, message_object)
+    if not link:
+        _send_text(bot, thread_id, thread_type, "📌 Sử dụng: tiktok [link_tiktok]\nVí dụ: tiktok https://vt.tiktok.com/...", message_object)
+        return
+    if not link.startswith("https://"):
+        _send_text(bot, thread_id, thread_type, "❌ Link TikTok phải bắt đầu bằng https://", message_object)
+        return
+
+    try:
+        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    except Exception:
+        pass
+
+    try:
+        try:
+            video_url, cover_url, title, duration, width, height = _download_via_kairobot(link)
+        except Exception as kai_error:
+            print(f"[TikTok] KaiRobot download fallback: {kai_error}")
+            video_url, cover_url, title, duration, width, height = _download_via_tikwm(link)
+
         if not video_url:
-            send_msg(bot, thread_id, thread_type, "❌ Không thể lấy được video từ link này", reply_to=message_object)
+            _send_text(bot, thread_id, thread_type, "❌ Không thể lấy được video từ link này", message_object)
             return
-            
-        title = data["data"].get("title", "TikTok video")
-        
-        # Gửi thông báo và video
-        send_msg(bot, thread_id, thread_type, f"✅ Đang tải video TikTok...\nTiêu đề: {title}", reply_to=message_object)
-        
-        cover_url = data["data"].get("cover") or "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl"
-        duration = data["data"].get("duration") or 10
-        width = data["data"].get("width") or 1080
-        height = data["data"].get("height") or 1920
-        
+
+        _send_text(bot, thread_id, thread_type, f"✅ Đang tải video TikTok...\nTiêu đề: {title}", message_object)
         bot.sendRemoteVideo(
             videoUrl=video_url,
-            thumbnailUrl=cover_url,
-            duration=int(duration) * 1000,
+            thumbnailUrl=cover_url or "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl",
+            duration=int(float(duration or 10)) * 1000,
             thread_id=thread_id,
             thread_type=thread_type,
-            width=int(width),
-            height=int(height),
+            width=int(float(width or 1080)),
+            height=int(float(height or 1920)),
             message=Message(text=f"Tiêu đề: {title}")
         )
-        
-        # Gửi reaction ❤️ sau khi hoàn thành
         try:
-            if random.random() > 0.3:
-                bot.sendReaction(message_object, "❤️", thread_id, thread_type)
             bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
-        except Exception as react_err:
-            print(f"[TikTok] Lỗi gửi reaction hoàn thành: {react_err}")
-        
+        except Exception:
+            pass
     except Exception as e:
-        # Gửi reaction 😢 nếu lỗi
         try:
-            if random.random() > 0.3:
-                bot.sendReaction(message_object, "😢", thread_id, thread_type)
             bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
-        except Exception as react_err:
-            print(f"[TikTok] Lỗi gửi reaction lỗi: {react_err}")
-        send_msg(bot, thread_id, thread_type, f"❌ Lỗi: {str(e)}", reply_to=message_object)
+        except Exception:
+            pass
+        _send_text(bot, thread_id, thread_type, f"❌ Lỗi: {str(e)}", message_object)
+
+
+def handle_tiktok_profile(bot, message_object, author_id, thread_id, thread_type, message):
+    content = (message or "").strip().split(maxsplit=1)
+    if len(content) < 2:
+        _send_text(bot, thread_id, thread_type, "Vui lòng nhập một id tiktok cần lấy thông tin.\nVí dụ: in4tiktok .nguyenhung07", message_object)
+        return
+    username = content[1].strip().lstrip("@")
+    try:
+        data = _api_get("/tiktok/profile", {"username": username})
+        profile = data.get("data", data) if isinstance(data, dict) else {}
+        uid = _pick(profile, "id", "uid", "user.id", default="Không rõ")
+        uname = _pick(profile, "username", "uniqueId", "unique_id", "user.uniqueId", default=username)
+        name = _pick(profile, "nickname", "name", "user.nickname", default="Không rõ")
+        bio = _pick(profile, "signature", "bio", "desc", "user.signature", default="Không có thông tin tiểu sử")
+        avatar = _find_url(profile, ("avatarLarger", "avatar", "avatarMedium", "user.avatarLarger", "user.avatarThumb"))
+        heart = _pick(profile, "heartCount", "stats.heartCount", "stats.diggCount", "heart", default=0)
+        following = _pick(profile, "followingCount", "stats.followingCount", default=0)
+        followers = _pick(profile, "followerCount", "stats.followerCount", default=0)
+        videos = _pick(profile, "videoCount", "stats.videoCount", default=0)
+
+        text = (
+            f"• Tên: {name}\n"
+            f"• Id TikTok: {uid}\n"
+            f"• Username TikTok: {uname}\n"
+            f"• Tiểu sử: {bio}\n"
+            f"• Số follower: {_format_number(followers)}\n"
+            f"• Đang follower: {_format_number(following)}\n"
+            f"• Số video đã đăng: {_format_number(videos)}\n"
+            f"• Tổng số tim TikTok: {_format_number(heart)}"
+        )
+        if avatar:
+            path = os.path.join(tempfile.gettempdir(), f"txa_tiktok_{author_id}.jpeg")
+            img = requests.get(avatar, timeout=15)
+            img.raise_for_status()
+            with open(path, "wb") as f:
+                f.write(img.content)
+            bot.sendLocalImage(path, message=Message(text=text), thread_id=thread_id, thread_type=thread_type, width=2500, height=2500)
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+        else:
+            _send_text(bot, thread_id, thread_type, text, message_object)
+    except Exception as e:
+        _send_text(bot, thread_id, thread_type, f"Đã xảy ra lỗi: {str(e)}", message_object)
+
+
+def handle_tiktok_search(bot, message_object, author_id, thread_id, thread_type, message):
+    content = (message or "").strip().split(maxsplit=1)
+    if len(content) < 2:
+        _send_text(bot, thread_id, thread_type, "Bạn muốn tìm video tiktok?, vui lòng đề cập nội dung rõ ràng hơn để tìm kiếm✨", message_object)
+        return
+    keyword = content[1].strip()
+    try:
+        data = _api_get("/tiktok/search", {"keywords": keyword, "count": 10})
+        videos = _as_list(data)
+        if not videos:
+            _send_text(bot, thread_id, thread_type, "Không tìm thấy video tiktok nào với từ khóa bạn yêu cầu.", message_object)
+            return
+        lines = [f"Tìm thấy {len(videos)} video tiktok với từ khóa `{keyword}`. Dưới đây là các video:", ""]
+        for i, item in enumerate(videos[:10], 1):
+            title = _pick(item, "title", "desc", "description", default="Không có tiêu đề")
+            likes = _pick(item, "digg_count", "like_count", "stats.diggCount", "stats.likeCount", default=0)
+            plays = _pick(item, "play_count", "playCount", "stats.playCount", default=0)
+            author_name = _pick(item, "author.unique_id", "author.uniqueId", "author.nickname", default="Không có tác giả")
+            link = _find_url(item, ("share_url", "url", "link", "web_url"))
+            lines.append(f"[ {i} ]. Tiêu đề: {title}")
+            lines.append(f"   - Tác giả: {author_name}")
+            lines.append(f"   - Lượt xem: {_format_number(plays)}")
+            lines.append(f"   - Lượt thích: {_format_number(likes)}")
+            lines.append(f"   - Link: {link or 'Không có link'}")
+            lines.append("")
+        text = "\n".join(lines)
+        if len(text) > 2500:
+            text = text[:2500] + "\n\n... (Bị cắt bớt do độ dài tin nhắn quá dài)"
+        _send_text(bot, thread_id, thread_type, text, message_object)
+    except Exception as e:
+        _send_text(bot, thread_id, thread_type, f"Đã xảy ra lỗi: {str(e)}", message_object)
+
+
+def txa_command(bot, message_object, author_id, thread_id, thread_type, message):
+    cmd = ""
+    if isinstance(message, str):
+        prefix = getattr(bot, "prefix", ".")
+        cmd = message[len(prefix):].split()[0].lower() if message.startswith(prefix) else message.split()[0].lower()
+
+    if cmd in ("tiktokinfo", "in4tiktok"):
+        handle_tiktok_profile(bot, message_object, author_id, thread_id, thread_type, message)
+    elif cmd == "tiktoksearch":
+        handle_tiktok_search(bot, message_object, author_id, thread_id, thread_type, message)
+    else:
+        handle_tiktok_download(bot, message_object, author_id, thread_id, thread_type, message)

@@ -1,0 +1,4431 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/capcut/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Tìm ảnh/video capcut",
+        "description": "Tìm kiếm ảnh/video capcut, type = 2 là ảnh, type = 1 là video",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Search query",
+            "schema": {
+              "example": "dog",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Type of media",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchCapcutDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Capcut"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/capcut/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải video capcut",
+        "description": "Tải video capcut",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link video Capcut",
+            "schema": {
+              "example": "https://www.capcut.com/t/Zs8PoABbX/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownCapcutDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Capcut"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/ai/4k": {
+      "get": {
+        "operationId": "increaseQuality",
+        "summary": "tăng chất lượng ảnh lên 4k",
+        "description": "tăng chất lượng ảnh lên 4k",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Image URL",
+            "schema": {
+              "example": "https://example.com/image.jpg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "description": "Version của API",
+            "schema": {
+              "enum": [
+                "v1",
+                "v2",
+                "v3"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncreaseQualityDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AI"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/ai/chat": {
+      "post": {
+        "operationId": "chatDeepAi",
+        "summary": "Trò chuyện với AI",
+        "description": "Trò chuyện với AI",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatDeepAiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDeepAiDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AI"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/ai/image-editer": {
+      "get": {
+        "operationId": "deepAiImageEditer",
+        "summary": "Chỉnh sửa hình ảnh",
+        "description": "Chỉnh sửa hình ảnh bằng văn bản",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "URL của hình ảnh cần chỉnh sửa",
+            "schema": {
+              "example": "https://photo.znews.vn/w660/Uploaded/mdf_eioxrd/2021_07_06/2.jpg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "text",
+            "required": true,
+            "in": "query",
+            "description": "Mô tả văn bản để chỉnh sửa hình ảnh",
+            "schema": {
+              "example": "Thêm một cái cây",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepAiImageEditerDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AI"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/ai/text-to-image": {
+      "get": {
+        "operationId": "textToImage",
+        "summary": "Chuyển đổi văn bản thành hình ảnh",
+        "description": "Chuyển đổi văn bản thành hình ảnh",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Truy vấn để tạo hình ảnh",
+            "schema": {
+              "example": "Một con mèo đang ngồi trên bàn",
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "description": "model sử dụng để tạo hình ảnh",
+            "schema": {
+              "enum": [
+                "v1",
+                "v2",
+                "v3"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ratio",
+            "required": false,
+            "in": "query",
+            "description": "ratio của hình ảnh được tạo ra, dùng cho V1",
+            "schema": {
+              "enum": [
+                "1:1",
+                "4:3",
+                "3:4",
+                "16:9",
+                "9:16",
+                "hd-1:1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextToImageDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AI"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/ai/rpb": {
+      "get": {
+        "operationId": "removePhotoBackground",
+        "summary": "Xóa nền hình ảnh",
+        "description": "Xóa nền hình ảnh",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "URL của hình ảnh cần xóa nền",
+            "schema": {
+              "example": "https://example.com/image.jpg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "description": "phiên bản của API",
+            "schema": {
+              "example": "v1, v2",
+              "enum": [
+                "v1",
+                "v2",
+                "v3"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovePhotoBackgroundDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AI"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/ai/text-to-speech": {
+      "post": {
+        "operationId": "textToSpeech",
+        "summary": "Chuyển đổi văn bản thành giọng nói",
+        "description": "Chuyển đổi văn bản thành giọng nói",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextToSpeechDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextToSpeechDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AI"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/facebook/get-cookies-and-access-token": {
+      "get": {
+        "operationId": "getCookiesAndAccessToken",
+        "summary": "Lấy cookies và access token facebook",
+        "description": "Lấy cookies và access token facebook, Lưu ý: tài khoản bát buộc phải bật xác thực 2 yếu tố qua app",
+        "parameters": [
+          {
+            "name": "account",
+            "required": true,
+            "in": "query",
+            "description": "Facebook account",
+            "schema": {
+              "example": "abcs",
+              "type": "string"
+            }
+          },
+          {
+            "name": "password",
+            "required": true,
+            "in": "query",
+            "description": "Facebook password",
+            "schema": {
+              "example": "123456",
+              "type": "string"
+            }
+          },
+          {
+            "name": "otpkey",
+            "required": true,
+            "in": "query",
+            "description": "Facebook otpkey",
+            "schema": {
+              "example": "4TDF IKLF 6OT6 6B78 KCN5 AKSL NDHC 7RMW",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCookieAndAccessTokenDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Facebook"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/facebook/get-any-access-token": {
+      "get": {
+        "operationId": "getAnyAccessToken",
+        "summary": "Lấy access token theo loại",
+        "description": "Lấy các loại access token từ 1 access token ban đầu, các mục hiện hỗ trợ: EAATK, EAAB, EAAGO, EAAC2SPKT, EAAD6V7, EAAD, EAAAAU",
+        "parameters": [
+          {
+            "name": "access_token",
+            "required": true,
+            "in": "query",
+            "description": "Access token",
+            "schema": {
+              "example": "EAAG...",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "description": "Type of access token",
+            "schema": {
+              "example": "EAAAAU, EAAD, EAAD6V7, EAAC2SPKT, EAAGO, EAAB, EAATK",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAnyAccessTokenDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Facebook"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/facebook/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải bài đăng facebook",
+        "description": "Tải video, ảnh facebook",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Facebook link",
+            "schema": {
+              "example": "https://www.facebook.com/share/p/1AW7bsrcoT/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownFbDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Facebook"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/games/word-chain": {
+      "get": {
+        "operationId": "wordChain",
+        "summary": "Nối từ",
+        "description": "Nhập từ cần nối, ví dụ: cá mập",
+        "parameters": [
+          {
+            "name": "word",
+            "required": true,
+            "in": "query",
+            "description": "Word to start the chain",
+            "schema": {
+              "example": "cá mập",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WordChainDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/games/stupid-question": {
+      "get": {
+        "operationId": "stupidQuestion",
+        "summary": "Hỏi ngu",
+        "description": "Y như tên =))",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StupidQuestionDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/instagram/info": {
+      "get": {
+        "operationId": "getInfo",
+        "summary": "Thông tin tài khoản Instagram",
+        "description": "Lấy thông tin tài khoản Instagram theo link",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Instagram link",
+            "schema": {
+              "example": "https://www.instagram.com/instagram/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoIgDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Instagram"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/instagram/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải video, ảnh Instagram",
+        "description": "Tải video, ảnh Instagram",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Instagram link",
+            "schema": {
+              "example": "https://www.instagram.com/p/DJIqIR-SThm/?utm_source=ig_web_copy_link",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownIgDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Instagram"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/lauphim/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Tìm phim trên Lauphim",
+        "description": "Tìm kiếm phim trên Lauphim",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Search query",
+            "schema": {
+              "example": "Naruto",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Lauphim"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/lauphim/get-link-episode": {
+      "get": {
+        "operationId": "getLinkEpisode",
+        "summary": "Lấy link xem phim",
+        "description": "Lấy link xem phim tại Lauphim",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Link of the episode",
+            "schema": {
+              "example": "https://lauphim.com/xem-phim-yeu-em-tap-1-156352",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetLinkEpisodeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Lauphim"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/lauphim/info": {
+      "get": {
+        "operationId": "getInfo",
+        "summary": "Thông tin phim",
+        "description": "Lấy thông tin phim",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Link of the movie",
+            "schema": {
+              "example": "https://lauphim.com/thi-tran-ma-ca-rong-salems-lot",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Lauphim"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/catbox": {
+      "get": {
+        "operationId": "uploadCatbox",
+        "summary": "Upload catbox",
+        "description": "Upload file lên Catbox",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link file",
+            "schema": {
+              "example": "https://example.com/file.png",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatboxDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/imgur": {
+      "get": {
+        "operationId": "uploadImgur",
+        "summary": "Upload Imgur",
+        "description": "Upload file lên Imgur",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link file",
+            "schema": {
+              "example": "https://example.com/file.png",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatboxDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/pexels": {
+      "get": {
+        "operationId": "searchPexels",
+        "summary": "Tìm ảnh trên Pexels",
+        "description": "Tìm ảnh trên pexels",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Từ khóa tìm kiếm",
+            "schema": {
+              "example": "dog",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/short-url": {
+      "get": {
+        "operationId": "shortenUrl",
+        "summary": "Rút gọn URL",
+        "description": "Rút gọn URL",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link file",
+            "schema": {
+              "example": "https://example.com/file.png",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatboxDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/down-aio": {
+      "get": {
+        "operationId": "downAio",
+        "summary": "Down all in one",
+        "description": "Version v1: Nền tảng hỗ trợ: Tiktok, Douyin, Capcut, Threads, Instagram, Facebook, Espn, Kuaishou, Pinterest, imdb, imgur, ifunny, Izlesene, Reddit, Youtube, Twitter, Vimeo, Snapchat, Bilibili, Dailymotion, Sharechat, Linkedin, Tumblr, Hipi, Telegram, Getstickerpack, Bitchute, Febspot, 9GAG, oke.ru, Rumble, Streamable, Ted, SohuTv, Xvideos, Xnxx, Xiaohongshu, Weibo, Miaopai, Meipai, Xiaoying, National Video, Yingke, Soundcloud, Mixcloud, Spotify, Zingmp3, Bandcamp.<br><br> Version v2: Nền tảng hỗ trợ: YOUTUBE, FACEBOOK, INSTAGRAM, THREADS, TIKTOK, DOUYIN, CAPCUT, PINTEREST, SOUNDCLOUD, X",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link file",
+            "schema": {
+              "example": "https://www.youtube.com/watch?v=7m8ek8D9me0&list=RD4rn6Um42KoA&index=10",
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "description": "model dùng",
+            "schema": {
+              "example": "v1",
+              "enum": [
+                "v1",
+                "v2",
+                "v3"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownAioDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/search-img-in-google": {
+      "get": {
+        "operationId": "searchGoogle",
+        "summary": "Tìm ảnh trên Google",
+        "description": "Tìm kiếm ảnh trên Google",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Từ khóa tìm kiếm",
+            "schema": {
+              "example": "dog",
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "required": false,
+            "in": "query",
+            "description": "model dùng",
+            "schema": {
+              "example": "v1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchGGDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/medias/thpt-qg": {
+      "get": {
+        "operationId": "getThptQG",
+        "summary": "Lấy điểm thi THPT Quốc Gia",
+        "description": "Lấy điểm thi THPT Quốc Gia theo số báo danh và năm thi",
+        "parameters": [
+          {
+            "name": "sbd",
+            "required": true,
+            "in": "query",
+            "description": "Số báo danh",
+            "schema": {
+              "example": "03014550",
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "description": "Năm thi",
+            "schema": {
+              "example": "2025",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThptQGDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Medias"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/youtube/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải video Youtube",
+        "description": "Tải video Youtube",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link video Youtube",
+            "schema": {
+              "example": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownYoutubeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Youtube"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/tiktok/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "summary": "Lấy profile người dùng Tiktok",
+        "description": "Lấy thông tin profile của user Tiktok",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "query",
+            "description": "Tên người dùng Tiktok",
+            "schema": {
+              "example": ".nguyenhung07",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Tiktok"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/tiktok/user/posts": {
+      "get": {
+        "operationId": "getUserPosts",
+        "summary": "Lấy bài đăng của người dùng Tiktok",
+        "description": "Lấy bài đăng của user Tiktok",
+        "parameters": [
+          {
+            "name": "count",
+            "required": false,
+            "in": "query",
+            "description": "Số lượng bài đăng muốn lấy",
+            "schema": {
+              "example": 12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "cursor để phân trang",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "unique_id",
+            "required": true,
+            "in": "query",
+            "description": "unique_id người dùng Tiktok",
+            "schema": {
+              "example": ".nguyenhung07",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPostsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Tiktok"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/tiktok/search": {
+      "get": {
+        "operationId": "searchTiktok",
+        "summary": "Tìm kiếm nội dung Tiktok",
+        "description": "Tìm kiếm nội dung Tiktok theo từ khóa",
+        "parameters": [
+          {
+            "name": "count",
+            "required": false,
+            "in": "query",
+            "description": "Số lượng bài đăng muốn lấy",
+            "schema": {
+              "example": 12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "cursor để phân trang",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "keywords",
+            "required": true,
+            "in": "query",
+            "description": "Từ khóa tìm kiếm",
+            "schema": {
+              "example": "cosplay",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Lọc theo loại nội dung",
+            "schema": {
+              "example": "image",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTiktokDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Tiktok"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/tiktok/download": {
+      "get": {
+        "operationId": "downloadTiktok",
+        "summary": "Tải nội dung Tiktok",
+        "description": "Tải nội dung Tiktok theo link",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link video Tiktok",
+            "schema": {
+              "example": "https://www.tiktok.com/@danhtrang_2311/photo/7475187494460329224?is_from_webapp=1&sender_device=pc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadTiktokDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Tiktok"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/douyin/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải media Douyin",
+        "description": "Tải video, image Douyin",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link video Douyin",
+            "schema": {
+              "example": "https://v.douyin.com/u-cdZdf-ox4/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownDouyinDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Douyin"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/pinterest/search": {
+      "get": {
+        "operationId": "searchPinterest",
+        "summary": "Tìm kiếm trên Pinterest",
+        "description": "Tìm kiếm hình ảnh video trên Pinterest",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Từ khóa tìm kiếm",
+            "schema": {
+              "example": "dog",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPinDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Pinterest"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/pinterest/download": {
+      "get": {
+        "operationId": "downloadPinterest",
+        "summary": "Tải hình ảnh video Pinterest",
+        "description": "Tải hình ảnh video Pinterest",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Link video Pinterest",
+            "schema": {
+              "example": "https://www.pinterest.com/pin/593701163412991138/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownPinDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Pinterest"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/thread/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải media Thread",
+        "description": "Tải media Thread",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Url thread",
+            "schema": {
+              "example": "https://www.threads.com/@shopthucunghth/post/DJPI-2dSnGh",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownThreadDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Thread"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/soundcloud/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Tìm nhạc trên Soundcloud",
+        "description": "Tìm kiếm nhạc trên Soundcloud",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Từ khóa tìm kiếm",
+            "schema": {
+              "example": "Nhạc trẻ",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchSclDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Soundcloud"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/soundcloud/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải nhạc Soundcloud",
+        "description": "Tải nhạc Soundcloud",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Url bài hát",
+            "schema": {
+              "example": "https://soundcloud.com/hidro_natri311004/am-tham-ben-em-son-tung-m-tp-8d-audio",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownSclDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Soundcloud"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/x/download": {
+      "get": {
+        "operationId": "download",
+        "summary": "Tải media X",
+        "description": "Tải media X",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Url media X",
+            "schema": {
+              "example": "https://x.com/bluemoon_hn/status/1919415647328702582",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownXDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "X"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/others/mocky": {
+      "post": {
+        "operationId": "uploadMocky",
+        "summary": "Đẩy nội dung lên Mocky",
+        "description": "Tải nội dung lên Mocky",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MockyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Others"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/others/theatrical-films": {
+      "get": {
+        "operationId": "getTheatricalFilms",
+        "summary": "Lấy danh sách phim chiếu rạp",
+        "description": "Lấy danh sách phim chiếu rạp",
+        "parameters": [
+          {
+            "name": "rap",
+            "required": true,
+            "in": "query",
+            "description": "Tên rạp chiếu phim",
+            "schema": {
+              "example": "Galaxy, CGV, BHD, Lotte, Dcine, Mega GS",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TheatricalFilmsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Others"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/others/get-proxy": {
+      "get": {
+        "operationId": "getProxy",
+        "summary": "Lấy danh sách proxy",
+        "description": "Lấy danh sách proxy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApikeyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Others"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/others/simsimi": {
+      "get": {
+        "operationId": "chatWithSimSimi",
+        "summary": "SimSimi",
+        "description": "Chat với SimSimi",
+        "parameters": [
+          {
+            "name": "text",
+            "required": true,
+            "in": "query",
+            "description": "Nội dung cần đẩy lên SimSimi",
+            "schema": {
+              "example": "Hello, how are you?",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimsimiDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Others"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/others/phatnguoi": {
+      "get": {
+        "operationId": "checkPhatNguoi",
+        "summary": "Check phạt nguội",
+        "description": "Check phạt nguội biển số",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Biển số cần kiểm tra",
+            "schema": {
+              "example": "24D147847",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckPhatNguoiDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Others"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/phongthuy/sdt": {
+      "get": {
+        "operationId": "getSdt",
+        "summary": "Phong thủy số điện thoại",
+        "description": "Xem phong thủy qua số điện thoại",
+        "parameters": [
+          {
+            "name": "phone",
+            "required": true,
+            "in": "query",
+            "description": "Số điện thoại",
+            "schema": {
+              "example": "0987654321",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateOfBirth",
+            "required": true,
+            "in": "query",
+            "description": "Ngày tháng năm sinh (DD-MM-YYYY)",
+            "schema": {
+              "example": "01-01-2000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdtDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Phong Thủy"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/phongthuy/hop-tuoi": {
+      "get": {
+        "operationId": "getHopTuoi",
+        "summary": "Hợp tuổi",
+        "description": "Xem hợp tuổi giữa 2 người",
+        "parameters": [
+          {
+            "name": "maleDateOfBirth",
+            "required": true,
+            "in": "query",
+            "description": "Ngày tháng năm sinh của bạn nam (DD-MM-YYYY)",
+            "schema": {
+              "example": "01-01-2000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "femaleDateOfBirth",
+            "required": true,
+            "in": "query",
+            "description": "Ngày tháng năm sinh của bạn nữ (DD-MM-YYYY)",
+            "schema": {
+              "example": "01-01-2000",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HopTuoiDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Phong Thủy"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/anime": {
+      "get": {
+        "operationId": "randomAnime",
+        "summary": "Random anime",
+        "description": "Random anime",
+        "parameters": [
+          {
+            "name": "nsfw",
+            "required": false,
+            "in": "query",
+            "description": "NSFW (true/false)",
+            "schema": {
+              "example": "true",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomAnimeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-anime": {
+      "post": {
+        "operationId": "addAnime",
+        "summary": "Thêm image anime",
+        "description": "Thêm ảnh anime",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomAnimeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomAnimeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/cadao": {
+      "get": {
+        "operationId": "randomCadao",
+        "summary": "Random ca dao",
+        "description": "Random ca dao!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomCadaoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-cadao": {
+      "post": {
+        "operationId": "addCadao",
+        "summary": "Thêm ca dao",
+        "description": "Thêm ca dao",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomCadaoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomCadaoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/thinh": {
+      "get": {
+        "operationId": "randomThinh",
+        "summary": "Random thinh",
+        "description": "Random thơ thính!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomThinhDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-thinh": {
+      "post": {
+        "operationId": "addThinh",
+        "summary": "Thêm thinh",
+        "description": "Thêm thơ thính!",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomThinhDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomThinhDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/video-cosplay": {
+      "get": {
+        "operationId": "randomCosplay",
+        "summary": "Random video cosplay",
+        "description": "Random video cosplay!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomCosplayDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-video-cosplay": {
+      "post": {
+        "operationId": "addCosplay",
+        "summary": "Thêm video cosplay",
+        "description": "Thêm video cosplay!",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomCosplayDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomCosplayDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/video-girl": {
+      "get": {
+        "operationId": "randomGirl",
+        "summary": "Random video girl",
+        "description": "Random video gái xinh!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomGirlDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-video-girl": {
+      "post": {
+        "operationId": "addGirl",
+        "summary": "Thêm video girl",
+        "description": "Thêm video gái xinh!",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomGirlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomGirlDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/video-boy": {
+      "get": {
+        "operationId": "randomBoy",
+        "summary": "Random video boy",
+        "description": "Random video trai đẹp!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomBoyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-video-boy": {
+      "post": {
+        "operationId": "addBoy",
+        "summary": "Thêm video boy",
+        "description": "Thêm video trai đẹp!",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomBoyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomBoyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/image-girl": {
+      "get": {
+        "operationId": "randomImgGirl",
+        "summary": "Random ảnh gái xinh",
+        "description": "Random ảnh gái xinh!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RandomBoyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/randoms/add-image-girl": {
+      "post": {
+        "operationId": "addImgGirl",
+        "summary": "Thêm ảnh gái xinh",
+        "description": "Thêm ảnh gái xinh!",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRandomImgGirlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRandomImgGirlDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Randoms"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/temp-mails/get-email": {
+      "get": {
+        "operationId": "getEmail",
+        "summary": "Lấy email tạm",
+        "description": "Lấy email tạm thời!",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApikeyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Temp Mails"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/temp-mails/show-email": {
+      "get": {
+        "operationId": "showEmail",
+        "summary": "Xem email tạm thời!",
+        "description": "Xem nội dung email tạm",
+        "parameters": [
+          {
+            "name": "email",
+            "required": true,
+            "in": "query",
+            "description": "Email tạm thời",
+            "schema": {
+              "example": "ahduw@sji.com",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShowMailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Temp Mails"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/truyenvn/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Tìm truyện trên Truyenvn",
+        "description": "Tìm kiếm truyện trên Truyenvn",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Tên truyện cần tìm",
+            "schema": {
+              "example": "Truyện tranh 1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTruyenvnDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Truyenvn"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/truyenvn/info": {
+      "get": {
+        "operationId": "info",
+        "summary": "Lấy thông tin truyện",
+        "description": "Lấy thông tin truyện tại truyenvn",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "URL truyện cần lấy thông tin",
+            "schema": {
+              "example": "https://truyenvn.nl/truyen-tranh/toi-la-hoc-sinh-hang-d/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoTruyenvnDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Truyenvn"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/truyenvn/chapters": {
+      "get": {
+        "operationId": "chapters",
+        "summary": "Lấy danh sách chương",
+        "description": "Lấy danh sách chương của truyện tại truyenvn",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "URL truyện cần lấy thông tin chương",
+            "schema": {
+              "example": "https://truyenvn.nl/truyen-tranh/toi-la-hoc-sinh-hang-d/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChaptersTruyenvnDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Truyenvn"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/truyenvn/content-chapter": {
+      "get": {
+        "operationId": "contentChapter",
+        "summary": "Lấy nội dung 1 chương",
+        "description": "Lấy nội dung của 1 chương của truyện tại truyenvn",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "URL chương cần lấy nội dung",
+            "schema": {
+              "example": "https://truyenvn.nl/truyen-tranh/toi-la-hoc-sinh-hang-d/toi-la-hoc-sinh-hang-d-chapter-1/",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentChapterTruyenvnDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Truyenvn"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/note/create": {
+      "post": {
+        "operationId": "createNote",
+        "summary": "Tạo note",
+        "description": "Tạo note mới để dán văn bản, code, ...",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateNoteDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Note"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/note/get-note": {
+      "get": {
+        "operationId": "getNote",
+        "summary": "Lấy note",
+        "description": "Lấy note theo id",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "query",
+            "description": "ID note",
+            "schema": {
+              "example": "ID note",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetNoteDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Note"
+        ],
+        "security": [
+          {
+            "not-api-key": []
+          }
+        ]
+      }
+    },
+    "/riotgame/tft/get-info": {
+      "get": {
+        "operationId": "getInfoTft",
+        "summary": "Lấy thông tin TFT",
+        "description": "Lấy thông tin TFT!",
+        "parameters": [
+          {
+            "name": "player",
+            "required": true,
+            "in": "query",
+            "description": "username của người chơi TFT",
+            "schema": {
+              "example": "hung0712#000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "required": true,
+            "in": "query",
+            "description": "server của người chơi TFT",
+            "schema": {
+              "example": "vn2",
+              "enum": [
+                "br1",
+                "eun1",
+                "euw1",
+                "jp1",
+                "kr",
+                "la1",
+                "la2",
+                "na1",
+                "oc1",
+                "tr1",
+                "ru",
+                "vn2",
+                "sg2",
+                "ph2",
+                "th2",
+                "tw2"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetInfoTftDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Riot Game"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/riotgame/player": {
+      "get": {
+        "operationId": "searchPlayer",
+        "summary": "Tìm kiếm người chơi Riot Game",
+        "description": "Lấy thông tin người chơi Riot game!",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "description": "Tên của người chơi",
+            "schema": {
+              "example": "hung0712#000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "required": true,
+            "in": "query",
+            "description": "Server của người chơi",
+            "schema": {
+              "example": "VN2",
+              "enum": [
+                "BR1",
+                "EUN1",
+                "EUW1",
+                "JP1",
+                "KR",
+                "LA1",
+                "LA2",
+                "NA1",
+                "OC1",
+                "PH2",
+                "TH2",
+                "TR1",
+                "RU",
+                "TW2",
+                "VN2"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiotSearchPlayerDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Riot Game"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/riotgame/lol/game-history-ids": {
+      "get": {
+        "operationId": "getGameHistory",
+        "summary": "ID lịch sử trận đấu LOL",
+        "description": "ID lịch sử trận đấu LOL!",
+        "parameters": [
+          {
+            "name": "puuid",
+            "required": true,
+            "in": "query",
+            "description": "puuid của người chơi",
+            "schema": {
+              "example": "DkCtoQjjbPEDQ5OlbzTBMW_8sUumB8VcNOw1-AiHSM601tkD0_yeBXDl_696cEY4yBAL39hLmK9sDg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "required": true,
+            "in": "query",
+            "description": "Server của người chơi",
+            "schema": {
+              "example": "VN2",
+              "enum": [
+                "BR1",
+                "EUN1",
+                "EUW1",
+                "JP1",
+                "KR",
+                "LA1",
+                "LA2",
+                "NA1",
+                "OC1",
+                "PH2",
+                "TH2",
+                "TR1",
+                "RU",
+                "TW2",
+                "VN2"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "count",
+            "required": true,
+            "in": "query",
+            "description": "số lượng trận đấu muốn lấy",
+            "schema": {
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "skip",
+            "required": true,
+            "in": "query",
+            "description": "số lượng trận đấu bỏ qua",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiotGameHistoryDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Riot Game"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/riotgame/lol/get-game-history-detail": {
+      "get": {
+        "operationId": "getGameHistoryDetail",
+        "summary": "Lịch sử trận đấu LOL",
+        "description": "Lịch sử trận đấu LOL!",
+        "parameters": [
+          {
+            "name": "matchId",
+            "required": true,
+            "in": "query",
+            "description": "ID trận đấu",
+            "schema": {
+              "example": "VN2_875911668",
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "required": true,
+            "in": "query",
+            "description": "Server của người chơi",
+            "schema": {
+              "example": "VN2",
+              "enum": [
+                "BR1",
+                "EUN1",
+                "EUW1",
+                "JP1",
+                "KR",
+                "LA1",
+                "LA2",
+                "NA1",
+                "OC1",
+                "PH2",
+                "TH2",
+                "TR1",
+                "RU",
+                "TW2",
+                "VN2"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiotGameHistoryDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Riot Game"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/motphim/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Tìm phim trên Motphim",
+        "description": "Tìm kiếm phim trên Motphim",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Search query",
+            "schema": {
+              "example": "Naruto",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Motphim"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/motphim/info": {
+      "get": {
+        "operationId": "getInfo",
+        "summary": "Thông tin phim",
+        "description": "Lấy thông tin chi tiết của phim trên Motphim",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Link of the movie",
+            "schema": {
+              "example": "https://motphimc.nl/phim/nguoi-may-kien-tao-wataru",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Motphim"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/motphim/get-link-episode": {
+      "get": {
+        "operationId": "getLinkEpisode",
+        "summary": "Lấy link tập phim",
+        "description": "Lấy link tập phim trên Motphim",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Link of the episode",
+            "schema": {
+              "example": "https://motphimc.nl/phim/nguoi-may-kien-tao-wataru/tap-1-sv-0",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetLinkEpisodeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Motphim"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/versions": {
+      "get": {
+        "operationId": "getAllVersions",
+        "summary": "Lấy tất cả lịch sử phiên bản",
+        "description": "Lấy danh sách tất cả các phiên bản của ứng dụng Kairo API",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Versions"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/animehay/get-link-episode": {
+      "get": {
+        "operationId": "getLinkEpisode",
+        "summary": "Lấy link tập phim",
+        "description": "Lấy link tập phim trên Motphim",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Link of the episode",
+            "schema": {
+              "example": "https://animehay.ceo/xem-phim/inu-x-boku-ss-tap-12-1496.html",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetLinkEpisodeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Animehay"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/animehay/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Tìm phim trên Animehay",
+        "description": "Tìm kiếm phim trên Animehay",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "Search query",
+            "schema": {
+              "example": "Naruto",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Animehay"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/animehay/info": {
+      "get": {
+        "operationId": "getInfo",
+        "summary": "Thông tin phim",
+        "description": "Lấy thông tin chi tiết của phim trên Animehay",
+        "parameters": [
+          {
+            "name": "link",
+            "required": true,
+            "in": "query",
+            "description": "Link of the movie",
+            "schema": {
+              "example": "https://animehay.ceo/thong-tin-phim/inu-x-boku-ss-187.html",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Animehay"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    },
+    "/freefire/player-info/{uid}": {
+      "get": {
+        "operationId": "getPlayerInfo",
+        "summary": "Thông tin người chơi Freefire",
+        "description": "Lấy thông tin người chơi Freefire bằng UID",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "FreeFire"
+        ],
+        "security": [
+          {
+            "api-key-auth": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "API Documentation",
+    "description": "Tài liệu API cho hệ thống",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "api-key-auth": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "apikey"
+      }
+    },
+    "schemas": {
+      "SearchCapcutDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query",
+            "example": "dog"
+          },
+          "type": {
+            "type": "number",
+            "description": "Type of media",
+            "example": 1
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "DownCapcutDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video Capcut",
+            "example": "https://www.capcut.com/t/Zs8PoABbX/"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "IncreaseQualityDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Image URL",
+            "example": "https://example.com/image.jpg"
+          },
+          "version": {
+            "type": "string",
+            "description": "Version của API",
+            "enum": [
+              "v1",
+              "v2",
+              "v3"
+            ]
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "ChatDeepAiHistoryDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "role của người dùng",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "example": "assistant"
+          },
+          "content": {
+            "type": "string",
+            "description": "Nội dung của tin nhắn",
+            "example": "Xin chào"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatDeepAiDto": {
+        "type": "object",
+        "properties": {
+          "style": {
+            "type": "string",
+            "description": "Ai sử dụng để trò chuyện",
+            "enum": [
+              "chat",
+              "gpt-chat",
+              "chatgpt-alternative"
+            ],
+            "example": "chat"
+          },
+          "content": {
+            "type": "string",
+            "description": "Câu hỏi hoặc truy vấn để trò chuyện với AI",
+            "example": "Thời tiết hôm nay như thế nào?"
+          },
+          "model": {
+            "type": "string",
+            "description": "model sử dụng để trò chuyện với AI",
+            "enum": [
+              "standard",
+              "online"
+            ],
+            "example": "standard"
+          },
+          "history": {
+            "description": "Lịch sử trò chuyện với AI",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatDeepAiHistoryDto"
+            }
+          },
+          "url": {
+            "type": "string",
+            "description": "link ảnh muốn hỏi",
+            "example": "https://photo.znews.vn/w660/Uploaded/mdf_eioxrd/2021_07_06/2.jpg"
+          }
+        },
+        "required": [
+          "content",
+          "history"
+        ]
+      },
+      "DeepAiImageEditerDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL của hình ảnh cần chỉnh sửa",
+            "example": "https://photo.znews.vn/w660/Uploaded/mdf_eioxrd/2021_07_06/2.jpg"
+          },
+          "text": {
+            "type": "string",
+            "description": "Mô tả văn bản để chỉnh sửa hình ảnh",
+            "example": "Thêm một cái cây"
+          }
+        },
+        "required": [
+          "url",
+          "text"
+        ]
+      },
+      "TextToImageDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Truy vấn để tạo hình ảnh",
+            "example": "Một con mèo đang ngồi trên bàn"
+          },
+          "version": {
+            "type": "string",
+            "description": "model sử dụng để tạo hình ảnh",
+            "enum": [
+              "v1",
+              "v2",
+              "v3"
+            ]
+          },
+          "ratio": {
+            "type": "string",
+            "description": "ratio của hình ảnh được tạo ra, dùng cho V1",
+            "enum": [
+              "1:1",
+              "4:3",
+              "3:4",
+              "16:9",
+              "9:16",
+              "hd-1:1"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "RemovePhotoBackgroundDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL của hình ảnh cần xóa nền",
+            "example": "https://example.com/image.jpg"
+          },
+          "version": {
+            "type": "string",
+            "description": "phiên bản của API",
+            "example": "v1, v2",
+            "enum": [
+              "v1",
+              "v2",
+              "v3"
+            ]
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "TextToSpeechDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Nội dung văn bản cần chuyển đổi thành giọng nói, tối đa 300 ký tự",
+            "example": "Xin chào, bạn có khỏe không?"
+          },
+          "voice": {
+            "type": "string",
+            "description": "giọng nói sử dụng, hn-thanhphuong, hn-phuongtrang, hn-namkhanh, hcm-minhquan, hcm-diemmy, hcm-thuydung",
+            "example": "hn-thanhphuong",
+            "enum": [
+              "hn-thanhphuong",
+              "hn-phuongtrang",
+              "hn-namkhanh",
+              "hcm-minhquan",
+              "hcm-diemmy",
+              "hcm-thuydung"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "voice"
+        ]
+      },
+      "GetCookieAndAccessTokenDto": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": "string",
+            "description": "Facebook account",
+            "example": "abcs"
+          },
+          "password": {
+            "type": "string",
+            "description": "Facebook password",
+            "example": "123456"
+          },
+          "otpkey": {
+            "type": "string",
+            "description": "Facebook otpkey",
+            "example": "4TDF IKLF 6OT6 6B78 KCN5 AKSL NDHC 7RMW"
+          }
+        },
+        "required": [
+          "account",
+          "password",
+          "otpkey"
+        ]
+      },
+      "GetAnyAccessTokenDto": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Access token",
+            "example": "EAAG..."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of access token",
+            "example": "EAAAAU, EAAD, EAAD6V7, EAAC2SPKT, EAAGO, EAAB, EAATK"
+          }
+        },
+        "required": [
+          "access_token",
+          "type"
+        ]
+      },
+      "DownFbDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Facebook link",
+            "example": "https://www.facebook.com/share/p/1AW7bsrcoT/"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "WordChainDto": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string",
+            "description": "Word to start the chain",
+            "example": "cá mập"
+          }
+        },
+        "required": [
+          "word"
+        ]
+      },
+      "StupidQuestionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "InfoIgDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "Instagram link",
+            "example": "https://www.instagram.com/instagram/"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "DownIgDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "Instagram link",
+            "example": "https://www.instagram.com/p/DJIqIR-SThm/?utm_source=ig_web_copy_link"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "SearchDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query",
+            "example": "Naruto"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "GetLinkEpisodeDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "Link of the episode",
+            "example": "https://animehay.ceo/xem-phim/inu-x-boku-ss-tap-12-1496.html"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "InfoDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "Link of the movie",
+            "example": "https://animehay.ceo/thong-tin-phim/inu-x-boku-ss-187.html"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "CatboxDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link file",
+            "example": "https://example.com/file.png"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "DownAioDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link file",
+            "example": "https://www.youtube.com/watch?v=7m8ek8D9me0&list=RD4rn6Um42KoA&index=10"
+          },
+          "version": {
+            "type": "string",
+            "description": "model dùng",
+            "example": "v1",
+            "enum": [
+              "v1",
+              "v2",
+              "v3"
+            ]
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "SearchGGDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Từ khóa tìm kiếm",
+            "example": "dog"
+          },
+          "model": {
+            "type": "string",
+            "description": "model dùng",
+            "example": "v1"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "ThptQGDto": {
+        "type": "object",
+        "properties": {
+          "sbd": {
+            "type": "string",
+            "description": "Số báo danh",
+            "example": "03014550"
+          },
+          "year": {
+            "type": "string",
+            "description": "Năm thi",
+            "example": "2025"
+          }
+        },
+        "required": [
+          "sbd",
+          "year"
+        ]
+      },
+      "DownYoutubeDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video Youtube",
+            "example": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "ProfileDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Tên người dùng Tiktok",
+            "example": ".nguyenhung07"
+          }
+        },
+        "required": [
+          "username"
+        ]
+      },
+      "UserPostsDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "description": "Số lượng bài đăng muốn lấy",
+            "example": 12
+          },
+          "cursor": {
+            "type": "number",
+            "description": "cursor để phân trang"
+          },
+          "unique_id": {
+            "type": "string",
+            "description": "unique_id người dùng Tiktok",
+            "example": ".nguyenhung07"
+          }
+        },
+        "required": [
+          "unique_id"
+        ]
+      },
+      "SearchTiktokDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "description": "Số lượng bài đăng muốn lấy",
+            "example": 12
+          },
+          "cursor": {
+            "type": "number",
+            "description": "cursor để phân trang"
+          },
+          "keywords": {
+            "type": "string",
+            "description": "Từ khóa tìm kiếm",
+            "example": "cosplay"
+          },
+          "type": {
+            "type": "string",
+            "description": "Lọc theo loại nội dung",
+            "example": "image"
+          }
+        },
+        "required": [
+          "keywords"
+        ]
+      },
+      "DownloadTiktokDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video Tiktok",
+            "example": "https://www.tiktok.com/@danhtrang_2311/photo/7475187494460329224?is_from_webapp=1&sender_device=pc"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "DownDouyinDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video Douyin",
+            "example": "https://v.douyin.com/u-cdZdf-ox4/"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "SearchPinDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Từ khóa tìm kiếm",
+            "example": "dog"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "DownPinDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video Pinterest",
+            "example": "https://www.pinterest.com/pin/593701163412991138/"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "DownThreadDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Url thread",
+            "example": "https://www.threads.com/@shopthucunghth/post/DJPI-2dSnGh"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "SearchSclDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Từ khóa tìm kiếm",
+            "example": "Nhạc trẻ"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "DownSclDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Url bài hát",
+            "example": "https://soundcloud.com/hidro_natri311004/am-tham-ben-em-son-tung-m-tp-8d-audio"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "DownXDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Url media X",
+            "example": "https://x.com/bluemoon_hn/status/1919415647328702582"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "MockyDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Nội dung cần đẩy lên Mocky",
+            "example": "https://example.com/image.jpg"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "TheatricalFilmsDto": {
+        "type": "object",
+        "properties": {
+          "rap": {
+            "type": "string",
+            "description": "Tên rạp chiếu phim",
+            "example": "Galaxy, CGV, BHD, Lotte, Dcine, Mega GS"
+          }
+        },
+        "required": [
+          "rap"
+        ]
+      },
+      "ApikeyDto": {
+        "type": "object",
+        "properties": {
+          "apikey": {
+            "type": "string",
+            "description": "API Key",
+            "example": "1234567890abcdef"
+          }
+        }
+      },
+      "SimsimiDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Nội dung cần đẩy lên SimSimi",
+            "example": "Hello, how are you?"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "CheckPhatNguoiDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Biển số cần kiểm tra",
+            "example": "24D147847"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "SdtDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Số điện thoại",
+            "example": "0987654321"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "description": "Ngày tháng năm sinh (DD-MM-YYYY)",
+            "example": "01-01-2000"
+          }
+        },
+        "required": [
+          "phone",
+          "dateOfBirth"
+        ]
+      },
+      "HopTuoiDto": {
+        "type": "object",
+        "properties": {
+          "maleDateOfBirth": {
+            "type": "string",
+            "description": "Ngày tháng năm sinh của bạn nam (DD-MM-YYYY)",
+            "example": "01-01-2000"
+          },
+          "femaleDateOfBirth": {
+            "type": "string",
+            "description": "Ngày tháng năm sinh của bạn nữ (DD-MM-YYYY)",
+            "example": "01-01-2000"
+          }
+        },
+        "required": [
+          "maleDateOfBirth",
+          "femaleDateOfBirth"
+        ]
+      },
+      "RandomAnimeDto": {
+        "type": "object",
+        "properties": {
+          "nsfw": {
+            "type": "boolean",
+            "description": "NSFW (true/false)",
+            "example": "true"
+          }
+        }
+      },
+      "CreateRandomAnimeDto": {
+        "type": "object",
+        "properties": {
+          "nsfw": {
+            "type": "boolean",
+            "description": "NSFW (true/false)",
+            "example": "true"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tên của ảnh",
+            "example": "anime"
+          },
+          "url": {
+            "type": "string",
+            "description": "Link ảnh",
+            "example": "https://example.com/image.jpg"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "RandomCadaoDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRandomCadaoDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Nội dung ca dao",
+            "example": "Ca dao nội dung"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "RandomThinhDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRandomThinhDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Nội dung thính",
+            "example": "Thính nội dung"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "RandomCosplayDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRandomCosplayDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video cosplay",
+            "example": "https://example.com/data/video.mp4"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "RandomGirlDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRandomGirlDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video girl",
+            "example": "https://example.com/data/video.mp4"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "RandomBoyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRandomBoyDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video boy",
+            "example": "https://example.com/data/video.mp4"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "CreateRandomImgGirlDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Link video girl",
+            "example": "https://example.com/data/video.mp4"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "ShowMailDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email tạm thời",
+            "example": "ahduw@sji.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "SearchTruyenvnDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Tên truyện cần tìm",
+            "example": "Truyện tranh 1"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "InfoTruyenvnDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "URL truyện cần lấy thông tin",
+            "example": "https://truyenvn.nl/truyen-tranh/toi-la-hoc-sinh-hang-d/"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "ChaptersTruyenvnDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "URL truyện cần lấy thông tin chương",
+            "example": "https://truyenvn.nl/truyen-tranh/toi-la-hoc-sinh-hang-d/"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "ContentChapterTruyenvnDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "URL chương cần lấy nội dung",
+            "example": "https://truyenvn.nl/truyen-tranh/toi-la-hoc-sinh-hang-d/toi-la-hoc-sinh-hang-d-chapter-1/"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "CreateNoteDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "string",
+            "description": "Nội dung note",
+            "example": "Nội dung note"
+          },
+          "title": {
+            "type": "string",
+            "description": "Tiêu đề note",
+            "example": "Tiêu đề note"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "Chế độ chỉ đọc",
+            "example": true
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "GetNoteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID note",
+            "example": "ID note"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "GetInfoTftDto": {
+        "type": "object",
+        "properties": {
+          "player": {
+            "type": "string",
+            "description": "username của người chơi TFT",
+            "example": "hung0712#000"
+          },
+          "region": {
+            "type": "string",
+            "description": "server của người chơi TFT",
+            "enum": [
+              "br1",
+              "eun1",
+              "euw1",
+              "jp1",
+              "kr",
+              "la1",
+              "la2",
+              "na1",
+              "oc1",
+              "tr1",
+              "ru",
+              "vn2",
+              "sg2",
+              "ph2",
+              "th2",
+              "tw2"
+            ],
+            "example": "vn2"
+          }
+        },
+        "required": [
+          "player",
+          "region"
+        ]
+      },
+      "RiotSearchPlayerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tên của người chơi",
+            "example": "hung0712#000"
+          },
+          "region": {
+            "type": "string",
+            "description": "Server của người chơi",
+            "enum": [
+              "BR1",
+              "EUN1",
+              "EUW1",
+              "JP1",
+              "KR",
+              "LA1",
+              "LA2",
+              "NA1",
+              "OC1",
+              "PH2",
+              "TH2",
+              "TR1",
+              "RU",
+              "TW2",
+              "VN2"
+            ],
+            "example": "VN2"
+          }
+        },
+        "required": [
+          "name",
+          "region"
+        ]
+      },
+      "RiotGameHistoryDto": {
+        "type": "object",
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "description": "puuid của người chơi",
+            "example": "DkCtoQjjbPEDQ5OlbzTBMW_8sUumB8VcNOw1-AiHSM601tkD0_yeBXDl_696cEY4yBAL39hLmK9sDg"
+          },
+          "region": {
+            "type": "string",
+            "description": "Server của người chơi",
+            "enum": [
+              "BR1",
+              "EUN1",
+              "EUW1",
+              "JP1",
+              "KR",
+              "LA1",
+              "LA2",
+              "NA1",
+              "OC1",
+              "PH2",
+              "TH2",
+              "TR1",
+              "RU",
+              "TW2",
+              "VN2"
+            ],
+            "example": "VN2"
+          },
+          "count": {
+            "type": "number",
+            "description": "số lượng trận đấu muốn lấy",
+            "example": 10
+          },
+          "skip": {
+            "type": "number",
+            "description": "số lượng trận đấu bỏ qua",
+            "example": 0
+          }
+        },
+        "required": [
+          "puuid",
+          "region",
+          "count",
+          "skip"
+        ]
+      },
+      "RiotGameHistoryDetailDto": {
+        "type": "object",
+        "properties": {
+          "matchId": {
+            "type": "string",
+            "description": "ID trận đấu",
+            "example": "VN2_875911668"
+          },
+          "region": {
+            "type": "string",
+            "description": "Server của người chơi",
+            "enum": [
+              "BR1",
+              "EUN1",
+              "EUW1",
+              "JP1",
+              "KR",
+              "LA1",
+              "LA2",
+              "NA1",
+              "OC1",
+              "PH2",
+              "TH2",
+              "TR1",
+              "RU",
+              "TW2",
+              "VN2"
+            ],
+            "example": "VN2"
+          }
+        },
+        "required": [
+          "matchId",
+          "region"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SignupDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateNotiDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "NewUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ChangeUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DepositDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTransactionStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePurchasePackageDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdatePurchasePackageDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateUserSubscriptionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateUserSubscriptionDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

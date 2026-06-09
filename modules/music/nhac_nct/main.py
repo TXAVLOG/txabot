@@ -1,3 +1,4 @@
+from aiohttp import client_exceptions
 import requests
 import json
 import re
@@ -60,6 +61,9 @@ def search_music_nct(keyword):
                         "title": title,
                         "artistsNames": item.get("artistName") or "NCT Artist",
                         "thumbnail": item.get("image") or "https://static.nct.vn/nct-web/nct-share.png",
+                        "viewed": item.get("viewed", 0),
+                        "totalLiked": item.get("totalLiked", 0),
+                        "commentCnt": item.get("commentCnt", 0),
                         "stream_urls": [
                             x.get("download") or x.get("stream")
                             for x in item.get("streamURL", [])
@@ -403,6 +407,9 @@ def create_song_list_image(songs):
             title = song["title"]
             cover_url = song["thumbnail"]
             artists = song["artistsNames"]
+            viewed = song.get("viewed", 0)
+            total_liked = song.get("totalLiked", 0)
+            comment_cnt = song.get("commentCnt", 0)
 
             col = i // songs_per_col
             row = i % songs_per_col
@@ -462,7 +469,7 @@ def create_song_list_image(songs):
                 draw_text_with_shadow(draw, (x_artist, y_artist), char, font_used, artist_color, shadow_offset=(1, 1))
                 x_artist += get_text_width(draw, char, font_used)
 
-            info_text = "Nền tảng: NhacCuaTui"
+            info_text = f"🎧 {format_number(viewed)}  🖤 {format_number(total_liked)}  💬 {format_number(comment_cnt)}"
             x_info = left + card_padding + thumb_size + 20 * scale
             info_height = info_font.size
             y_info = top + card_height - card_padding - info_height
@@ -599,7 +606,7 @@ def create_single_song_image(song):
         viewed = song.get("viewed", 0)
         total_liked = song.get("totalLiked", 0)
         if viewed > 0 or total_liked > 0:
-            draw_gradient_text_line(draw, f"👂 {viewed:,}   ❤️ {total_liked:,}".replace(",", "."), text_x, text_y, font, emoji_font)
+            draw_gradient_text_line(draw, f"👂 {format_number(viewed)}   ❤️ {format_number(total_liked)}", text_x, text_y, font, emoji_font)
 
         file_path = os.path.join(CACHE_PATH, "selected_song.png")
         image.save(file_path, format="JPEG", quality=95)
@@ -622,6 +629,128 @@ def delete_file(file_path):
         os.remove(file_path)
     except:
         pass
+
+def get_nct_chart():
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.nhaccuatui.com/"
+    }
+    songs = []
+    try:
+        # Step 1: Resolve the trending chart key dynamically
+        chart_key = '1-5-d160-2026'
+        try:
+            r1 = requests.get('https://www.nhaccuatui.com/charts', headers=headers, timeout=10)
+            if r1.status_code == 200:
+                soup1 = BeautifulSoup(r1.text, 'html.parser')
+                script1 = soup1.find('script', id='__NUXT_DATA__')
+                if script1:
+                    payload1 = json.loads(script1.text)
+                    
+                    def resolve_payload(payload, val, seen=None):
+                        if seen is None:
+                            seen = {}
+                        if not isinstance(val, int):
+                            return val
+                        if val in seen:
+                            return seen[val]
+                        if val < 0 or val >= len(payload):
+                            return val
+                        raw = payload[val]
+                        res = raw
+                        if isinstance(raw, dict):
+                            res = {}
+                            seen[val] = res
+                            for k, v in raw.items():
+                                res[k] = resolve_payload(payload, v, seen)
+                        elif isinstance(raw, list):
+                            if len(raw) == 2 and isinstance(raw[0], str) and raw[0] in ['ShallowReactive', 'Reactive', 'Ref']:
+                                res = resolve_payload(payload, raw[1], seen)
+                                seen[val] = res
+                            else:
+                                res = []
+                                seen[val] = res
+                                for x in raw:
+                                    res.append(resolve_payload(payload, x, seen))
+                        else:
+                            seen[val] = raw
+                        return res
+
+                    root1 = resolve_payload(payload1, 1)
+                    charts = root1.get('data', {}).get('getChartsData', [])
+                    for c in charts:
+                        if 'thịnh hành' in c.get('title', '').lower() or 'trending' in c.get('title', '').lower() or 'viet' in c.get('title', '').lower():
+                            chart_key = c.get('key')
+                            break
+        except Exception as e1:
+            print("NCT Chart dynamic key fetch failed, using fallback:", e1)
+
+        # Step 2: Fetch and parse chart detail page
+        chart_url = f'https://www.nhaccuatui.com/chart/{chart_key}'
+        r2 = requests.get(chart_url, headers=headers, timeout=12)
+        if r2.status_code == 200:
+            soup2 = BeautifulSoup(r2.text, 'html.parser')
+            script2 = soup2.find('script', id='__NUXT_DATA__')
+            if script2:
+                payload2 = json.loads(script2.text)
+                
+                def resolve_payload(payload, val, seen=None):
+                    if seen is None:
+                        seen = {}
+                    if not isinstance(val, int):
+                        return val
+                    if val in seen:
+                        return seen[val]
+                    if val < 0 or val >= len(payload):
+                        return val
+                    raw = payload[val]
+                    res = raw
+                    if isinstance(raw, dict):
+                        res = {}
+                        seen[val] = res
+                        for k, v in raw.items():
+                            res[k] = resolve_payload(payload, v, seen)
+                    elif isinstance(raw, list):
+                        if len(raw) == 2 and isinstance(raw[0], str) and raw[0] in ['ShallowReactive', 'Reactive', 'Ref']:
+                            res = resolve_payload(payload, raw[1], seen)
+                            seen[val] = res
+                        else:
+                            res = []
+                            seen[val] = res
+                            for x in raw:
+                                res.append(resolve_payload(payload, x, seen))
+                    else:
+                        seen[val] = raw
+                    return res
+
+                root2 = resolve_payload(payload2, 1)
+                items = root2.get('data', {}).get('artistDataDetail', {}).get('items', [])
+                
+                for it in items:
+                    key = it.get('key')
+                    title = it.get('name')
+                    artists = it.get('artistName', 'Unknown Artist')
+                    thumbnail = it.get('image') or 'https://static.nct.vn/nct-web/nct-share.png'
+                    song_link = it.get('linkShare') or f'https://www.nhaccuatui.com/song/{key}.html'
+                    
+                    # Lấy viewed và totalLiked từ chart data
+                    viewed = it.get('viewed', 0)
+                    total_liked = it.get('totalLiked', 0)
+                    comment_cnt = it.get('commentCnt', 0)
+                    
+                    songs.append({
+                        "id": key,
+                        "songLink": song_link,
+                        "title": title,
+                        "artistsNames": artists,
+                        "thumbnail": thumbnail,
+                        "viewed": viewed,
+                        "totalLiked": total_liked,
+                        "commentCnt": comment_cnt
+                    })
+    except Exception as e:
+        print("Error fetching NCT BXH:", e)
+    return songs
 
 # Command handler
 def handle_nct_command(message, message_object, thread_id, thread_type, author_id, client):
@@ -646,7 +775,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
     content = message.strip().split()
 
     # Selection reply handling
-    if len(content) == 2 and content[0].lower() in [f"{client.prefix}nct", f"{client.prefix}nhaccuatui"] and content[1].isdigit():
+    if len(content) == 2 and content[0].lower() in [f"{client.prefix}ncl", f"{client.prefix}nct", f"{client.prefix}nhaccuatui"] and content[1].isdigit():
         if author_id not in user_states:
             return
 
@@ -761,20 +890,28 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         
         caption = f"""🚦{username}
 ➜ Vui lòng nhập từ khóa tìm kiếm sau lệnh {client.prefix}nct 🎵
-➜ Ví dụ: {client.prefix}nct dừng thương"""
+➜ Ví dụ: {client.prefix}nct dừng thương
+➜ Lấy BXH HOT nhất: {client.prefix}nct chart hoặc {client.prefix}nct bxh"""
         mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
         client.replyMessage(Message(text=caption, mention=mention), message_object, thread_id, thread_type)
         return
 
-    # Regular search query
+    # Regular search query or Chart query
     query = ' '.join(content[1:])
     action = random.choice(reactions)
     if random.random() > 0.3:
         client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
     client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
 
-    pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tìm bài hát trên NhacCuaTui..."), message_object, thread_id, thread_type)
-    songs = search_music_nct(query)
+    cmd = content[0][len(client.prefix):].lower() if content[0].startswith(client.prefix) else content[0].lower()
+    is_chart_query = (query.lower() in ["chart", "bxh"]) or (cmd == "nctchart")
+
+    if is_chart_query:
+        pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tải bảng xếp hạng NhacCuaTui..."), message_object, thread_id, thread_type)
+        songs = get_nct_chart()
+    else:
+        pending_msg = client.replyMessage(Message(text="⏳ Chờ bé một tí, đang tìm bài hát trên NhacCuaTui..."), message_object, thread_id, thread_type)
+        songs = search_music_nct(query)
 
     if not songs:
         if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
@@ -819,15 +956,22 @@ txa = {
     "name": "pro_ncl",
     "desc": "Nghe nhạc từ NhacCuaTui. Hỗ trợ tìm kiếm bài hát, playlist và gửi audio vào nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['ncl']
+    "command": ['ncl', 'nct', 'nhaccuatui', 'nctchart']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()
     
+    custom_msg = message_text
+    if cmd == 'nctchart':
+        custom_msg = f"{prefix}nct chart"
+        
     dispatch_map = {
-        'ncl': handle_nct_command
+        'ncl': handle_nct_command,
+        'nct': handle_nct_command,
+        'nhaccuatui': handle_nct_command,
+        'nctchart': handle_nct_command
     }
     
     func = dispatch_map.get(cmd)
@@ -841,9 +985,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
             'thread_id': thread_id,
             'thread_type': thread_type,
             'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
+            'message': custom_msg,
+            'message_text': custom_msg,
+            'message_lower': custom_msg.lower()
         }
         args = []
         for param_name in sig.parameters:

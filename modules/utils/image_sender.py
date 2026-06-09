@@ -3,7 +3,57 @@ import random
 import requests
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 from zlapi.models import Message
+
+REQUEST_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': '*/*',
+}
+
+def normalize_url(raw_url):
+    if raw_url is None:
+        return ""
+    url = str(raw_url).strip().strip('"').strip("'").strip()
+    if url.startswith("//"):
+        url = "https:" + url
+    elif url.startswith("www."):
+        url = "https://" + url
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return url
+
+def url_is_reachable(url):
+    try:
+        response = requests.head(url, headers=REQUEST_HEADERS, timeout=5, allow_redirects=True)
+        if 200 <= response.status_code < 400:
+            return True
+        if response.status_code in (401, 403, 405):
+            return True
+    except requests.RequestException:
+        pass
+
+    try:
+        headers = dict(REQUEST_HEADERS)
+        headers["Range"] = "bytes=0-0"
+        response = requests.get(url, headers=headers, timeout=7, stream=True, allow_redirects=True)
+        try:
+            if 200 <= response.status_code < 400 or response.status_code in (401, 403):
+                return True
+            return False
+        finally:
+            response.close()
+    except requests.RequestException:
+        return True
+
+def choose_reachable_url(urls):
+    candidates = [url for url in (normalize_url(item) for item in urls) if url]
+    random.shuffle(candidates)
+    for url in candidates:
+        if url_is_reachable(url):
+            return url
+    return candidates[0] if candidates else ""
 
 class ImageSender:
     def __init__(self, data_dir=None):
@@ -87,7 +137,7 @@ class ImageSender:
             return None
         
         with open(file_path, 'r', encoding='utf-8') as f:
-            urls = [line.strip() for line in f if line.strip()]
+            urls = [url for url in (normalize_url(line) for line in f) if url]
         
         return urls
     
@@ -161,19 +211,9 @@ class ImageSender:
         
         # Nếu là video (bắt đầu bằng 'vd')
         if type_name.startswith("vd"):
-            url = None
-            max_attempts = 10
-            for attempt in range(max_attempts):
-                candidate_url = random.choice(urls)
-                try:
-                    res = requests.head(candidate_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=3)
-                    if res.status_code == 200:
-                        url = candidate_url
-                        break
-                except:
-                    pass
+            url = choose_reachable_url(urls)
             if not url:
-                url = random.choice(urls)
+                return "❌ Không tìm thấy URL video hợp lệ!"
             
             # Lấy caption
             if custom_caption:

@@ -22,6 +22,25 @@ BACKGROUND_PATH = "background/"
 CACHE_PATH = "modules/cache/"
 OUTPUT_IMAGE_PATH = os.path.join(CACHE_PATH, "menu.png")
 
+HIDDEN_MODULE_TOKENS = (
+    "hiden",
+    "pro_menu",
+    "menu_or",
+    "func_kickall",
+    "func_leave",
+    "func_disbox",
+    "func_spam_call",
+    "func_src",
+    "join_gr",
+    "join_gr1",
+    "spamjoin",
+    "treo",
+)
+
+def chunk_list(items, size):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
 def handle_menu_commands(message, message_object, thread_id, thread_type, author_id, bot):
     # Correct path calculation: modules/menu/pro_menu/main.py -> modules
     modules_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -146,8 +165,8 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 sub_dir, file_name = sub_parts[0], sub_parts[1]
                 group_key = f"modules.{parent_dir}.{sub_dir}.{file_name}"
                 
-                # Exclude hidden or helper modules in main menu
-                if any(h in group_key for h in ["hiden", "pro_menu", "kbgr", "kickall", "leave", "disbox"]):
+                # Exclude hidden/helper/dangerous modules from the public menu.
+                if any(h in group_key for h in HIDDEN_MODULE_TOKENS):
                     continue
                     
                 if group_key in modules_data:
@@ -161,8 +180,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                     else:
                         cmds = [cmds[0]] if cmds else []
                     
-                    if cmds:  # Only show first command
-                        c_name = cmds[0]
+                    if cmds:
                         title = sub_cfg.get("title", m_info['name'])
                         
                         # Clean title
@@ -171,18 +189,19 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                         title = title.replace("_", " ").title()
                         
                         display_title = title
-                        
-                        columns[col_idx].append({
-                            "type": "cmd",
-                            "cmd": f"{prefix}{c_name}",
-                            "desc": display_title
-                        })
+
+                        for cmd in cmds:
+                            columns[col_idx].append({
+                                "type": "cmd",
+                                "cmd": f"{prefix}{cmd}",
+                                "desc": display_title
+                            })
 
     user_name = get_user_name_by_id(bot, author_id)
     line1 = f"{user_name}\n"
     line2 = "➜ 🤖 HỆ THỐNG MENU PHÍM TẮT TXABOT\n"
     line3 = "(Danh sách phím tắt được thiết kế trực quan trên ảnh dưới đây)\n"
-    line4 = f"➜ 💡 Dùng {bot.prefix}help [tên_lệnh] để xem hướng dẫn sử dụng chi tiết."
+    line4 = f"➜ 💡 Dùng {bot.prefix}bot để xem thiết lập và hướng dẫn quản trị."
     
     command_names = line1 + line2 + line3 + line4
     
@@ -232,7 +251,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 "clientId": uploadImage.get("clientFileId", int(now() - 1000)),
                 "desc": command_names,
                 "width": 1920,
-                "height": 1000,
+                "height": 1400,
                 "rawUrl": uploadImage["normalUrl"],
                 "thumbUrl": uploadImage["thumbUrl"],
                 "hdUrl": uploadImage["hdUrl"],
@@ -278,7 +297,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 thread_id=thread_id,
                 thread_type=thread_type,
                 width=1920,
-                height=1000,
+                height=1400,
                 custom_payload={"params": photo_params},
                 ttl=60000
             )
@@ -371,8 +390,8 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
     image_path = random.choice(images)
 
     try:
-        size = (1920, 1000)
-        final_size = (1280, 666) # Proportional resize
+        size = (1920, 1400)
+        final_size = (1280, 933) # Proportional resize
         bg_image = Image.open(image_path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
         bg_image = bg_image.filter(ImageFilter.GaussianBlur(radius=10))  
         overlay = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -525,7 +544,6 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                         first_item = False
                 max_col_height = max(max_col_height, col_h)
             
-            # Available height inside the box: box_y2 (940) - y_start (240) - safety bottom margin (30) = 670px
             available_height = (box_y2 - 30) - y_start
             
             scale = 1.0

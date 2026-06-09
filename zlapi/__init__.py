@@ -5,6 +5,14 @@ Bản sửa lỗi và tối ưu năm 2025 bởi Nguyễn Thế Hoàng.
 Dựa trên mã gốc của Lê Quốc Việt (Vexx).
 """
 
+# Force IPv4 to prevent connection hanging on systems with broken IPv6 routes
+try:
+	import urllib3.util.connection as connection
+	import socket
+	connection.allowed_gai_family = lambda: socket.AF_INET
+except Exception:
+	pass
+
 from .models import *
 from ._client import ZaloAPI
 
@@ -25,4 +33,3 @@ __maintainer_year__ = "2025"
 __maintainer_note__ = "Fix lỗi & cải tiến module"
 
 __all__ = ["ZaloAPI"]
-

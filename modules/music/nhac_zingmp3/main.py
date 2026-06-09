@@ -609,32 +609,66 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
     if query.lower() == "chart":
         pending_msg = client.replyMessage(Message(text="⏳ Đang tải bảng xếp hạng ZingMP3..."), message_object, thread_id, thread_type)
         chart_res = request_zing("/api/v2/page/get/chart-home")
-        
-        if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
-            try:
-                client.undoMessage(pending_msg.msgId, pending_msg.cliMsgId, thread_id, thread_type)
-            except:
-                pass
 
         if not chart_res or "data" not in chart_res or "RTChart" not in chart_res["data"]:
+            if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
+                try:
+                    client.undoMessage(pending_msg.msgId, pending_msg.cliMsgId, thread_id, thread_type)
+                except:
+                    pass
             text = f"🚦{username}, không thể lấy bảng xếp hạng ZingMP3."
             client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
             return
 
         items = chart_res["data"]["RTChart"].get("items", [])[:20]
         if not items:
+            if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
+                try:
+                    client.undoMessage(pending_msg.msgId, pending_msg.cliMsgId, thread_id, thread_type)
+                except:
+                    pass
             text = f"🚦{username}, bảng xếp hạng rỗng."
             client.replyMessage(Message(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
             return
 
         songs_list = []
-        for it in items:
+        # Lấy thông tin chi tiết cho các bài hàng đầu để có số liệu chính xác
+        for idx, it in enumerate(items[:5]):
+            encode_id = it.get("encodeId")
+            title = it.get("title", "Unknown")
+            thumbnail = it.get("thumbnail", "")
+            artists = it.get("artistsNames", "Unknown Artist")
+            
+            # Thử lấy từ chart trước
+            plays = it.get("listen") or it.get("playbackCount") or it.get("totalPlay") or it.get("playCount") or 0
+            likes = it.get("like") or it.get("totalLike") or it.get("likeCount") or it.get("favoriteCount") or 0
+            
+            # Gọi API chi tiết để lấy số liệu chính xác hơn
+            if encode_id:
+                info_res = request_zing("/api/v2/song/get/info", {"id": encode_id})
+                if info_res and "data" in info_res and info_res["data"]:
+                    info_data = info_res["data"]
+                    plays = info_data.get("listen") or info_data.get("playbackCount") or info_data.get("totalPlay") or plays
+                    likes = info_data.get("like") or info_data.get("totalLike") or info_data.get("likeCount") or likes
+            
+            songs_list.append((
+                encode_id,
+                title,
+                thumbnail,
+                plays,
+                likes,
+                0,
+                artists
+            ))
+        
+        # Các bài còn lại giữ nguyên từ chart
+        for it in items[5:]:
             songs_list.append((
                 it.get("encodeId"),
                 it.get("title", "Unknown"),
                 it.get("thumbnail", ""),
-                it.get("listen", 0),
-                it.get("like", 0),
+                it.get("listen") or it.get("playbackCount") or it.get("totalPlay") or 0,
+                it.get("like") or it.get("totalLike") or it.get("likeCount") or 0,
                 0,
                 it.get("artistsNames", "Unknown Artist")
             ))
@@ -656,6 +690,12 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             if sent_msg:
                 user_states[author_id]['search_msg'] = sent_msg
             delete_file(image_path)
+
+        if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
+            try:
+                client.undoMessage(pending_msg.msgId, pending_msg.cliMsgId, thread_id, thread_type)
+            except:
+                pass
         return
 
     # Regular search query
@@ -674,13 +714,44 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
     items = search_res["data"]["items"][:20]
     songs_list = []
-    for it in items:
+    
+    # Lấy thông tin chi tiết cho 5 bài hàng đầu để có số liệu chính xác
+    for idx, it in enumerate(items[:5]):
+        encode_id = it.get("encodeId")
+        title = it.get("title", "Unknown")
+        thumbnail = it.get("thumbnail", "")
+        artists = it.get("artistsNames", "Unknown Artist")
+        
+        # Thử lấy từ search result trước
+        plays = it.get("listen") or it.get("playbackCount") or it.get("totalPlay") or it.get("playCount") or 0
+        likes = it.get("like") or it.get("totalLike") or it.get("likeCount") or it.get("favoriteCount") or 0
+        
+        # Gọi API chi tiết để lấy số liệu chính xác hơn
+        if encode_id:
+            info_res = request_zing("/api/v2/song/get/info", {"id": encode_id})
+            if info_res and "data" in info_res and info_res["data"]:
+                info_data = info_res["data"]
+                plays = info_data.get("listen") or info_data.get("playbackCount") or info_data.get("totalPlay") or plays
+                likes = info_data.get("like") or info_data.get("totalLike") or info_data.get("likeCount") or likes
+        
+        songs_list.append((
+            encode_id,
+            title,
+            thumbnail,
+            plays,
+            likes,
+            0,
+            artists
+        ))
+    
+    # Các bài còn lại giữ nguyên từ search result
+    for it in items[5:]:
         songs_list.append((
             it.get("encodeId"),
             it.get("title", "Unknown"),
             it.get("thumbnail", ""),
-            it.get("listen", 0),
-            it.get("like", 0),
+            it.get("listen") or it.get("playbackCount") or it.get("totalPlay") or 0,
+            it.get("like") or it.get("totalLike") or it.get("likeCount") or 0,
             0,
             it.get("artistsNames", "Unknown Artist")
         ))
@@ -717,15 +788,20 @@ txa = {
     "name": "pro_zingmp3",
     "desc": "Nghe nhạc chất lượng cao từ ZingMP3. Hỗ trợ tìm kiếm bài hát, playlist và gửi audio vào nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['mp3']
+    "command": ['mp3', 'zingchart']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()
     
+    custom_msg = message_text
+    if cmd == 'zingchart':
+        custom_msg = f"{prefix}mp3 chart"
+        
     dispatch_map = {
-        'mp3': handle_zingmp3_command
+        'mp3': handle_zingmp3_command,
+        'zingchart': handle_zingmp3_command
     }
     
     func = dispatch_map.get(cmd)
@@ -739,9 +815,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
             'thread_id': thread_id,
             'thread_type': thread_type,
             'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
+            'message': custom_msg,
+            'message_text': custom_msg,
+            'message_lower': custom_msg.lower()
         }
         args = []
         for param_name in sig.parameters:

@@ -26,42 +26,43 @@ from core.bot_sys import (
 thread_local = threading.local()
 
 BOT_SUB_COMMANDS = [
-    {"cmd": "{prefix}bot info", "desc": "♨️ Xem thông tin chi tiết về BOT", "oa": False},
-    {"cmd": "{prefix}bot on/off", "desc": "🚀 Bật / 🛑 Tắt BOT trong nhóm", "oa": True},
-    {"cmd": "{prefix}bot clean", "desc": "🧹 Dọn dẹp tệp tin rác hệ thống", "oa": False},
-    {"cmd": "{prefix}bot setup on/off", "desc": "⚙️ Bật / 🛑 Tắt cấu hình quản trị nhóm", "oa": True},
-    {"cmd": "{prefix}bot noiquy", "desc": "💢 Xem nội quy nhóm hiện tại", "oa": False},
-    {"cmd": "{prefix}bot welcome on/off", "desc": "🎊 Bật / 🛑 Tắt lời chào mừng thành viên mới", "oa": True},
-    {"cmd": "{prefix}bot goodbye on/off", "desc": "👋 Bật / 🛑 Tắt lời chào tạm biệt khi mem rời nhóm", "oa": True},
-    {"cmd": "{prefix}bot anti on/off", "desc": "🚦 Bật / 🛑 Tắt tính năng Anti-Spam", "oa": True},
-    {"cmd": "{prefix}bot link on/off", "desc": "🔗 Bật / 🛑 Tắt chặn gửi liên kết (Link) tự do", "oa": True},
-    {"cmd": "{prefix}bot ban @tag", "desc": "😷 Khóa phát ngôn (Mute) người dùng", "oa": False},
-    {"cmd": "{prefix}bot unban @tag", "desc": "😇 Mở khóa phát ngôn (Unmute) người dùng", "oa": False},
-    {"cmd": "{prefix}bot ban list", "desc": "📋 Xem danh sách người dùng bị khóa phát ngôn", "oa": False},
-    {"cmd": "{prefix}bot kick @tag", "desc": "💪 Trục xuất người dùng khỏi nhóm", "oa": True},
-    {"cmd": "{prefix}bot block @tag", "desc": "🙅 Chặn người dùng tham gia nhóm", "oa": True},
-    {"cmd": "{prefix}bot unblock [UID]", "desc": "🔓 Bỏ chặn người dùng khỏi nhóm (dùng UID)", "oa": True},
-    {"cmd": "{prefix}bot block list", "desc": "📋 Xem danh sách người dùng bị chặn", "oa": True},
-    {"cmd": "{prefix}bot word add [từ]", "desc": "✍️ Thêm từ cấm vào nhóm", "oa": True},
-    {"cmd": "{prefix}bot word remove [từ]", "desc": "🗑️ Xóa từ cấm khỏi nhóm", "oa": True},
-    {"cmd": "{prefix}bot word list", "desc": "📋 Xem danh sách từ ngữ cấm", "oa": True},
-    {"cmd": "{prefix}bot rule word [lần] [phút]", "desc": "📖 Quy định cấm n lần vi phạm từ ngữ, phạt m phút", "oa": True},
-    {"cmd": "{prefix}bot policy", "desc": "📋 Xem cấu hình hình phạt policy của nhóm", "oa": True},
-    {"cmd": "{prefix}bot policy [loại] [on/off]", "desc": "⚙️ Bật / Tắt policy vi phạm (word/link/sticker/image/flood)", "oa": True},
-    {"cmd": "{prefix}bot policy [loại] [lần] [phút] [action]", "desc": "⚙️ Cấu hình hình phạt policy (action: mute/kick/warn)", "oa": True},
-    {"cmd": "{prefix}bot remote add/remove/list", "desc": "🌐 Cấp / thu hồi / xem quyền kích hoạt từ xa", "oa": False},
-    {"cmd": "{prefix}bot admin add/remove/list", "desc": "👑 Thêm / xóa / xem danh sách Admin BOT", "oa": False},
-    {"cmd": "{prefix}bot approved add/remove/list", "desc": "👑 Duyệt / hủy duyệt / xem danh sách dùng Bot (Hỗ trợ hẹn giờ)", "oa": False},
-    {"cmd": "{prefix}duyet <@tag/ID> [thời gian]", "desc": "🌸 Duyệt quyền Kho ảnh cho thành viên (Hỗ trợ hẹn giờ)", "oa": False},
-    {"cmd": "{prefix}unduyet <@tag/ID>", "desc": "🌸 Hủy duyệt quyền Kho ảnh đối với thành viên", "oa": False},
-    {"cmd": "{prefix}del hoặc {prefix}xoa", "desc": "🗑️ Xóa tin nhắn (Reply tin nhắn, Tag thành viên hoặc xóa kề trước)", "oa": False},
+    {"name": "Thông tin BOT", "cmd": "{prefix}bot info", "desc": "♨️ Xem thông tin chi tiết về BOT", "oa": False},
+    {"name": "Bật/Tắt BOT", "cmd": "{prefix}bot on/off", "desc": "🚀 Bật / 🛑 Tắt BOT trong nhóm", "oa": True},
+    {"name": "Dọn dẹp hệ thống", "cmd": "{prefix}bot clean", "desc": "🧹 Dọn dẹp tệp tin rác hệ thống", "oa": False},
+    {"name": "Cấu hình quản trị", "cmd": "{prefix}bot setup on/off", "desc": "⚙️ Bật / 🛑 Tắt cấu hình quản trị nhóm", "oa": True},
+    {"name": "Nội quy nhóm", "cmd": "{prefix}bot noiquy", "desc": "💢 Xem nội quy nhóm hiện tại", "oa": False},
+    {"name": "Lời chào thành viên", "cmd": "{prefix}bot welcome on/off", "desc": "🎊 Bật / 🛑 Tắt lời chào mừng thành viên mới", "oa": True},
+    {"name": "Lời tạm biệt", "cmd": "{prefix}bot goodbye on/off", "desc": "👋 Bật / 🛑 Tắt lời chào tạm biệt khi mem rời nhóm", "oa": True},
+    {"name": "Anti-Spam", "cmd": "{prefix}bot anti on/off", "desc": "🚦 Bật / 🛑 Tắt tính năng Anti-Spam", "oa": True},
+    {"name": "Chặn gửi Link", "cmd": "{prefix}bot link on/off", "desc": "🔗 Bật / 🛑 Tắt chặn gửi liên kết (Link) tự do", "oa": True},
+    {"name": "Khóa phát ngôn", "cmd": "{prefix}bot ban @tag", "desc": "😷 Khóa phát ngôn (Mute) người dùng", "oa": False},
+    {"name": "Mở khóa phát ngôn", "cmd": "{prefix}bot unban @tag", "desc": "😇 Mở khóa phát ngôn (Unmute) người dùng", "oa": False},
+    {"name": "DS bị khóa mõm", "cmd": "{prefix}bot ban list", "desc": "📋 Xem danh sách người dùng bị khóa phát ngôn", "oa": False},
+    {"name": "Trục xuất", "cmd": "{prefix}bot kick @tag", "desc": "💪 Trục xuất người dùng khỏi nhóm", "oa": True},
+    {"name": "Chặn tham gia", "cmd": "{prefix}bot block @tag", "desc": "🙅 Chặn người dùng tham gia nhóm", "oa": True},
+    {"name": "Bỏ chặn", "cmd": "{prefix}bot unblock [UID]", "desc": "🔓 Bỏ chặn người dùng khỏi nhóm (dùng UID)", "oa": True},
+    {"name": "DS bị chặn", "cmd": "{prefix}bot block list", "desc": "📋 Xem danh sách người dùng bị chặn", "oa": True},
+    {"name": "Thêm từ cấm", "cmd": "{prefix}bot word add [từ]", "desc": "✍️ Thêm từ cấm vào nhóm", "oa": True},
+    {"name": "Xóa từ cấm", "cmd": "{prefix}bot word remove [từ]", "desc": "🗑️ Xóa từ cấm khỏi nhóm", "oa": True},
+    {"name": "DS từ cấm", "cmd": "{prefix}bot word list", "desc": "📋 Xem danh sách từ ngữ cấm", "oa": True},
+    {"name": "Quy định vi phạm", "cmd": "{prefix}bot rule word [lần] [phút]", "desc": "📖 Quy định cấm n lần vi phạm từ ngữ, phạt m phút", "oa": True},
+    {"name": "Xem Policy", "cmd": "{prefix}bot policy", "desc": "📋 Xem cấu hình policy và danh sách loại: word/link/sticker/image/flood", "oa": True},
+    {"name": "Bật/Tắt Policy", "cmd": "{prefix}bot policy [loại] [on/off]", "desc": "⚙️ Bật / Tắt từng loại policy: word/link/sticker/image/flood", "oa": True},
+    {"name": "Cấu hình Policy", "cmd": "{prefix}bot policy [loại] [lần] [phút] [mute/kick/warn]", "desc": "⚙️ Đặt số lần vi phạm, thời gian phạt và hành động cho từng loại", "oa": True},
+    {"name": "Quyền từ xa", "cmd": "{prefix}bot remote add/remove/list", "desc": "🌐 Cấp / thu hồi / xem quyền kích hoạt từ xa", "oa": False},
+    {"name": "Quản lý Admin", "cmd": "{prefix}bot admin add/remove/list", "desc": "👑 Thêm / xóa / xem danh sách Admin BOT", "oa": False},
+    {"name": "Duyệt dùng Bot", "cmd": "{prefix}bot approved add/remove/list", "desc": "👑 Duyệt / hủy duyệt / xem danh sách dùng Bot (Hỗ trợ hẹn giờ)", "oa": False},
+    {"name": "Duyệt Kho ảnh", "cmd": "{prefix}duyet <@tag/ID> [thời gian]", "desc": "🌸 Duyệt quyền Kho ảnh cho thành viên (Hỗ trợ hẹn giờ)", "oa": False},
+    {"name": "Hủy Kho ảnh", "cmd": "{prefix}unduyet <@tag/ID>", "desc": "🌸 Hủy duyệt quyền Kho ảnh đối với thành viên", "oa": False},
+    {"name": "Xóa tin nhắn", "cmd": "{prefix}del @user [count]", "desc": "🗑️ Xóa count tin gần nhất của user được tag; vẫn hỗ trợ reply hoặc xóa tin kề trước", "oa": False},
+    {"name": "Tự động duyệt mem", "cmd": "{prefix}bot autoapprove on/off", "desc": "✅ Bật / Tắt tự động duyệt thành viên yêu cầu vào nhóm", "oa": True},
 ]
 
 txa = {
     "name": "Bot Help & Settings",
     "desc": "Xem hướng dẫn sử dụng và cấu hình cài đặt của Bot",
     "author": "TXA",
-    "command": ["bot", "help"]
+    "command": ["bot", "del", "xoa", "delete"]
 }
 
 def txa_command(bot, message_object, author_id, thread_id, thread_type, message_text):
@@ -195,6 +196,86 @@ def is_admin(author_id):
         return True
     else:
         return False
+
+def _get_msg_value(msg, key, default=None):
+    if isinstance(msg, dict):
+        return msg.get(key, default)
+    return getattr(msg, key, default)
+
+def handle_recent_group_delete(bot, message_object, author_id, thread_id, thread_type, parts):
+    if thread_type != ThreadType.GROUP:
+        return "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+
+    if not (is_admin(author_id) or is_group_admin_or_creator(bot, author_id, thread_id)):
+        return "➜ Lệnh này chỉ khả thi với Admin Bot hoặc quản trị viên nhóm 🤧"
+
+    num_to_delete = 50
+    for part in parts[1:]:
+        clean_part = part.strip()
+        if clean_part.isdigit():
+            num_to_delete = int(clean_part)
+            break
+
+    if num_to_delete <= 0:
+        return "➜ Số lượng tin nhắn cần xóa phải lớn hơn 0 🤧"
+
+    target_uids = {str(uid) for uid in extract_uids_from_mentions(message_object)}
+
+    try:
+        group_data = bot.getRecentGroup(thread_id)
+        group_msgs = None
+        if isinstance(group_data, dict):
+            group_msgs = group_data.get("groupMsgs")
+        else:
+            group_msgs = getattr(group_data, "groupMsgs", None)
+
+        if not group_msgs:
+            return "➜ Không có tin nhắn nào để xóa trong recent group 🤧"
+    except Exception as e:
+        return f"➜ Lỗi khi lấy tin nhắn gần nhất: {e}"
+
+    command_msg_id = str(getattr(message_object, "msgId", ""))
+    deleted_count = 0
+    failed_count = 0
+    scanned_count = 0
+
+    for msg in reversed(group_msgs):
+        if deleted_count >= num_to_delete:
+            break
+
+        msg_id = _get_msg_value(msg, "msgId")
+        cli_msg_id = _get_msg_value(msg, "cliMsgId")
+        owner_id = _get_msg_value(msg, "uidFrom")
+
+        if not msg_id or not cli_msg_id:
+            continue
+        if command_msg_id and str(msg_id) == command_msg_id:
+            continue
+
+        owner_id = str(owner_id if owner_id not in (None, "0", 0) else author_id)
+        if target_uids and owner_id not in target_uids:
+            continue
+
+        scanned_count += 1
+        try:
+            result = bot.deleteGroupMsg(msg_id, owner_id, cli_msg_id, thread_id)
+            status = _get_msg_value(result, "status", 0)
+            if status == 0 or str(status) == "0":
+                deleted_count += 1
+            else:
+                failed_count += 1
+        except Exception as e:
+            print(f"[ERROR] delete recent group msg failed: {e}")
+            failed_count += 1
+
+    target_text = " của người được tag" if target_uids else ""
+    if scanned_count == 0:
+        return f"➜ Không tìm thấy tin nhắn phù hợp{target_text} trong recent group 🤧"
+
+    return (
+        f"➜ Đã xóa {deleted_count}/{num_to_delete} tin nhắn{target_text} từ recent group ✅\n"
+        f"➜ Không thể xóa: {failed_count} tin"
+    )
 
 def handle_bot_admin(bot):
     settings = read_settings()
@@ -1120,8 +1201,11 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
             # Check if this is a command help lookup
             prefix = getattr(bot, 'prefix', '!')
             trigger_word = parts[0][len(prefix):].lower() if parts[0].startswith(prefix) else parts[0].lower()
+
+            if trigger_word in ("del", "xoa", "delete"):
+                response = handle_recent_group_delete(bot, message_object, author_id, thread_id, thread_type, parts)
             
-            if trigger_word == "help" and len(parts) > 1:
+            elif trigger_word == "help" and len(parts) > 1:
                 import modules.txacommand as txacommand
                 target_cmd = parts[1].lower().strip()
                 if target_cmd.startswith(prefix):
@@ -1198,7 +1282,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         message_object,
                         thread_id,
                         thread_type,
-                        ttl=20000
+                        ttl=60000
                     )
                     response = None
                 else:
@@ -1232,21 +1316,76 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         emoji_font_path = "font/NotoEmoji-Bold.ttf"
                         
                         try:
-                            font_header = ImageFont.truetype(font_bold_path, 52)
-                            font_title = ImageFont.truetype(font_bold_path, 30)
-                            font_cmd = ImageFont.truetype(font_path, 24)
-                            font_desc = ImageFont.truetype(font_path, 20)
-                            font_emoji = ImageFont.truetype(emoji_font_path, 28)
-                            font_footer = ImageFont.truetype(font_path, 22)
+                            font_header = ImageFont.truetype(font_bold_path, 56)
+                            font_title = ImageFont.truetype(font_bold_path, 34)
+                            font_cmd = ImageFont.truetype(font_path, 28)
+                            font_desc = ImageFont.truetype(font_path, 24)
+                            font_emoji = ImageFont.truetype(emoji_font_path, 32)
+                            font_footer = ImageFont.truetype(font_path, 24)
                         except:
                             font_header = ImageFont.load_default()
                             font_title = font_cmd = font_desc = font_emoji = font_footer = font_header
+
+                        def _emoji_tokens(text):
+                            tokens = []
+                            i = 0
+                            while i < len(text):
+                                token = text[i]
+                                i += 1
+                                while i < len(text) and text[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
+                                    token += text[i]
+                                    i += 1
+                                while i < len(text) and text[i] == "\u200d":
+                                    token += text[i]
+                                    i += 1
+                                    if i < len(text):
+                                        token += text[i]
+                                        i += 1
+                                    while i < len(text) and text[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
+                                        token += text[i]
+                                        i += 1
+                                tokens.append(token)
+                            return tokens
+
+                        def _is_emoji_token(token):
+                            return (
+                                token in emoji.EMOJI_DATA
+                                or "\ufe0f" in token
+                                or "\u200d" in token
+                                or any(ch in emoji.EMOJI_DATA or ord(ch) > 0xFFFF for ch in token)
+                            )
+
+                        def _text_width(text, font):
+                            try:
+                                return draw.textlength(text, font=font)
+                            except Exception:
+                                bbox = draw.textbbox((0, 0), text, font=font)
+                                return bbox[2] - bbox[0]
+
+                        def _mixed_text_width(text, text_font, icon_font, spacing=1):
+                            total = 0
+                            for token in _emoji_tokens(text):
+                                current_font = icon_font if _is_emoji_token(token) else text_font
+                                total += _text_width(token, current_font) + spacing
+                            return max(0, total - spacing)
+
+                        def _draw_mixed_text(text, pos, text_font, icon_font, fill, spacing=1):
+                            x, y = pos
+                            for token in _emoji_tokens(text):
+                                is_icon = _is_emoji_token(token)
+                                current_font = icon_font if is_icon else text_font
+                                oy = y - max(0, current_font.size // 8) if is_icon else y
+                                draw.text((x, oy), token, fill=fill, font=current_font)
+                                x += _text_width(token, current_font) + spacing
+                            return x
+
+                        def _draw_mixed_text_centered(text, y, text_font, icon_font, fill, spacing=1):
+                            x = (size[0] - _mixed_text_width(text, text_font, icon_font, spacing)) // 2
+                            _draw_mixed_text(text, (x, y), text_font, icon_font, fill, spacing)
                         
                         # Header
-                        header_text = "📖 HƯỚNG DẪN SỬ DỤNG TXA BOT"
-                        header_bbox = draw.textbbox((0, 0), header_text, font=font_header)
-                        header_w = header_bbox[2] - header_bbox[0]
-                        draw.text(((size[0] - header_w) // 2, 70), header_text, fill=(0, 229, 255, 255), font=font_header)
+                        header_text = "📖 HƯỚNG DẪN SỬ DỤNG TXABOT"
+                        _draw_mixed_text_centered(header_text, 68, font_header, ImageFont.truetype(emoji_font_path, 48) if os.path.exists(emoji_font_path) else font_header, (0, 229, 255, 255), spacing=2)
                         
                         # Subtitle
                         sub_text = f"Prefix: {prefix}  |  Gõ {prefix}help [tên_lệnh] để xem chi tiết"
@@ -1263,9 +1402,10 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         
                         for i, sub_cmd in enumerate(BOT_SUB_COMMANDS):
                             cmd_str = sub_cmd["cmd"].format(prefix=prefix)
+                            name_str = sub_cmd.get("name", "")
                             desc_str = sub_cmd["desc"]
                             oa_tag = " (OA)" if sub_cmd["oa"] else ""
-                            item = {"cmd": cmd_str, "desc": f"{desc_str}{oa_tag}"}
+                            item = {"name": name_str, "cmd": cmd_str, "desc": f"{desc_str}{oa_tag}"}
                             if i < len(BOT_SUB_COMMANDS) // 2 + 1:
                                 col1_items.append(item)
                             else:
@@ -1274,21 +1414,24 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         # Tính scale dựa trên số lệnh
                         max_items = max(len(col1_items), len(col2_items))
                         available_height = box_y2 - 220 - 80  # Trừ header + footer
-                        item_height = 42
+                        item_height = 90
                         needed_height = max_items * item_height
                         scale = min(1.0, available_height / needed_height) if needed_height > 0 else 1.0
-                        scale = max(0.55, scale)
+                        scale = max(0.70, scale)
                         
                         scaled_item_h = int(item_height * scale)
-                        scaled_cmd_font_size = max(16, int(24 * scale))
-                        scaled_desc_font_size = max(14, int(20 * scale))
+                        scaled_cmd_font_size = max(18, int(28 * scale))
+                        scaled_desc_font_size = max(16, int(24 * scale))
+                        desc_offset = max(34, int(scaled_item_h * 0.52))
                         
                         try:
                             s_font_cmd = ImageFont.truetype(font_path, scaled_cmd_font_size)
                             s_font_desc = ImageFont.truetype(font_path, scaled_desc_font_size)
+                            s_font_emoji = ImageFont.truetype(emoji_font_path, max(18, scaled_desc_font_size + 3))
                         except:
                             s_font_cmd = font_cmd
                             s_font_desc = font_desc
+                            s_font_emoji = font_emoji
                         
                         # Neon colors cho lệnh
                         neon_colors = [
@@ -1306,12 +1449,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             y = y_start
                             for idx, item in enumerate(items):
                                 color = neon_colors[idx % len(neon_colors)]
-                                # Bullet
-                                draw.text((x_start, y), "➜", fill=(255, 255, 255, 200), font=s_font_cmd)
-                                # Command name
-                                draw.text((x_start + 30, y), item["cmd"], fill=(*color, 255), font=s_font_cmd)
+                                # Bullet + Full Name
+                                full_text = f"➜ {item['name']}"
+                                _draw_mixed_text(full_text, (x_start, y), s_font_cmd, s_font_emoji, (255, 255, 255, 220))
+                                # Command
+                                draw.text((x_start + 30, y + desc_offset - 14), item["cmd"], fill=(*color, 255), font=s_font_cmd)
                                 # Description below command
-                                draw.text((x_start + 35, y + int(scaled_item_h * 0.48)), item["desc"], fill=(200, 200, 200, 180), font=s_font_desc)
+                                _draw_mixed_text(item["desc"], (x_start + 35, y + desc_offset + 10), s_font_desc, s_font_emoji, (200, 200, 200, 180))
                                 y += scaled_item_h
                             return y
                         
@@ -1326,11 +1470,10 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         draw.line([(120, footer_y - 15), (size[0] - 120, footer_y - 15)], fill=(255, 64, 129, 100), width=1)
                         footer_text = f"🤖 TXA Bot v{bot.version} | 💡 Hiện tại đang miễn phí, sau này sẽ có tính phí dịch vụ!"
                         try:
-                            ft_bbox = draw.textbbox((0, 0), footer_text, font=font_footer)
-                            ft_w = ft_bbox[2] - ft_bbox[0]
+                            ft_w = _mixed_text_width(footer_text, font_footer, font_emoji)
                         except:
                             ft_w = 600
-                        draw.text(((size[0] - ft_w) // 2, footer_y), footer_text, fill=(150, 150, 150, 200), font=font_footer)
+                        _draw_mixed_text(footer_text, ((size[0] - ft_w) // 2, footer_y), font_footer, font_emoji, (150, 150, 150, 200))
                         
                         # Compose
                         result = Image.alpha_composite(bg_image, overlay)
@@ -1365,7 +1508,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         )
                     except Exception as e:
                         print(f"[ERROR] sendLocalImage help: {e}")
-                        bot.replyMessage(Message(text=caption_text), message_object, thread_id, thread_type)
+                        bot.replyMessage(Message(text=caption_text), message_object, thread_id, thread_type, ttl=60000)
                     
                     try:
                         os.remove(help_image_path)
@@ -1443,27 +1586,56 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         )
 
                         # ── Helper: draw mixed emoji+text ─────────────────────────
+                        def emoji_tokens(text_str):
+                            tokens = []
+                            i = 0
+                            while i < len(text_str):
+                                token = text_str[i]
+                                i += 1
+                                while i < len(text_str) and text_str[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
+                                    token += text_str[i]
+                                    i += 1
+                                while i < len(text_str) and text_str[i] == "\u200d":
+                                    token += text_str[i]
+                                    i += 1
+                                    if i < len(text_str):
+                                        token += text_str[i]
+                                        i += 1
+                                    while i < len(text_str) and text_str[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
+                                        token += text_str[i]
+                                        i += 1
+                                tokens.append(token)
+                            return tokens
+
+                        def is_emoji_token(token):
+                            return (
+                                token in emoji.EMOJI_DATA
+                                or "\ufe0f" in token
+                                or "\u200d" in token
+                                or any(ch in emoji.EMOJI_DATA or ord(ch) > 0xFFFF for ch in token)
+                            )
+
                         def draw_mixed(text_str, pos, base_font, emoji_f, fill_color):
                             cx, cy = pos
-                            for char in text_str:
-                                is_e = is_emoji(char)
-                                sf   = emoji_f if is_e else base_font
+                            for token in emoji_tokens(text_str):
+                                is_e = is_emoji_token(token)
+                                sf = emoji_f if is_e else base_font
                                 oy   = cy - sf.size // 6 if is_e else cy
-                                draw.text((cx, oy), char, fill=fill_color, font=sf)
+                                draw.text((cx, oy), token, fill=fill_color, font=sf)
                                 try:
-                                    cx += sf.getlength(char)
+                                    cx += sf.getlength(token)
                                 except Exception:
-                                    cw = draw.textbbox((0, 0), char, font=sf)[2]
+                                    cw = draw.textbbox((0, 0), token, font=sf)[2]
                                     cx += cw if cw > 0 else sf.size // 2
 
                         def line_w(text_str, base_font, emoji_f):
                             w = 0
-                            for char in text_str:
-                                sf = emoji_f if is_emoji(char) else base_font
+                            for token in emoji_tokens(text_str):
+                                sf = emoji_f if is_emoji_token(token) else base_font
                                 try:
-                                    w += sf.getlength(char)
+                                    w += sf.getlength(token)
                                 except Exception:
-                                    cw = draw.textbbox((0, 0), char, font=sf)[2]
+                                    cw = draw.textbbox((0, 0), token, font=sf)[2]
                                     w += cw if cw > 0 else sf.size // 2
                             return w
 
@@ -1551,10 +1723,12 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     "→ Bot xóa tin nhắn được reply + lệnh Admin",
                     f">>Reply tin nhắn A → gõ {prefix}del",
                     "---",
-                    "## 🗑️ CÁCH 2: TAG ĐỂ XÓA",
-                    f"Gõ @Tên_Thành_Viên {prefix}del",
-                    "→ Bot tìm tin nhắn gần nhất của người đó và xóa",
-                    f">>@XuânAnh {prefix}del",
+                    "## 🗑️ CÁCH 2: TAG + COUNT ĐỂ XÓA",
+                    f"Gõ {prefix}del @Tên_Thành_Viên [số_lượng]",
+                    "→ Count là số tin gần nhất của user được tag cần xóa",
+                    "→ Bot lấy recent group, lọc UID user rồi xóa đủ count tin",
+                    f">>{prefix}del @XuânAnh 5",
+                    f">>{prefix}xoa @XuânAnh 10",
                     "---",
                     "## 🗑️ CÁCH 3: XÓA TIN KỀ TRƯỚC",
                     f"Chỉ cần gõ {prefix}del (không reply, không tag)",
@@ -1562,6 +1736,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     f">>{prefix}del",
                     "---",
                     "📌 Chỉ Admin Bot hoặc Quản trị viên nhóm mới dùng được",
+                    "📌 Nếu không nhập count khi tag, mặc định xóa 1 tin gần nhất",
                     "📌 Nếu người thường gõ, Bot báo lỗi rồi tự xóa sau 5s",
                     f"📌 Hỗ trợ: {prefix}del, {prefix}xoa, {prefix}delete",
                 ]
@@ -2024,6 +2199,38 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         else:
                             response = f"➜ Lệnh {prefix}bot goodbye {setup_action} không được hỗ trợ 🤧"
 
+                elif action == 'autoapprove':
+                    if len(parts) < 3:
+                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {prefix}bot autoapprove 🤧\n➜ Ví dụ: {prefix}bot autoapprove on hoặc {prefix}bot autoapprove off ✅"
+                    else:
+                        setup_action = parts[2].lower()
+                        if setup_action == 'on':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                settings = read_settings()
+                                if 'auto_approve_members' not in settings:
+                                    settings['auto_approve_members'] = {}
+                                settings['auto_approve_members'][thread_id] = True
+                                write_settings(settings)
+                                response = "✅ Tự động duyệt thành viên yêu cầu vào nhóm đã được BẬT ✅"
+                        elif setup_action == 'off':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                settings = read_settings()
+                                if 'auto_approve_members' not in settings:
+                                    settings['auto_approve_members'] = {}
+                                settings['auto_approve_members'][thread_id] = False
+                                write_settings(settings)
+                                response = "⭕ Tự động duyệt thành viên yêu cầu vào nhóm đã được TẮT ⭕"
+                        else:
+                            response = f"➜ Lệnh {prefix}bot autoapprove {setup_action} không được hỗ trợ 🤧"
+
                 elif action == 'block':
                       
                     if len(parts) < 3:
@@ -2159,7 +2366,11 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             f"   VD: {prefix}bot policy link on\n"
                             f"3️⃣ Cài đặt chi tiết hình phạt:\n"
                             f"   ➜ {prefix}bot policy [loại] [lần] [phút] [hành_động]\n"
+                            f"   Loại: word / link / sticker / image / flood\n"
                             f"   Hành động: mute (Khóa mõm) / kick (Trục xuất) / warn (Cảnh báo)\n"
+                            f"   • mute: xóa nội dung vi phạm và khóa mõm trong [phút]\n"
+                            f"   • kick: xóa nội dung vi phạm và kick khi đủ [lần]\n"
+                            f"   • warn: cảnh báo khi đủ [lần], không khóa mõm\n"
                             f"   VD: {prefix}bot policy word 3 60 mute\n"
                             f"   VD: {prefix}bot policy link 2 30 kick"
                         )
@@ -2218,7 +2429,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     temp_image_path = create_menu1_image({"response": response}, 1, bot, author_id)
                     bot.sendLocalImage(
                         temp_image_path, thread_id=thread_id, thread_type=thread_type,
-                        message=Message(text=response), height=350, width=980, ttl=120000
+                        message=Message(text=response), height=350, width=980, ttl=60000
                     )
                     os.remove(temp_image_path)
                 else:
@@ -2798,6 +3009,28 @@ def handle_event(client, event_data, event_type):
         thread_type = ThreadType.GROUP
         
         settings = read_settings()
+        
+        # Xử lý tự động duyệt thành viên yêu cầu vào nhóm
+        if event_type == GroupEventType.JOIN_REQUEST:
+            auto_approve = settings.get("auto_approve_members", {}).get(thread_id, False)
+            if auto_approve:
+                try:
+                    # Kiểm tra nhóm có bật yêu cầu duyệt không
+                    group_info = client.fetchGroupInfo(thread_id)
+                    # Nếu group có pendingApprove hoặc viewGroupPending trả về kết quả thì nhóm đang bật duyệt
+                    pending = client.viewGroupPending(thread_id)
+                    if pending and hasattr(pending, 'users') and pending.users:
+                        for member in event_data.updateMembers:
+                            member_id = member['id']
+                            try:
+                                client.handleGroupPending(member_id, thread_id, isApprove=True)
+                                print(f"✅ Auto-approved member {member_id} for group {thread_id}")
+                            except Exception as approve_err:
+                                print(f"❌ Lỗi auto-approve member {member_id}: {approve_err}")
+                except Exception as check_err:
+                    print(f"❌ Lỗi kiểm tra pending group {thread_id}: {check_err}")
+            return
+        
         if not settings.get("welcome", {}).get(thread_id, False):
             return
             

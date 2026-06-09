@@ -1691,19 +1691,25 @@ class bot(ZaloAPI):
         if isinstance(message, str):
             message = Message(text=message)
         self.log_bot_message(message, thread_id, thread_type)
-        return super().sendMessage(message, thread_id, thread_type, mark_message, ttl)
+        result = super().sendMessage(message, thread_id, thread_type, mark_message, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def replyMessage(self, message, replyMsg, thread_id, thread_type, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
         self.log_bot_message(message, thread_id, thread_type)
-        return super().replyMessage(message, replyMsg, thread_id, thread_type, ttl)
+        result = super().replyMessage(message, replyMsg, thread_id, thread_type, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def send(self, message, thread_id, thread_type=ThreadType.USER, mark_message=None, ttl=0):
         if isinstance(message, str):
             message = Message(text=message)
         self.log_bot_message(message, thread_id, thread_type)
-        return super().send(message, thread_id, thread_type, mark_message, ttl)
+        result = super().send(message, thread_id, thread_type, mark_message, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def sendReaction(self, messageObject, reactionIcon, thread_id, thread_type, reactionType=75):
         self.log_bot_message(f"🎭 [THẢ CẢM XÚC] {reactionIcon}", thread_id, thread_type)
@@ -1716,25 +1722,133 @@ class bot(ZaloAPI):
     def sendLocalImage(self, imagePath, thread_id, thread_type, width=2560, height=2560, message=None, custom_payload=None, ttl=0):
         msg_text = message.text if isinstance(message, Message) else message or ''
         self.log_bot_message(f"🖼️ [GỬI ẢNH] {msg_text} (Đường dẫn: {imagePath})", thread_id, thread_type)
-        return super().sendLocalImage(imagePath, thread_id, thread_type, width, height, message, custom_payload, ttl)
+        result = super().sendLocalImage(imagePath, thread_id, thread_type, width, height, message, custom_payload, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def sendMultiLocalImage(self, imagePathList, thread_id, thread_type, width=2560, height=2560, message=None, ttl=0):
         msg_text = message.text if isinstance(message, Message) else message or ''
         self.log_bot_message(f"🖼️ [GỬI NHIỀU ẢNH] {msg_text} (Danh sách: {imagePathList})", thread_id, thread_type)
-        return super().sendMultiLocalImage(imagePathList, thread_id, thread_type, width, height, message, ttl)
+        result = super().sendMultiLocalImage(imagePathList, thread_id, thread_type, width, height, message, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def sendRemoteVideo(self, videoUrl, thumbnailUrl, duration, thread_id, thread_type, width=1280, height=720, message=None, ttl=0):
         msg_text = message.text if isinstance(message, Message) else message or ''
         self.log_bot_message(f"🎥 [GỬI VIDEO] {msg_text}\nURL video: {videoUrl}", thread_id, thread_type)
-        return super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
+        result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def sendSticker(self, stickerType, stickerId, cateId, thread_id, thread_type, ttl=0):
         self.log_bot_message(f"✨ [GỬI STICKER] ID: {stickerId}, Cate: {cateId}", thread_id, thread_type)
-        return super().sendSticker(stickerType, stickerId, cateId, thread_id, thread_type, ttl)
+        result = super().sendSticker(stickerType, stickerId, cateId, thread_id, thread_type, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
     def sendLink(self, linkUrl, title, thread_id, thread_type, thumbnailUrl=None, domainUrl=None, desc=None, message=None, ttl=0):
         self.log_bot_message(f"🔗 [GỬI LINK] Tiêu đề: {title}\nURL: {linkUrl}", thread_id, thread_type)
-        return super().sendLink(linkUrl, title, thread_id, thread_type, thumbnailUrl, domainUrl, desc, message, ttl)
+        result = super().sendLink(linkUrl, title, thread_id, thread_type, thumbnailUrl, domainUrl, desc, message, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
+
+    def _schedule_ttl_delete(self, result, thread_id, thread_type, ttl):
+        try:
+            ttl = int(ttl or 0)
+        except Exception:
+            ttl = 0
+        if ttl <= 0:
+            return
+
+        targets = self._extract_sent_messages(result)
+        if not targets:
+            print(f"[TTL] Không lấy được msgId/cliMsgId từ response để tự xóa sau {ttl}ms")
+            return
+
+        def delete_target(target):
+            msg_id = target.get("msgId")
+            cli_msg_id = target.get("cliMsgId")
+            owner_id = target.get("ownerId") or target.get("uidFrom") or target.get("senderId") or self.uid
+            if not msg_id or not cli_msg_id:
+                return
+            try:
+                if thread_type == ThreadType.GROUP:
+                    self.deleteGroupMsg(msg_id, owner_id, cli_msg_id, thread_id)
+                else:
+                    self.undoMessage(msg_id, cli_msg_id, thread_id, thread_type)
+                print(f"[TTL] Đã tự xóa tin nhắn {msg_id} sau {ttl}ms")
+            except Exception as e:
+                print(f"[TTL] Không thể tự xóa tin nhắn {msg_id}: {e}")
+
+        for target in targets:
+            timer = threading.Timer(ttl / 1000.0, delete_target, args=(target,))
+            timer.daemon = True
+            timer.start()
+
+    def _extract_sent_messages(self, result):
+        items = []
+
+        def as_plain(obj):
+            if obj is None:
+                return None
+            if hasattr(obj, "toDict"):
+                try:
+                    return obj.toDict()
+                except Exception:
+                    pass
+            if isinstance(obj, dict):
+                return obj
+            if isinstance(obj, (list, tuple)):
+                return list(obj)
+            if hasattr(obj, "__dict__"):
+                return dict(obj.__dict__)
+            return None
+
+        def walk(obj):
+            plain = as_plain(obj)
+            if isinstance(plain, list):
+                for item in plain:
+                    walk(item)
+                return
+            if not isinstance(plain, dict):
+                return
+
+            msg_id = (
+                plain.get("msgId") or plain.get("msg_id") or plain.get("globalMsgId")
+                or plain.get("gMsgID") or plain.get("message_id")
+            )
+            cli_msg_id = (
+                plain.get("cliMsgId") or plain.get("cli_msg_id") or plain.get("clientMsgId")
+                or plain.get("cMsgID") or plain.get("clientId")
+            )
+            if msg_id and cli_msg_id:
+                items.append({
+                    "msgId": str(msg_id),
+                    "cliMsgId": str(cli_msg_id),
+                    "ownerId": plain.get("ownerId"),
+                    "uidFrom": plain.get("uidFrom"),
+                    "senderId": plain.get("senderId"),
+                })
+
+            for key in ("data", "msgInfo", "message", "result"):
+                if key in plain:
+                    child = plain[key]
+                    if isinstance(child, str):
+                        try:
+                            child = json.loads(child)
+                        except Exception:
+                            continue
+                    walk(child)
+
+        walk(result)
+        unique = []
+        seen = set()
+        for item in items:
+            key = (item["msgId"], item["cliMsgId"])
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
+        return unique
 
     def log_bot_message(self, message, thread_id, thread_type):
         try:
@@ -1873,8 +1987,8 @@ class bot(ZaloAPI):
                     print(f"[ERROR] deleteGroupMsg quote error: {e}")
                     
             elif message_object.mentions:
-                # Parse number of messages to delete from command text
                 # Format: !del @name [number]
+                # Count means delete that many recent messages from the mentioned user.
                 parts = message_text.split()
                 num_to_delete = 1  # Default: delete 1 message
                 for p in parts:
@@ -1886,29 +2000,55 @@ class bot(ZaloAPI):
                     except ValueError:
                         continue
                 
+                recent_messages = []
+                try:
+                    group_data = self.getRecentGroup(thread_id)
+                    if hasattr(group_data, "groupMsgs"):
+                        recent_messages = group_data.groupMsgs or []
+                    elif isinstance(group_data, dict):
+                        recent_messages = group_data.get("groupMsgs", []) or []
+                except Exception as e:
+                    print(f"[ERROR] getRecentGroup delete mention error: {e}")
+
                 for mention in message_object.mentions:
                     target_uid = mention.get('uid')
                     if not target_uid:
                         continue
-                    history = self.message_history.get(thread_id, [])
-                    
-                    # Collect messages from this user
+
                     msgs_to_delete = []
-                    for m in reversed(history):
-                        if m['msgId'] == message_object.msgId:
+                    target_uid_str = str(target_uid)
+
+                    for m in reversed(recent_messages):
+                        msg_id = str(m.get('msgId', ''))
+                        uid_from = str(m.get('uidFrom', ''))
+                        if msg_id == str(message_object.msgId):
                             continue
-                        if m['author_id'] == target_uid:
-                            msgs_to_delete.append(m)
+                        if uid_from == target_uid_str:
+                            msgs_to_delete.append({
+                                "msgId": m.get('msgId'),
+                                "cliMsgId": m.get('cliMsgId'),
+                                "author_id": target_uid_str
+                            })
                             if len(msgs_to_delete) >= num_to_delete:
                                 break
-                    
-                    # Delete all found messages
+
+                    if len(msgs_to_delete) < num_to_delete:
+                        history = self.message_history.get(thread_id, [])
+                        known_ids = {str(m.get('msgId', '')) for m in msgs_to_delete}
+                        for m in reversed(history):
+                            msg_id = str(m.get('msgId', ''))
+                            if msg_id == str(message_object.msgId) or msg_id in known_ids:
+                                continue
+                            if str(m.get('author_id', '')) == target_uid_str:
+                                msgs_to_delete.append(m)
+                                known_ids.add(msg_id)
+                                if len(msgs_to_delete) >= num_to_delete:
+                                    break
+
                     for found_msg in msgs_to_delete:
                         try:
-                            self.deleteGroupMsg(found_msg['msgId'], target_uid, found_msg['cliMsgId'], thread_id)
+                            self.deleteGroupMsg(found_msg['msgId'], found_msg['author_id'], found_msg['cliMsgId'], thread_id)
                             deleted_any = True
-                            if found_msg in history:
-                                history.remove(found_msg)
                         except Exception as e:
                             print(f"[ERROR] deleteGroupMsg mention error: {e}")
             
@@ -2018,8 +2158,50 @@ class bot(ZaloAPI):
             message_text = re.sub(r'^@[\S]+[\s]*', '', message_text).lstrip()
             message_lower = message_text.lower()
 
-            if author_id == self.uid or author_id in banned_users:
+            if author_id in banned_users:
                 return
+
+            if author_id == self.uid:
+                try:
+                    author_name = "TXA Bot"
+                    try:
+                        author_info = self.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
+                        author_name = author_info.get('zaloName', 'TXA Bot')
+                    except:
+                        pass
+                    current_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
+                    colors_selected = random.sample(colors, 8)
+                    
+                    if thread_type == ThreadType.USER:
+                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}🔒 TIN NHẮN TỪ BOT (PRIVATE MESSAGE){Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (BOT){Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    else:
+                        try:
+                            group_info_log = self.fetchGroupInfo(thread_id)
+                            group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                        except Exception:
+                            group_name = 'N/A'
+                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN TỪ BOT (GROUP MESSAGE){Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (BOT){Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
+                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                except Exception as log_err:
+                    print(f"[ERROR] Lỗi khi in log tin nhắn bot: {log_err}")
+
+                if not message_text.startswith(prefix):
+                    return
 
 
 
@@ -2073,21 +2255,21 @@ class bot(ZaloAPI):
             else:
                 is_allowed = is_user_approved
 
-            # Add friendly reply when bot is mentioned but not a command
-            has_mention = (message_object.mentions and len(message_object.mentions) > 0) or (message_text and '@' in message_text)
-            if has_mention and not message_text.startswith(prefix) and is_allowed:
-                try:
-                    user_name = get_user_name_by_id(self, author_id)
-                    replies = [
-                        f"Xin chào {user_name}! 🌸 Tôi là {self.me_name}!\nGõ {prefix}help để xem danh sách lệnh nhé!",
-                        f"Chào {user_name}! 😊 Có gì tôi có thể giúp bạn? Gõ {prefix}help để biết thêm!",
-                        f"Hi {user_name}! 🚗 Bạn cần giúp gì? Gõ {prefix}help để xem danh sách lệnh!"
-                    ]
-                    reply_text = random.choice(replies)
-                    self.replyMessage(Message(text=reply_text), message_object, thread_id, thread_type)
-                except Exception as e:
-                    print(f"[ERROR] Error sending mention reply: {e}")
-                return
+            # Add friendly reply when bot is mentioned but not a command (DISABLED)
+            # has_mention = (message_object.mentions and len(message_object.mentions) > 0) or (message_text and '@' in message_text)
+            # if has_mention and not message_text.startswith(prefix) and is_allowed:
+            #     try:
+            #         user_name = get_user_name_by_id(self, author_id)
+            #         replies = [
+            #             f"Xin chào {user_name}! 🌸 Tôi là {self.me_name}!\nGõ {prefix}help để xem danh sách lệnh nhé!",
+            #             f"Chào {user_name}! 😊 Có gì tôi có thể giúp bạn? Gõ {prefix}help để biết thêm!",
+            #             f"Hi {user_name}! 🚗 Bạn cần giúp gì? Gõ {prefix}help để xem danh sách lệnh!"
+            #         ]
+            #         reply_text = random.choice(replies)
+            #         self.replyMessage(Message(text=reply_text), message_object, thread_id, thread_type)
+            #     except Exception as e:
+            #         print(f"[ERROR] Error sending mention reply: {e}")
+            #     return
 
             if not is_allowed:
                 if message_text.startswith(prefix):
@@ -2184,8 +2366,11 @@ class bot(ZaloAPI):
                             except Exception as e:
                                 print(f"[ERROR] Không thể gửi thông báo yêu cầu duyệt bot cho Admin: {e}")
 
-            # Log tin nhắn nhóm chưa được phép (không có lệnh prefix)
-            if not is_allowed and thread_type == ThreadType.GROUP:
+            # Nhóm chưa kích hoạt: tắt log cho user thường, chỉ giữ log nếu Admin BOT nhắn.
+            if not is_allowed and thread_type == ThreadType.GROUP and author_id != self.uid:
+                if author_id not in admin_bot:
+                    return
+
                 try:
                     _author_info = self.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
                     _author_name = _author_info.get('zaloName', 'N/A')
@@ -2198,14 +2383,14 @@ class bot(ZaloAPI):
                     _t = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
                     _c = random.sample(colors, 8)
                     print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE) - ADMIN BOT / NHÓM CHƯA KÍCH HOẠT{Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (ADMIN BOT){Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {_author_name}{Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[4])}{Style.BRIGHT}│- TÊN NHÓM: {_group_name}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: ❌ CHƯA KÍCH HOẠT{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(_c[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: ❌ CHƯA KÍCH HOẠT (vẫn log vì người gửi là Admin BOT){Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {_t}{Style.RESET_ALL}")
                     print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
                 except Exception:
@@ -2221,34 +2406,35 @@ class bot(ZaloAPI):
             colors_selected = random.sample(colors, 8)
             
             # Beautiful logging for private messages
-            if thread_type == ThreadType.USER:
-                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}🔒 TIN NHẮN RIÊNG TƯ (PRIVATE MESSAGE){Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TRẠNG THÁI: {'✅ ĐƯỢC PHÉP' if (author_id in admin_bot or author_id in approved_users) else '❌ KHÔNG ĐƯỢC PHÉP'}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-            else:
-                try:
-                    group_info_log = self.fetchGroupInfo(thread_id)
-                    group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
-                except Exception:
-                    group_name = 'N/A'
-                is_allowed_status = thread_id in allowed_thread_ids
-                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: {'✅ ĐƯỢC PHÉP' if is_allowed_status else '❌ CHƯA KÍCH HOẠT'}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {current_time}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+            if author_id != self.uid:
+                if thread_type == ThreadType.USER:
+                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}🔒 TIN NHẮN RIÊNG TƯ (PRIVATE MESSAGE){Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TRẠNG THÁI: {'✅ ĐƯỢC PHÉP' if (author_id in admin_bot or author_id in approved_users) else '❌ KHÔNG ĐƯỢC PHÉP'}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                else:
+                    try:
+                        group_info_log = self.fetchGroupInfo(thread_id)
+                        group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                    except Exception:
+                        group_name = 'N/A'
+                    is_allowed_status = thread_id in allowed_thread_ids
+                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: {'✅ ĐƯỢC PHÉP' if is_allowed_status else '❌ CHƯA KÍCH HOẠT'}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {current_time}{Style.RESET_ALL}")
+                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
             
             # Admin control of music features for groups (private chat only)
             if thread_type == ThreadType.USER and author_id in admin_bot and (
@@ -2487,11 +2673,25 @@ class bot(ZaloAPI):
                         self.replyMessage(Message(text=f"❌ Thất bại khi cài đặt tin nhắn tự xóa: {str(e)}"), message_object, thread_id, thread_type)
                     return
 
-                # Check approval for image commands
+                # Check approval for image and video commands
                 cmd_info = txacommand.loaded_commands.get(cmd_name)
-                if cmd_info and cmd_info.get('module_path', '').startswith("modules.images."):
+                is_media_cmd = cmd_info and (
+                    cmd_info.get('module_path', '').startswith("modules.images.") or 
+                    cmd_info.get('module_path', '').startswith("modules.videos.")
+                )
+                if is_media_cmd:
                     is_user_admin = is_admin(self, author_id)
                     settings = read_settings(self.uid)
+                    
+                    # 1. Master switch check (nằm trên tất cả)
+                    media_commands_active = settings.get("media_commands_active", True)
+                    if not media_commands_active and not is_user_admin:
+                        self.replyMessage(
+                            Message(text="⚠️ Tính năng sử dụng các lệnh kho ảnh/video hiện đang bị Admin tắt!"),
+                            message_object, thread_id, thread_type
+                        )
+                        return
+                        
                     approved_users = settings.get("image_approved_users", [])
                     
                     if not is_user_admin and author_id not in approved_users:
@@ -2700,7 +2900,7 @@ def save_username_to_config(username: str, author_id: str) -> None:
                 save_json(CONFIG_FILE, data)
                 logging.info(f"Đã lưu {username} vào config")
     except Exception as e:
-        logging.error(f"Lỗi khi lưu username và author_id vào config.json: {e}")
+        logging.error(f"Lỗi khi lưu username và author_id vào txa.json: {e}")
 
 def run_bot(
     imei: str,
