@@ -214,5 +214,8 @@
         ]
     },
     "welcome_caption": {},
-    "bye_caption": {}
+    "bye_caption": {},
+    "autodown_enabled": [
+        "6150866603217993790"
+    ]
 }

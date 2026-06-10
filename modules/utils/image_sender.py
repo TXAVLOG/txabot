@@ -62,10 +62,13 @@ class ImageSender:
         else:
             self.data_dir = os.path.join(os.path.dirname(__file__), "..", "data-send")
         
+        self.local_images_dir = os.path.join(os.path.dirname(__file__), "..", "local-images")
+        
         self.config = {
             "girl": {
                 "file": "girl.txt",
                 "text": "z_thinh_girl.txt",
+                "local_dir": "girl",
                 "ttl": 300000
             },
             "zGirl": {
@@ -110,6 +113,7 @@ class ImageSender:
             },
             "vdgirl": {
                 "file": "vdgirl.txt",
+                "local_dir": "vdgirl",
                 "ttl": 300000
             },
             "vdcos": {
@@ -123,6 +127,23 @@ class ImageSender:
             "vdsexy": {
                 "file": "vdsexy.txt",
                 "ttl": 180000
+            },
+            "anhgai": {
+                "file": "anhgai.txt",
+                "text": "z_thinh_girl.txt",
+                "ttl": 300000
+            },
+            "imgsexy": {
+                "file": "imgsexy.txt",
+                "ttl": 180000
+            },
+            "vdchill": {
+                "file": "vdchill.txt",
+                "ttl": 300000
+            },
+            "vdgai": {
+                "file": "vdgai.txt",
+                "ttl": 300000
             }
         }
     
@@ -203,8 +224,93 @@ class ImageSender:
         
         return False
     
+    def get_local_files(self, type_name):
+        """Lấy danh sách file local"""
+        if type_name not in self.config or "local_dir" not in self.config[type_name]:
+            return []
+        
+        local_dir = os.path.join(self.local_images_dir, self.config[type_name]["local_dir"])
+        if not os.path.exists(local_dir):
+            return []
+        
+        # Lấy tất cả file ảnh/video
+        extensions = [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".avi", ".mov", ".mkv"]
+        files = []
+        for file in os.listdir(local_dir):
+            if os.path.splitext(file)[1].lower() in extensions:
+                files.append(os.path.join(local_dir, file))
+        
+        return files
+    
     def send_image(self, bot, message_object=None, thread_id=None, thread_type=None, author_id=None, type_name=None, custom_caption=""):
         """Gửi ảnh hoặc video tới chat"""
+        
+        # Lấy caption trước
+        if custom_caption:
+            caption = custom_caption
+        else:
+            text = self.get_text(type_name)
+            if text:
+                try:
+                    if author_id:
+                        author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
+                        author_name = author_info.get('zaloName', 'User')
+                        caption = f"[ {author_name} ] {text}"
+                    else:
+                        caption = text
+                except:
+                    caption = text
+            else:
+                caption = ""
+        
+        ttl = self.config[type_name].get("ttl", 300000)
+        
+        # Kiểm tra file local trước
+        local_files = self.get_local_files(type_name)
+        
+        if local_files:
+            # Chọn ngẫu nhiên file local
+            selected_file = random.choice(local_files)
+            
+            # Nếu là video
+            if type_name.startswith("vd"):
+                try:
+                    bot.sendLocalVideo(
+                        selected_file,
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        message=Message(text=caption),
+                        ttl=ttl
+                    )
+                    return None
+                except Exception as e:
+                    # Nếu lỗi, thử dùng URL
+                    pass
+            else:
+                # Gửi ảnh local
+                try:
+                    if message_object:
+                        bot.sendLocalImage(
+                            selected_file,
+                            thread_id=thread_id,
+                            thread_type=thread_type,
+                            message=Message(text=caption),
+                            ttl=ttl
+                        )
+                    else:
+                        bot.sendLocalImage(
+                            selected_file,
+                            thread_id=thread_id,
+                            thread_type=thread_type,
+                            message=Message(text=caption),
+                            ttl=ttl
+                        )
+                    return None
+                except Exception as e:
+                    # Nếu lỗi, thử dùng URL
+                    pass
+        
+        # Nếu không có file local hoặc lỗi, dùng URL cũ
         urls = self.get_image_urls(type_name)
         if not urls or len(urls) == 0:
             return "❌ Không tìm thấy dữ liệu!"
@@ -215,25 +321,6 @@ class ImageSender:
             if not url:
                 return "❌ Không tìm thấy URL video hợp lệ!"
             
-            # Lấy caption
-            if custom_caption:
-                caption = custom_caption
-            else:
-                text = self.get_text(type_name)
-                if text:
-                    try:
-                        if author_id:
-                            author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
-                            author_name = author_info.get('zaloName', 'User')
-                            caption = f"[ {author_name} ] {text}"
-                        else:
-                            caption = text
-                    except:
-                        caption = text
-                else:
-                    caption = ""
-                
-            ttl = self.config[type_name].get("ttl", 300000)
             thumbnail_url = "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl"
             
             try:
@@ -270,29 +357,8 @@ class ImageSender:
             return "❌ Không thể tải ảnh. Vui lòng thử lại sau!"
         
         try:
-            # Lấy caption
-            if custom_caption:
-                caption = custom_caption
-            else:
-                text = self.get_text(type_name)
-                if text:
-                    try:
-                        if author_id:
-                            author_info = bot.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
-                            author_name = author_info.get('zaloName', 'User')
-                            caption = f"[ {author_name} ] {text}"
-                        else:
-                            caption = text
-                    except:
-                        caption = text
-                else:
-                    caption = ""
-            
             # Gửi ảnh
-            ttl = self.config[type_name].get("ttl", 300000)
             if message_object:
-                # If we have a message object, use replyMessage first or just send the image
-                # Since sendLocalImage doesn't support replyTo, send the image normally
                 bot.sendLocalImage(
                     temp_file,
                     thread_id=thread_id,

@@ -196,7 +196,7 @@ def handle_top_command(bot, message_object, thread_id, thread_type, author_id):
         file_path = FLIE_FF
 
         if not os.path.exists(file_path):
-            self.replyMessage(Message(text="💢 Không có dữ liệu người dùng!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Không có dữ liệu người dùng!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         with open(file_path, 'r') as f:
@@ -219,29 +219,29 @@ def handle_top_command(bot, message_object, thread_id, thread_type, author_id):
             coins_display = "Vô hạn coins" if player['coins'] == float('inf') else f"{player['coins']} coins"
             top_message += f"{idx}. {player_name} - {coins_display}\n"
 
-        self.replyMessage(Message(text=top_message), message_object, thread_id=thread_id, thread_type=thread_type, ttl=30000)
+        bot.replyMessage(Message(text=top_message), message_object, thread_id=thread_id, thread_type=thread_type, ttl=30000)
 
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi lấy danh sách top: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi lấy danh sách top: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 def handle_taoma_command(bot, message, message_object, thread_id, thread_type, author_id):
     try:
 
-        if not is_admin(self, author_id):
+        if not is_admin(bot, author_id):
             msg = "❌Bạn không phải admin bot!\n"
-            self.replyMessage(Message(text=msg), message_object, thread_id, thread_type, ttl=120000)
+            bot.replyMessage(Message(text=msg), message_object, thread_id, thread_type, ttl=120000)
             return
 
         args = message.split()
         if len(args) != 4:
-            self.replyMessage(Message(text=f"💢 Cú pháp: {self.prefix}tx ecode [coins] [lượt nhập]"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text=f"💢 Cú pháp: {bot.prefix}tx ecode [coins] [lượt nhập]"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         coin_amount = int(args[2])
         code_uses = int(args[3])
 
         if coin_amount <= 0 or code_uses <= 0:
-            self.replyMessage(Message(text="💢 Số coin hoặc số lần nhập không hợp lệ!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Số coin hoặc số lần nhập không hợp lệ!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         code = f"code_{random.randint(100000, 999999)}"
@@ -262,53 +262,53 @@ def handle_taoma_command(bot, message, message_object, thread_id, thread_type, a
         with open(file_path, 'w') as f:
             json.dump(codes, f, indent=4)
 
-        self.replyMessage(Message(text=f"🎉 Mã code của bạn: {code}\nSố coin: {coin_amount}\nSố lần nhập: {code_uses}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"🎉 Mã code của bạn: {code}\nSố coin: {coin_amount}\nSố lần nhập: {code_uses}"), message_object, thread_id=thread_id, thread_type=thread_type)
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi tạo mã: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi tạo mã: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 def handle_sudung_command(bot, message, message_object, thread_id, thread_type, author_id):
     try:
         if len(message.split()) < 3:
-            self.replyMessage(Message(text="💢 Bạn chưa cung cấp mã code!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn chưa cung cấp mã code!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         code = message.split()[2]
         file_path = 'modules/game/taixiu/codes.json'
         
         if not os.path.exists(file_path):
-            self.replyMessage(Message(text="💢 Không có mã code nào!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Không có mã code nào!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         with open(file_path, 'r') as f:
             codes = json.load(f)
 
         if not codes:
-            self.replyMessage(Message(text="💢 Không có mã code nào!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Không có mã code nào!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         code_data = next((code_data for code_data in codes if code_data['code'] == code), None)
         if not code_data:
-            self.replyMessage(Message(text="💢 Mã code không tồn tại!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Mã code không tồn tại!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         with open(FLIE_FF, 'r') as f:
             data = json.load(f)
 
         if not data:
-            self.replyMessage(Message(text="💢 Dữ liệu người dùng không hợp lệ!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Dữ liệu người dùng không hợp lệ!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
         
         user = next((user for user in data if user.get('user_id') == author_id), None)
         if not user:
-            self.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         if code in user['used_codes']:
-            self.replyMessage(Message(text="💢 Bạn đã sử dụng mã code này rồi!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn đã sử dụng mã code này rồi!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         if 'code_uses' not in code_data or code_data['code_uses'] <= 0:
-            self.replyMessage(Message(text="💢 Mã code này đã hết lượt sử dụng!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Mã code này đã hết lượt sử dụng!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         user['coins'] += code_data['coin_amount']
@@ -322,29 +322,29 @@ def handle_sudung_command(bot, message, message_object, thread_id, thread_type, 
         with open(file_path, 'w') as f:
             json.dump(codes, f, indent=4)
 
-        self.replyMessage(Message(text=f"🎉 Bạn đã sử dụng mã code thành công!\nBạn nhận được {code_data['coin_amount']} coins.\nSố coin hiện tại: {user['coins']}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"🎉 Bạn đã sử dụng mã code thành công!\nBạn nhận được {code_data['coin_amount']} coins.\nSố coin hiện tại: {user['coins']}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi sử dụng mã: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi sử dụng mã: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 def handle_vitien_command(bot, message, message_object, thread_id, thread_type, author_id):
     try:
         file_path = FLIE_FF
         if not os.path.exists(file_path):
-            self.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         with open(file_path, 'r') as f:
             data = json.load(f)
 
         if not data:
-            self.replyMessage(Message(text="💢 Không có dữ liệu người dùng!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Không có dữ liệu người dùng!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         user = next((user for user in data if user.get('user_id') == author_id), None)
 
         if not user:
-            self.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         user_name = user.get('user_name', 'Người dùng')
@@ -361,7 +361,7 @@ def handle_vitien_command(bot, message, message_object, thread_id, thread_type, 
             coins = int(coins)  # Chuyển đổi sang số nguyên nếu không phải "Vô Hạn"
             coins_display = f"{coins:,} Xu"
 
-        self.replyMessage(Message(text=f"🚦Người chơi: {user_name}\n"
+        bot.replyMessage(Message(text=f"🚦Người chơi: {user_name}\n"
                                       f"💰 Tài khoản: {coins_display}\n"
                                       f"🪙 Số xu đã cược: {bet_coins:,} Xu\n"
                                       f"🏆 Số lần thắng: {wins}\n"
@@ -371,20 +371,20 @@ def handle_vitien_command(bot, message, message_object, thread_id, thread_type, 
                            message_object, thread_id=thread_id, thread_type=thread_type)
 
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 def handle_naptien_command(bot, message, message_object, thread_id, thread_type, author_id):
     try:
         mentions = message_object.mentions if hasattr(message_object, 'mentions') else []
         if not mentions:
-            self.replyMessage(Message(text="💢 Bạn cần tag người chơi để chuyển tiền."), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn cần tag người chơi để chuyển tiền."), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         mentioned_user_id = mentions[0]['uid']
         amount_str = message.split(" ")[-1]
         
         if not amount_str.isdigit():
-            self.replyMessage(Message(text="💢 Vui lòng nhập số tiền hợp lệ."), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Vui lòng nhập số tiền hợp lệ."), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         amount = int(amount_str)
@@ -394,16 +394,16 @@ def handle_naptien_command(bot, message, message_object, thread_id, thread_type,
         
         sender = next((user for user in data if user.get('user_id') == author_id), None)
         if not sender:
-            self.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         if sender.get('coins', 0) < amount:
-            self.replyMessage(Message(text="💢 Số dư không đủ để chuyển tiền."), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Số dư không đủ để chuyển tiền."), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         receiver = next((user for user in data if user.get('user_id') == mentioned_user_id), None)
         if not receiver:
-            self.replyMessage(Message(text="💢 Người nhận chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Người nhận chưa đăng ký!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
         receiver_name = receiver.get('user_name', 'Người nhận')
         sender_name = sender.get('user_name', 'Người gửi')
@@ -414,17 +414,17 @@ def handle_naptien_command(bot, message, message_object, thread_id, thread_type,
         with open(sender_file, 'w') as f:
             json.dump(data, f, indent=4)
 
-        self.replyMessage(Message(text=f"💰 {sender_name} đã chuyển {amount} coins cho {receiver_name}.\nSố tiền của bạn hiện tại là {sender['coins']} coins.\nSố tiền của người nhận hiện tại là {receiver['coins']} coins."), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💰 {sender_name} đã chuyển {amount} coins cho {receiver_name}.\nSố tiền của bạn hiện tại là {sender['coins']} coins.\nSố tiền của người nhận hiện tại là {receiver['coins']} coins."), message_object, thread_id=thread_id, thread_type=thread_type)
 
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 
 def handle_daily_command(bot, message, message_object, thread_id, thread_type, author_id):
     try:
         file_path = FLIE_FF
         if not os.path.exists(file_path):
-            self.replyMessage(Message(text="💢 Bạn cần đăng ký trước!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn cần đăng ký trước!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         with open(file_path, 'r') as f:
@@ -432,17 +432,17 @@ def handle_daily_command(bot, message, message_object, thread_id, thread_type, a
 
         user = next((user for user in data if user.get('user_id') == author_id), None)
         if not user:
-            self.replyMessage(Message(text="💢 Bạn cần đăng ký trước!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn cần đăng ký trước!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         current_date = datetime.now().strftime('%Y-%m-%d')
 
         if 'last_daily' in user and user['last_daily'] == current_date:
-            self.replyMessage(Message(text="💢 Bạn đã điểm danh hôm nay rồi!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn đã điểm danh hôm nay rồi!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         if user.get('coins') == "Vô Hạn":
-            self.replyMessage(Message(text="💢 Bạn đã có số tiền vô hạn, không thể nhận thêm!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn đã có số tiền vô hạn, không thể nhận thêm!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         try:
@@ -451,24 +451,24 @@ def handle_daily_command(bot, message, message_object, thread_id, thread_type, a
             if user['coins'] == "Vô Hạn":
                 user['coins'] = 0  # Handle "Vô Hạn" as 0 or reset to default
             else:
-                self.replyMessage(Message(text="💢 Đã xảy ra lỗi với số coin của bạn!"), message_object, thread_id=thread_id, thread_type=thread_type)
+                bot.replyMessage(Message(text="💢 Đã xảy ra lỗi với số coin của bạn!"), message_object, thread_id=thread_id, thread_type=thread_type)
                 return
 
         # If MAX_COINS is "Vô Hạn", bypass the limit check
         if MAX_COINS != "Vô Hạn" and user['coins'] + 3000 > int(MAX_COINS):
-            self.replyMessage(Message(text="💢 Số coin của bạn đã đạt giới hạn tối đa!"), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Số coin của bạn đã đạt giới hạn tối đa!"), message_object, thread_id=thread_id, thread_type=thread_type)
             return
 
         user['coins'] += 3000
         user['last_daily'] = current_date
 
-        self.replyMessage(Message(text=f"🎉 Chúc mừng {user.get('user_name', 'Người dùng')}! Bạn đã điểm danh thành công và nhận được 3000 coins.\nSố tiền hiện tại: {user['coins']} coins."), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"🎉 Chúc mừng {user.get('user_name', 'Người dùng')}! Bạn đã điểm danh thành công và nhận được 3000 coins.\nSố tiền hiện tại: {user['coins']} coins."), message_object, thread_id=thread_id, thread_type=thread_type)
 
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=4)
 
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi điểm danh: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi điểm danh: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 
 def handle_dangky_command(bot, message, message_object, thread_id, thread_type, author_id):
@@ -486,7 +486,7 @@ def handle_dangky_command(bot, message, message_object, thread_id, thread_type, 
                     data = []
 
         if any(user.get('user_id') == author_id for user in data):
-            self.replyMessage(
+            bot.replyMessage(
                 Message(text="💢 Bạn đã đăng ký rồi!"),
                 message_object,
                 thread_id=thread_id,
@@ -494,7 +494,7 @@ def handle_dangky_command(bot, message, message_object, thread_id, thread_type, 
             )
             return
 
-        user_info = self.fetchUserInfo(author_id)
+        user_info = bot.fetchUserInfo(author_id)
         user_name = user_info.changed_profiles[author_id].displayName
 
         user_data = {
@@ -509,7 +509,7 @@ def handle_dangky_command(bot, message, message_object, thread_id, thread_type, 
         data.append(user_data)
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=4)
-        self.replyMessage(
+        bot.replyMessage(
             Message(text=f"🎉 Chúc mừng {user_name}! Bạn đã đăng ký thành công và nhận được 1000 coins."),
             message_object,
             thread_id=thread_id,
@@ -517,7 +517,7 @@ def handle_dangky_command(bot, message, message_object, thread_id, thread_type, 
         )
 
     except Exception as e:
-        self.replyMessage(
+        bot.replyMessage(
             Message(text=f"💢 Đã xảy ra lỗi khi đăng ký: {str(e)}"),
             message_object,
             thread_id=thread_id,
@@ -529,21 +529,21 @@ def handle_xoataikhoan_command(bot, message, message_object, thread_id, thread_t
         mentions = message_object.mentions if hasattr(message_object, 'mentions') else []
         
         if not mentions:
-            self.replyMessage(Message(text="💢 Bạn cần tag người chơi để xóa tài khoản."), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Bạn cần tag người chơi để xóa tài khoản."), message_object, thread_id=thread_id, thread_type=thread_type)
             return
         mentioned_user_id = mentions[0].get('uid', None)
         if not mentioned_user_id:
-            self.replyMessage(Message(text="💢 Không thể xác định người chơi được tag."), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Không thể xác định người chơi được tag."), message_object, thread_id=thread_id, thread_type=thread_type)
             return
         
-        if not is_admin(self, author_id):
+        if not is_admin(bot, author_id):
             msg = "❌Bạn không phải admin bot!\n"
             styles = MultiMsgStyle([ 
                 MessageStyle(offset=0, length=2, style="color", color="#f38ba8", auto_format=False),
                 MessageStyle(offset=2, length=len(msg)-2, style="color", color="#cdd6f4", auto_format=False),
                 MessageStyle(offset=0, length=len(msg), style="font", size="13", auto_format=False)
             ])
-            self.replyMessage(Message(text=msg, style=styles), message_object, thread_id, thread_type)
+            bot.replyMessage(Message(text=msg, style=styles), message_object, thread_id, thread_type)
             return
         user_file = FLIE_FF
         with open(user_file, 'r') as f:
@@ -551,17 +551,17 @@ def handle_xoataikhoan_command(bot, message, message_object, thread_id, thread_t
         user_to_delete = next((user for user in data if user.get('user_id') == mentioned_user_id), None)
 
         if not user_to_delete:
-            self.replyMessage(Message(text="💢 Người dùng này không tồn tại trong hệ thống."), message_object, thread_id=thread_id, thread_type=thread_type)
+            bot.replyMessage(Message(text="💢 Người dùng này không tồn tại trong hệ thống."), message_object, thread_id=thread_id, thread_type=thread_type)
             return
         data = [user for user in data if user.get('user_id') != mentioned_user_id]
 
         with open(user_file, 'w') as f:
             json.dump(data, f, indent=4)
 
-        self.replyMessage(Message(text=f"💢 Tài khoản của {user_to_delete.get('user_name', 'Người chơi')} đã được xóa thành công."), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Tài khoản của {user_to_delete.get('user_name', 'Người chơi')} đã được xóa thành công."), message_object, thread_id=thread_id, thread_type=thread_type)
 
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 def handle_vohantien_command(bot, message, message_object, thread_id, thread_type, author_id):
     try:
@@ -609,7 +609,7 @@ def handle_vohantien_command(bot, message, message_object, thread_id, thread_typ
     except Exception as e:
         bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
-def list_codes(self, message_object, thread_id, thread_type):
+def list_codes(bot, message_object, thread_id, thread_type):
     try:
         file_path = 'modules/game/taixiu/codes.json'
 
@@ -630,9 +630,9 @@ def list_codes(self, message_object, thread_id, thread_type):
         else:
             message_text = "💢 Tệp mã code không tồn tại!"
 
-        self.replyMessage(Message(text=message_text), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=message_text), message_object, thread_id=thread_id, thread_type=thread_type)
     except Exception as e:
-        self.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi liệt kê mã code: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
+        bot.replyMessage(Message(text=f"💢 Đã xảy ra lỗi khi liệt kê mã code: {str(e)}"), message_object, thread_id=thread_id, thread_type=thread_type)
 
 def create_gradient_colors(num_colors):
     return [(random.randint(100, 175), random.randint(100, 180), random.randint(100, 170)) for _ in range(num_colors)]

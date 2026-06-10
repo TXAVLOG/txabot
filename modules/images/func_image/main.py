@@ -16,10 +16,12 @@ txa = {
         "girlsexy": "Ảnh gái sexy",
         "girlnguc": "Ảnh gái ngực khủng",
         "girlnude": "Ảnh gái nude",
-        "girllon": "Ảnh gái nhạy cảm"
+        "girllon": "Ảnh gái nhạy cảm",
+        "anhgai": "Ảnh gái",
+        "imgsexy": "Ảnh sexy"
     },
     "author": "TXA",
-    "command": ["girl", "zgirl", "cosplay", "anime", "boy", "boy6mui", "girlsexy", "girlnguc", "girlnude", "girllon"]
+    "command": ['girl', 'zgirl', 'cosplay', 'anime', 'boy', 'boy6mui', 'girlsexy', 'girlnguc', 'girlnude', 'girllon', 'anhgai', 'imgsexy']
 }
 
 def is_image_command_enabled(bot, thread_id, command):
@@ -44,6 +46,18 @@ def set_image_command_enabled(bot, thread_id, command, enabled):
             disabled_commands[thread_id].append(command)
     settings["disabled_image_commands"] = disabled_commands
     write_settings(bot.uid, settings)
+
+def handle_anhgai_command(bot, message_object, thread_id, thread_type, author_id):
+    """Gửi ảnh gai"""
+    error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "anhgai")
+    if error:
+        bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)
+
+def handle_imgsexy_command(bot, message_object, thread_id, thread_type, author_id):
+    """Gửi ảnh sexy"""
+    error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "imgsexy")
+    if error:
+        bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
@@ -89,6 +103,10 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         handle_girlnude_command(bot, message_object, thread_id, thread_type, author_id)
     elif cmd == 'girllon':
         handle_girllon_command(bot, message_object, thread_id, thread_type, author_id)
+    elif cmd == 'anhgai':
+        handle_anhgai_command(bot, message_object, thread_id, thread_type, author_id)
+    elif cmd == 'imgsexy':
+        handle_imgsexy_command(bot, message_object, thread_id, thread_type, author_id)
 
 def handle_girl_command(bot, message_object, thread_id, thread_type, author_id):
     """Gửi ảnh girl"""

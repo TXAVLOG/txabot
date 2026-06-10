@@ -2,11 +2,9 @@ from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import os
-import glob
 import random
 import re
 import string
-import sys
 import threading
 import time
 from typing import List, Tuple
@@ -15,7 +13,6 @@ import emoji
 import requests
 from zlapi.models import *
 from config import *
-import config
 from core.bot_sys import (
     is_group_admin_or_creator,
     cleanup_pending_messages,
@@ -28,7 +25,7 @@ from core.bot_sys import (
 thread_local = threading.local()
 
 BOT_SUB_COMMANDS = [
-    {"name": "Thông tin BOT", "cmd": "{prefix}bot info", "desc": "♨️ Xem thông tin chi tiết về BOT", "oa": False},
+    {"name": "Thông tin BOT", "cmd": "{prefix}bot info [v1/v2]", "desc": "♨️ Xem thông tin chi tiết về BOT (v1: text box, v2: màu sắc)", "oa": False},
     {"name": "Bật/Tắt BOT", "cmd": "{prefix}bot on/off", "desc": "🚀 Bật / 🛑 Tắt BOT trong nhóm", "oa": True},
     {"name": "Dọn dẹp hệ thống", "cmd": "{prefix}bot clean", "desc": "🧹 Dọn dẹp tệp tin rác hệ thống", "oa": False},
     {"name": "Cấu hình quản trị", "cmd": "{prefix}bot setup on/off", "desc": "⚙️ Bật / 🛑 Tắt cấu hình quản trị nhóm", "oa": True},
@@ -62,6 +59,85 @@ BOT_SUB_COMMANDS = [
     {"name": "Đổi Prefix", "cmd": "{prefix}bot prefix [ký tự]", "desc": "🔧 Đổi prefix lệnh Bot (admin)", "oa": False},
     {"name": "Khởi động lại Bot", "cmd": "{prefix}bot reset", "desc": "♻️ Khởi động lại Bot (admin)", "oa": False},
 ]
+
+
+def _normalize_help_command(raw_cmd, prefix):
+    target_cmd = (raw_cmd or "").strip().lower()
+    if target_cmd.startswith(prefix):
+        target_cmd = target_cmd[len(prefix):]
+
+    # Loai bo ky tu du o dau/cuoi nhu `sms\`, `sms/`, `sms...`
+    target_cmd = target_cmd.strip()
+    target_cmd = re.sub(r"^[^\w]+|[^\w]+$", "", target_cmd)
+    return target_cmd
+
+
+def _resolve_help_details(cmd_info, target_cmd):
+    details_map = cmd_info.get("help", {}) or {}
+    if not isinstance(details_map, dict):
+        return {}
+
+    if isinstance(details_map.get(target_cmd), dict):
+        return details_map[target_cmd]
+
+    aliases = cmd_info.get("command", [])
+    if isinstance(aliases, str):
+        aliases = [aliases]
+    for alias in aliases:
+        if isinstance(details_map.get(alias), dict):
+            return details_map[alias]
+
+    if isinstance(details_map.get("default"), dict):
+        return details_map["default"]
+    return {}
+
+
+def _default_help_lines(cmd_info, target_cmd, prefix):
+    aliases = cmd_info.get("command", [])
+    if isinstance(aliases, str):
+        aliases = [aliases]
+
+    usage = [f"{prefix}{target_cmd}"]
+    examples = [f"{prefix}{target_cmd}"]
+    notes = []
+
+    alias_list = [f"{prefix}{alias}" for alias in aliases if alias != target_cmd]
+    if alias_list:
+        notes.append("Alias khác: " + ", ".join(alias_list))
+
+    if len(aliases) > 1:
+        usage = [f"{prefix}{alias}" for alias in aliases]
+        examples = usage[:]
+
+    return {
+        "usage": usage,
+        "examples": examples,
+        "notes": notes,
+    }
+
+
+def _build_help_extra_text(cmd_info, target_cmd, prefix):
+    details = _resolve_help_details(cmd_info, target_cmd) or _default_help_lines(cmd_info, target_cmd, prefix)
+    lines = []
+
+    usage_lines = details.get("usage", [])
+    if usage_lines:
+        lines.append("➜ ❖ Cách dùng:")
+        lines.extend([f"   • {line.format(prefix=prefix)}" for line in usage_lines])
+
+    example_lines = details.get("examples", [])
+    if example_lines:
+        lines.append("➜ 💡 Ví dụ:")
+        lines.extend([f"   • {line.format(prefix=prefix)}" for line in example_lines])
+
+    note_lines = details.get("notes", [])
+    if note_lines:
+        lines.append("➜ 📌 Lưu ý:")
+        lines.extend([f"   • {line}" for line in note_lines])
+
+    if not lines:
+        return ""
+    return "\n" + "\n".join(lines)
 
 txa = {
     "name": "Bot Help & Settings",
@@ -1217,9 +1293,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
             
             elif trigger_word == "help" and len(parts) > 1:
                 import modules.txacommand as txacommand
-                target_cmd = parts[1].lower().strip()
-                if target_cmd.startswith(prefix):
-                    target_cmd = target_cmd[len(prefix):]
+                target_cmd = _normalize_help_command(parts[1], prefix)
                 
                 if target_cmd in txacommand.loaded_commands:
                     cmd_info = txacommand.loaded_commands[target_cmd]
@@ -1238,8 +1312,9 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     line4 = f"{label4}{cmd_info['desc'] if cmd_info['desc'] else 'Chưa có mô tả chi tiết.'}\n"
                     label5 = "➜ 👨‍💻 Tác giả: "
                     line5 = f"{label5}{cmd_info['author']}"
+                    extra_text = _build_help_extra_text(cmd_info, target_cmd, prefix)
                     
-                    full_text = label1 + line2 + line3 + line4 + line5
+                    full_text = label1 + line2 + line3 + line4 + line5 + extra_text
                     
                     offset1 = 0
                     len1 = len(label1)
@@ -2463,7 +2538,8 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
 
                             # Lưu vào txa.json để persist qua restart
                             try:
-                                config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "txa.json")
+                                # Đường dẫn đúng đến txa.json ở thư mục gốc
+                                config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "txa.json")
                                 if os.path.exists(config_path):
                                     with open(config_path, "r", encoding="utf-8") as f:
                                         txa_config = json.load(f)

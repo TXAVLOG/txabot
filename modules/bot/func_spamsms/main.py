@@ -19,7 +19,27 @@ txa = {
     "name": "pro_spamsms",
     "desc": "Spam SMS đến số điện thoại (Chỉ dành cho admin). Hỗ trợ blacklist và cooldown. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['sms']
+    "command": ['sms'],
+    "help": {
+        "sms": {
+            "usage": [
+                "{prefix}sms <sdt> <so_lan>",
+                "{prefix}sms addblacklist <sdt>",
+                "{prefix}sms removeblacklist <sdt>",
+                "{prefix}sms show"
+            ],
+            "examples": [
+                "{prefix}sms 0901234567 10",
+                "{prefix}sms addblacklist 0901234567",
+                "{prefix}sms removeblacklist 0901234567",
+                "{prefix}sms show"
+            ],
+            "notes": [
+                "Chi admin moi duoc quan ly blacklist.",
+                "Nguoi dung thuong chi duoc spam tu 1 den 30 lan."
+            ]
+        }
+    }
 }
 
 def is_admin(uid):

@@ -14,10 +14,15 @@ load_summary = []
 success_count = 0
 fail_count = 0
 
+# Store listeners (auto hooks)
+# Format: [ {'name': str, 'function': callable, 'module_path': str} ]
+loaded_listeners = []
+
 def load_modules():
     global success_count, fail_count
     loaded_commands.clear()
     load_summary.clear()
+    loaded_listeners.clear()
     success_count = 0
     fail_count = 0
     
@@ -150,8 +155,22 @@ def load_modules():
                             'desc': clean_desc,
                             'author': txa_config['author'],
                             'command': command_field,
-                            'module_path': module_path
+                            'module_path': module_path,
+                            'help': txa_config.get('help', {})
                         }
+                    
+                    # Load listeners if available
+                    # Check for known listener functions
+                    possible_listener_names = ['autodown_listener', 'listener', 'on_message', 'auto_listener']
+                    for listener_name in possible_listener_names:
+                        if hasattr(module, listener_name):
+                            listener_fn = getattr(module, listener_name)
+                            if callable(listener_fn):
+                                loaded_listeners.append({
+                                    'name': listener_name,
+                                    'function': listener_fn,
+                                    'module_path': module_path
+                                })
                     
                     success_count += 1
                     load_summary.append({

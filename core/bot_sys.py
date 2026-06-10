@@ -1,4 +1,4 @@
-﻿
+
 import colorsys
 from datetime import datetime, timedelta
 import difflib
@@ -2644,7 +2644,14 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
 
                         write_settings(bot.uid, settings)
                 elif action == 'info':
-                    response = (
+                    # Xác định style: mặc định là v1 nếu không có tham số
+                    style_version = 'v1'
+                    if len(parts) >= 3:
+                        style_version = parts[2].lower()
+                    
+                    if style_version == 'v1':
+                        # Style v1: Giữ nguyên style hiện tại (text box)
+                        response = (
     "╭────────────────────────────╮\n"
     f"│ 🤖 Bot phiên bản: {bot.version}\n"
     f"│ 📅 Cập nhật lần cuối: {bot.date_update}\n"
@@ -2661,7 +2668,90 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
     "│  ├➜ 🔗 Bảo vệ nhóm khỏi link độc hại\n"
     "│  └➜ 🔍 Kiểm tra & phân tích tin nhắn\n"
     "╰────────────────────────────╯"
-)
+    )
+                    elif style_version == 'v2':
+                        # Style v2: Format mới với màu sắc và style
+                        from zlapi.models import MessageStyle, MultiMsgStyle
+                        
+                        full_text = (
+                            f"🤖 THÔNG TIN BOT\n\n"
+                            f"📌 Phiên bản: {bot.version}\n"
+                            f"📅 Cập nhật: {bot.date_update}\n"
+                            f"👨‍💻 Phát triển: {bot.me_name}\n"
+                            f"📖 Hướng dẫn: {bot.prefix}bot/help\n"
+                            f"⏳ Thời gian phản hồi: 1 giây\n\n"
+                            f"⚡ Tính năng nổi bật:\n"
+                            f"• 🛡️ Anti-spam, anti-radi, chặn link, từ cấm\n"
+                            f"• 🤬 Kiểm soát nội dung chửi thề\n"
+                            f"• 🚫 Tự động duyệt & chặn spammer\n"
+                            f"• 🔊 Quản lý giọng nói & sticker\n"
+                            f"• 🖼️ Hỗ trợ hình ảnh, GIF, video\n"
+                            f"• 🗳️ Kiểm soát cuộc khảo sát\n"
+                            f"• 🔗 Bảo vệ nhóm khỏi link độc hại\n"
+                            f"• 🔍 Kiểm tra & phân tích tin nhắn"
+                        )
+                        
+                        # Tính offset cho các phần text
+                        header_start = 0
+                        header_len = len("🤖 THÔNG TIN BOT\n\n")
+                        
+                        version_start = header_start + header_len
+                        version_len = len(f"📌 Phiên bản: {bot.version}\n")
+                        
+                        update_start = version_start + version_len
+                        update_len = len(f"📅 Cập nhật: {bot.date_update}\n")
+                        
+                        dev_start = update_start + update_len
+                        dev_len = len(f"👨‍💻 Phát triển: {bot.me_name}\n")
+                        
+                        help_start = dev_start + dev_len
+                        help_len = len(f"📖 Hướng dẫn: {bot.prefix}bot/help\n")
+                        
+                        features_start = help_start + help_len + len(f"⏳ Thời gian phản hồi: 1 giây\n\n")
+                        features_len = len(f"⚡ Tính năng nổi bật:\n")
+                        
+                        styles_list = [
+                            # Header: Bold + Italic + Pink
+                            MessageStyle(offset=header_start, length=header_len, style="bold", auto_format=False),
+                            MessageStyle(offset=header_start, length=header_len, style="italic", auto_format=False),
+                            MessageStyle(offset=header_start, length=header_len, style="color", color="ff4081", auto_format=False),
+                            
+                            # Phiên bản: Bold + Cyan
+                            MessageStyle(offset=version_start, length=version_len, style="bold", auto_format=False),
+                            MessageStyle(offset=version_start, length=version_len, style="color", color="00e5ff", auto_format=False),
+                            
+                            # Cập nhật: Bold + Green
+                            MessageStyle(offset=update_start, length=update_len, style="bold", auto_format=False),
+                            MessageStyle(offset=update_start, length=update_len, style="color", color="00e676", auto_format=False),
+                            
+                            # Phát triển: Bold + Yellow
+                            MessageStyle(offset=dev_start, length=dev_len, style="bold", auto_format=False),
+                            MessageStyle(offset=dev_start, length=dev_len, style="color", color="ffeb3b", auto_format=False),
+                            
+                            # Hướng dẫn: Bold + Purple
+                            MessageStyle(offset=help_start, length=help_len, style="bold", auto_format=False),
+                            MessageStyle(offset=help_start, length=help_len, style="color", color="aa00ff", auto_format=False),
+                            
+                            # Features header: Bold + Orange
+                            MessageStyle(offset=features_start, length=features_len, style="bold", auto_format=False),
+                            MessageStyle(offset=features_start, length=features_len, style="color", color="ff9800", auto_format=False),
+                        ]
+                        
+                        multi_style = MultiMsgStyle(styles_list)
+                        
+                        bot.replyMessage(
+                            Message(
+                                text=full_text,
+                                style=multi_style
+                            ),
+                            message_object,
+                            thread_id,
+                            thread_type,
+                            ttl=60000
+                        )
+                        response = None
+                    else:
+                        response = f"➜ Style không hợp lệ! Vui lòng chọn: v1 hoặc v2 🤧\n➜ Ví dụ: {bot.prefix}bot info v1 hoặc {bot.prefix}bot info v2"
 
                 elif action == 'approved':
                     if len(parts) < 3:
@@ -3252,8 +3342,8 @@ def get_allow_goodbye(bot, thread_id: str) -> bool:
     settings = read_settings(bot.uid)
     return settings.get("goodbye", {}).get(thread_id, False)
 
-DEFAULT_WELCOME_CAPTION = "🎉 Chào mừng {user} đã đến với {type} {group}!\n👤 Hiện tại {type} đã có {member} thành viên.\n💬 Chúc bạn vui vẻ và tuân thủ nội quy nhóm!"
-DEFAULT_BYE_CAPTION = "👋 Tạm biệt {user}!\n📊 Nhóm {group} còn {member} thành viên.\n💫 Hẹn gặp lại bạn trên hành trình phía trước!"
+DEFAULT_WELCOME_CAPTION = "Chào mừng {user} đến với {type} {group}!\nHiện tại {type} có {member} thành viên.\nChúc bạn có những trải nghiệm tốt!"
+DEFAULT_BYE_CAPTION = "Tạm biệt {user}!\nNhóm {group} còn {member} thành viên."
 
 def _format_caption(caption, user_name, group_name, total_members, type_name, admin_name):
     return caption.replace("{user}", user_name).replace("{group}", group_name).replace("{member}", str(total_members)).replace("{type}", type_name).replace("{admin}", admin_name)
@@ -3370,41 +3460,41 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
 
         event_config = {
             GroupEventType.JOIN: {
-                'main_text': f'🎉 Chào mừng, {user_name}',
-                'group_name_text': f"📌 {group_name}",
-                'credit_text': f"✅ Được duyệt bởi {ow_name}" if ow_name else "✅ Đã được duyệt vào nhóm",
-                'banner_sub': f"👤 Thành viên thứ {total_members}  •  🔥 Gõ {prefix}menu để khám phá bot",
+                'main_text': f'Chào mừng, {user_name}',
+                'group_name_text': group_name,
+                'credit_text': f"Được duyệt bởi {ow_name}" if ow_name else "Đã được duyệt vào nhóm",
+                'banner_sub': f"Thành viên thứ {total_members} • Gõ {prefix}menu để xem",
                 'msg': join_msg,
-                'mention': Mention(uid=uid, offset=12, length=len(user_name))
+                'mention': Mention(uid=uid, offset=len("Chào mừng, "), length=len(user_name))
             },
             GroupEventType.LEAVE: {
-                'main_text': f'👋 Tạm biệt, {user_name}',
-                'group_name_text': f"📌 {group_name}",
-                'credit_text': "🚪 Đã rời khỏi nhóm",
-                'banner_sub': f"📊 Nhóm còn {total_members} thành viên",
+                'main_text': f'Tạm biệt, {user_name}',
+                'group_name_text': group_name,
+                'credit_text': "Đã rời khỏi nhóm",
+                'banner_sub': f"Nhóm còn {total_members} thành viên",
                 'msg': leave_msg,
-                'mention': Mention(uid=uid, offset=11, length=len(user_name))
+                'mention': Mention(uid=uid, offset=len("Tạm biệt, "), length=len(user_name))
             },
             GroupEventType.ADD_ADMIN: {
-                'main_text': f'Chúc mừng, {user_name}',
+                'main_text': f'{user_name}',
                 'group_name_text': group_name,
-                'credit_text': f"bổ nhiệm làm phó nhóm🔑",
+                'credit_text': f"Được bổ nhiệm làm phó nhóm",
                 'msg': f' {user_name}',
                 'mention': None
             },
             GroupEventType.REMOVE_ADMIN: {
-                'main_text': f'Rất tiếc, {user_name}',
+                'main_text': f'{user_name}',
                 'group_name_text': group_name,
-                'credit_text': f"Đã bị xóa vai trò nhóm",
+                'credit_text': "Đã bị gỡ vai trò phó nhóm",
                 'msg': f' {user_name}',
                 'mention': None
             },
             GroupEventType.REMOVE_MEMBER: {
-                'main_text': f'Thanh trừng, {user_name}',
+                'main_text': f'{user_name}',
                 'group_name_text': group_name,
-                'credit_text': f"Bị kick bởi {ow_name}" if ow_name else "Đã bị kick khỏi nhóm",
-                'msg': f"💀 R.I.P {user_name} đã bị {ow_name} thanh trừng thẳng tay khỏi nhóm '{group_name}'! Tiễn vong, chúc đầu thai sang nhóm khác ngoan ngoãn hơn nhé! ⚰️" if ow_name else f"💀 R.I.P {user_name} đã bị thanh trừng thẳng tay khỏi nhóm '{group_name}'! Tiễn vong, chúc đầu thai sang nhóm khác ngoan ngoãn hơn nhé! ⚰️",
-                'mention': Mention(uid=uid, offset=8, length=len(user_name))
+                'credit_text': f"Bị kick khỏi nhóm bởi {ow_name}" if ow_name else "Đã bị kick khỏi nhóm",
+                'msg': f"{user_name} đã bị loại khỏi nhóm '{group_name}'." if ow_name else f"{user_name} đã bị loại khỏi nhóm '{group_name}'.",
+                'mention': Mention(uid=uid, offset=0, length=len(user_name))
             },
             GroupEventType.JOIN_REQUEST: {
                 'main_text': f'Yêu cầu tham gia ',

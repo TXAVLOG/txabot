@@ -14,7 +14,47 @@ txa = {
         "duyetanh": "Duyệt gửi ảnh"
     },
     "author": "TXA",
-    "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh"]
+    "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh"],
+    "help": {
+        "duyet": {
+            "usage": [
+                "{prefix}duyet <@tag/UID>",
+                "{prefix}duyet <@tag/UID> <thoi_gian>"
+            ],
+            "examples": [
+                "{prefix}duyet @user",
+                "{prefix}duyet 123456789 10"
+            ],
+            "notes": [
+                "Chi Admin BOT moi su dung duoc.",
+                "Co the tag hoac nhap UID so.",
+                "Thoi gian tinh theo ngay, mac dinh la khong han."
+            ]
+        },
+        "unduyet": {
+            "usage": [
+                "{prefix}unduyet <@tag/UID>"
+            ],
+            "examples": [
+                "{prefix}unduyet @user"
+            ],
+            "notes": [
+                "Huy quyen dung Bot cho thanh vien."
+            ]
+        },
+        "capkey": {
+            "usage": [
+                "{prefix}capkey <@tag/UID> <vang/bac> <thoi_gian>"
+            ],
+            "examples": [
+                "{prefix}capkey @user vang 30"
+            ],
+            "notes": [
+                "Cap key vang hoac bac cho thanh vien.",
+                "Thoi gian tinh theo ngay."
+            ]
+        }
+    }
 }
 
 def duyet_cmd(bot, message_object, thread_id, thread_type, author_id, message_text):

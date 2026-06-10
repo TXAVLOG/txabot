@@ -16,7 +16,36 @@ txa = {
         "iginfo": "Thông tin tài khoản"
     },
     "author": "TXA",
-    "command": ["instagram", "ig", "igdl", "iginfo"]
+    "command": ["instagram", "ig", "igdl", "iginfo"],
+    "help": {
+        "ig": {
+            "usage": [
+                "{prefix}ig <link Instagram>",
+                "{prefix}igdl <link Instagram>",
+                "{prefix}instagram <link Instagram>"
+            ],
+            "examples": [
+                "{prefix}ig https://www.instagram.com/reel/xxx/",
+                "{prefix}igdl https://www.instagram.com/p/xxx/"
+            ],
+            "notes": [
+                "Ho tro ca post, reel, carousel cua Instagram.",
+                "Bot se gui media ve group tu dong."
+            ]
+        },
+        "iginfo": {
+            "usage": [
+                "{prefix}iginfo <@ig_username>"
+            ],
+            "examples": [
+                "{prefix}iginfo @instagram_user"
+            ],
+            "notes": [
+                "Tra ve thong tin tai khoan Instagram: ten, bio, so follower, so post...",
+                "Dung @username Instagram khong can @zalo user."
+            ]
+        }
+    }
 }
 
 def _read_api_key():

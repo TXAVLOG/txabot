@@ -22,7 +22,49 @@ txa = {
         "tiktoksearch": "Tìm kiếm video TikTok"
     },
     "author": "TXA",
-    "command": ["tiktok", "downtik", "tt", "tiktokinfo", "in4tiktok", "tiktoksearch"]
+    "command": ["tiktok", "downtik", "tt", "tiktokinfo", "in4tiktok", "tiktoksearch"],
+    "help": {
+        "tiktok": {
+            "usage": [
+                "{prefix}tiktok <link TikTok>",
+                "{prefix}tt <link TikTok>",
+                "{prefix}downtik <link TikTok>"
+            ],
+            "examples": [
+                "{prefix}tiktok https://vt.tiktok.com/xxx/",
+                "{prefix}tt https://www.tiktok.com/@user/video/123456"
+            ],
+            "notes": [
+                "Ho tro ca link vt.tiktok.com, www.tiktok.com, vm.tiktok.com...",
+                "Bot se gui video/anh ve group tu dong."
+            ]
+        },
+        "tiktokinfo": {
+            "usage": [
+                "{prefix}tiktokinfo <@tiktok_username>",
+                "{prefix}in4tiktok <@tiktok_username>"
+            ],
+            "examples": [
+                "{prefix}tiktokinfo @tiktok_user"
+            ],
+            "notes": [
+                "Tra ve thong tin kenh TikTok: ten, bio, so follower, so video...",
+                "Dung @username TikTok khong can @zalo user."
+            ]
+        },
+        "tiktoksearch": {
+            "usage": [
+                "{prefix}tiktoksearch <tu_khoa_tim_kiem>"
+            ],
+            "examples": [
+                "{prefix}tiktoksearch nhac hay nhat"
+            ],
+            "notes": [
+                "Tim kiem video TikTok theo tu khoa.",
+                "Tra ve danh sach video lien quan."
+            ]
+        }
+    }
 }
 
 

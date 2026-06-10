@@ -9,10 +9,12 @@ txa = {
         "vdgirl": "Video gái ngẫu nhiên",
         "vdcos": "Video Cosplay ngẫu nhiên",
         "vdanime": "Video Anime ngẫu nhiên",
-        "vdsexy": "Video sexy ngẫu nhiên"
+        "vdsexy": "Video sexy ngẫu nhiên",
+        "vdchill": "Video chill ngẫu nhiên",
+        "vdgai": "Video gái"
     },
     "author": "TXA",
-    "command": ["vdgirl", "vdcos", "vdanime", "vdsexy"]
+    "command": ["vdgirl", "vdcos", "vdanime", "vdsexy", "vdchill", "vdgai"]
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -27,6 +29,10 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         handle_vdanime_command(bot, message_object, thread_id, thread_type, author_id)
     elif cmd == 'vdsexy':
         handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id)
+    elif cmd == 'vdchill':
+        handle_vdchill_command(bot, message_object, thread_id, thread_type, author_id)
+    elif cmd == 'vdgai':
+        handle_vdgai_command(bot, message_object, thread_id, thread_type, author_id)
 
 def handle_vdgirl_command(bot, message_object, thread_id, thread_type, author_id):
     """Gửi video girl"""
@@ -49,5 +55,17 @@ def handle_vdanime_command(bot, message_object, thread_id, thread_type, author_i
 def handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id):
     """Gửi video sexy"""
     error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "vdsexy")
+    if error:
+        bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)
+
+def handle_vdchill_command(bot, message_object, thread_id, thread_type, author_id):
+    """Gửi video chill"""
+    error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "vdchill")
+    if error:
+        bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)
+
+def handle_vdgai_command(bot, message_object, thread_id, thread_type, author_id):
+    """Gửi video gai"""
+    error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "vdgai")
     if error:
         bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)

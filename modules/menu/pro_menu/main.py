@@ -103,7 +103,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
     columns = [[], [], [], []]
     column_mapping = {
         "bot": 0,
-        "utils": 1, "downloader": 1, "ai": 1,
+        "utils": 1, "downloader": 1, "ai": 1, "auto": 1,
         "fun": 2, "images": 2, "videos": 2,
         "game": 3, "music": 3, "news": 3, "menu": 3
     }
@@ -113,6 +113,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
         "utils": ("🔧", "Tiện ích"),
         "downloader": ("📥", "Tải xuống"),
         "ai": ("🧠", "Trí tuệ nhân tạo"),
+        "auto": ("🤖", "Tự động"),
         "fun": ("🤭", "Giải trí"),
         "images": ("👩‍💼", "Kho ảnh"),
         "videos": ("🎬", "Kho video"),
@@ -122,7 +123,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
         "menu": ("🩴", "Menu hệ thống")
     }
 
-    order_dirs = ["bot", "utils", "downloader", "ai", "fun", "images", "videos", "game", "music", "news", "menu"]
+    order_dirs = ["bot", "utils", "downloader", "ai", "auto", "fun", "images", "videos", "game", "music", "news", "menu"]
     prefix = getattr(bot, 'prefix', '!')
     
     for parent_dir in order_dirs:

@@ -1888,7 +1888,7 @@ class bot(ZaloAPI):
                 return
 
             msg_id = (
-                plain.get("msgId") or plain.get("msg_id") or plain.get("globalMsgId")
+                plain.get("globalMsgId") or plain.get("msgId") or plain.get("msg_id")
                 or plain.get("gMsgID") or plain.get("message_id")
             )
             cli_msg_id = (
@@ -1904,15 +1904,14 @@ class bot(ZaloAPI):
                     "senderId": plain.get("senderId"),
                 })
 
-            for key in ("data", "msgInfo", "message", "result"):
-                if key in plain:
-                    child = plain[key]
-                    if isinstance(child, str):
-                        try:
-                            child = json.loads(child)
-                        except Exception:
-                            continue
-                    walk(child)
+            for key in plain.keys():
+                child = plain[key]
+                if isinstance(child, str):
+                    try:
+                        child = json.loads(child)
+                    except Exception:
+                        continue
+                walk(child)
 
         walk(result)
         unique = []
@@ -1923,6 +1922,57 @@ class bot(ZaloAPI):
                 seen.add(key)
                 unique.append(item)
         return unique
+
+    def log_send_success(self, thread_id, thread_type, content_type="unknown", slot=None):
+        """Log khi gửi nội dung thành công"""
+        try:
+            current_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
+            selected_colors = random.sample(colors, 8)
+            
+            if slot is None:
+                slot = time.strftime("%H:%M")
+            
+            if thread_type == ThreadType.GROUP:
+                try:
+                    group_info_log = self.fetchGroupInfo(thread_id)
+                    group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                except Exception:
+                    group_name = 'N/A'
+                print(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}✅ Đã gửi nội dung đến {group_name} ({thread_id}) (type: {content_type}, slot: {slot}){Style.RESET_ALL}")
+            else:
+                try:
+                    user_info_log = self.fetchUserInfo(thread_id)
+                    user_name = user_info_log.changed_profiles.get(thread_id, {}).get('zaloName', 'N/A')
+                except Exception:
+                    user_name = 'N/A'
+                print(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}✅ Đã gửi nội dung đến {user_name} ({thread_id}) (type: {content_type}, slot: {slot}){Style.RESET_ALL}")
+        except Exception as e:
+            print(f"[ERROR] Không thể in log gửi thành công: {e}")
+
+    def log_autosend(self, thread_id, thread_type, slot=None):
+        """Log khi autosend đúng khung giờ"""
+        try:
+            if slot is None:
+                slot = time.strftime("%H:%M")
+            
+            selected_colors = random.sample(colors, 8)
+            
+            if thread_type == ThreadType.GROUP:
+                try:
+                    group_info_log = self.fetchGroupInfo(thread_id)
+                    group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
+                except Exception:
+                    group_name = 'N/A'
+                print(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}🕒 Autosend đến đúng khung giờ: {slot} cho nhóm {group_name} ({thread_id}){Style.RESET_ALL}")
+            else:
+                try:
+                    user_info_log = self.fetchUserInfo(thread_id)
+                    user_name = user_info_log.changed_profiles.get(thread_id, {}).get('zaloName', 'N/A')
+                except Exception:
+                    user_name = 'N/A'
+                print(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}🕒 Autosend đến đúng khung giờ: {slot} cho người dùng {user_name} ({thread_id}){Style.RESET_ALL}")
+        except Exception as e:
+            print(f"[ERROR] Không thể in log autosend: {e}")
 
     def log_bot_message(self, message, thread_id, thread_type):
         try:
@@ -1943,7 +1993,7 @@ class bot(ZaloAPI):
                     group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
                 except Exception:
                     group_name = 'N/A'
-                print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- ID nhóm: {group_name} ({thread_id}){Style.RESET_ALL}")
+                print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- ID nhóm: {thread_id}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Tên nhóm: {group_name}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(selected_colors[5])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
             else:
@@ -1952,7 +2002,7 @@ class bot(ZaloAPI):
                     user_name = user_info_log.changed_profiles.get(thread_id, {}).get('zaloName', 'N/A')
                 except Exception:
                     user_name = 'N/A'
-                print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- Đến người dùng: {user_name} ({thread_id}){Style.RESET_ALL}")
+                print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- Đến người dùng: {thread_id}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Tên người dùng: {user_name}{Style.RESET_ALL}")
                 print(f"{hex_to_ansi(selected_colors[5])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
             print(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
@@ -2231,6 +2281,18 @@ class bot(ZaloAPI):
             # Clean leading mentions (like @Tbot) and whitespace
             message_text = re.sub(r'^@[\S]+[\s]*', '', message_text).lstrip()
             message_lower = message_text.lower()
+
+            # Call all loaded listeners (auto hooks)
+            try:
+                for listener_data in txacommand.loaded_listeners:
+                    listener_fn = listener_data.get('function')
+                    if callable(listener_fn):
+                        try:
+                            listener_fn(self, message_object, author_id, thread_id, thread_type, message_text)
+                        except Exception as listener_err:
+                            print(f"[ERROR] Listener {listener_data.get('name')} ({listener_data.get('module_path')} error: {listener_err}")
+            except Exception as e:
+                print(f"[ERROR] Error calling listeners: {e}")
 
             if author_id in banned_users:
                 return
