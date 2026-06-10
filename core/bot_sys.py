@@ -3348,15 +3348,24 @@ DEFAULT_BYE_CAPTION = "Tạm biệt {user}!\nNhóm {group} còn {member} thành 
 def _format_caption(caption, user_name, group_name, total_members, type_name, admin_name):
     return caption.replace("{user}", user_name).replace("{group}", group_name).replace("{member}", str(total_members)).replace("{type}", type_name).replace("{admin}", admin_name)
 
-BANNER_COLORS = ["#f00e0e", "#f8f700", "#09f926", "#233ee6", "#46d0e5", "#9b23e6", "#f91be4", "#fe1e1e", "#da2df2", "#fbfbfb"]
+WELCOME_COLORS = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7", "#fd79a8", "#a29bfe", "#00b894"]
+GOODBYE_COLORS = ["#636e72", "#b2bec3", "#dfe6e9", "#74b9ff", "#a29bfe", "#fd79a8", "#00b894", "#fdcb6e"]
+BANNER_COLORS = WELCOME_COLORS
 
-def _styled_banner_msg(text, mention=None):
+def _styled_banner_msg(text, mention=None, event_type=None):
     """Create a Message with rainbow colored text for banner captions."""
     lines = text.split('\n')
     styles = []
     offset = 0
+    
+    # Choose color palette based on event type
+    if event_type == GroupEventType.LEAVE:
+        colors = GOODBYE_COLORS
+    else:
+        colors = WELCOME_COLORS
+        
     for i, line in enumerate(lines):
-        color = BANNER_COLORS[i % len(BANNER_COLORS)]
+        color = colors[i % len(colors)]
         styles.append(MessageStyle(style="color", color=color, offset=offset, length=len(line), auto_format=False))
         offset += len(line) + 1
     if lines:
@@ -3510,7 +3519,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
             print(f"[ERROR] Sự kiện {event_type} không được hỗ trợ")
             return None
         
-        banner_width, banner_height = 980, 350
+        banner_width, banner_height = 980, 400
         
         try:
             background = load_random_background(background_dir) or create_default_background(banner_width, banner_height)
@@ -3532,8 +3541,8 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         )
         
         rect_margin = 60
-        rect_x0, rect_y0 = rect_margin, 30
-        rect_x1, rect_y1 = banner_width - rect_margin, banner_height - 30
+        rect_x0, rect_y0 = rect_margin, 35
+        rect_x1, rect_y1 = banner_width - rect_margin, banner_height - 35
         draw.rounded_rectangle([rect_x0, rect_y0, rect_x1, rect_y1], radius=30, fill=glass_color)
 
         member_circle_radius = 25
@@ -3617,13 +3626,25 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
             ]
             return random.choice(colors)
         
+        # Load emoji font để render đúng emoji/icon trong banner
+        banner_emoji_font_50 = ImageFont.truetype(font_path_emoji, 50) if os.path.exists(font_path_emoji) else None
+        banner_emoji_font_48 = ImageFont.truetype(font_path_emoji, 48) if os.path.exists(font_path_emoji) else None
+        banner_emoji_font_38 = ImageFont.truetype(font_path_emoji, 38) if os.path.exists(font_path_emoji) else None
+        banner_emoji_font_24 = ImageFont.truetype(font_path_emoji, 24) if os.path.exists(font_path_emoji) else None
+        banner_emoji_font_22 = ImageFont.truetype(font_path_emoji, 22) if os.path.exists(font_path_emoji) else None
+
         font_main = ImageFont.truetype(font_path_arial, 50)
         main_text = config['main_text']
-        main_bbox = draw.textbbox((0, 0), main_text, font=font_main)
-        main_width = main_bbox[2] - main_bbox[0]
+        main_color = get_vibrant_color()
+        # Tính width với emoji-aware
+        main_width = sum(
+            draw.textbbox((0,0), c, font=banner_emoji_font_50 if (banner_emoji_font_50 and is_emoji(c)) else font_main)[2]
+            for c in main_text
+        )
         main_x = rect_x0 + (rect_x1 - rect_x0 - main_width) // 2
         main_y = rect_y0 + 10
-        draw.text((main_x, main_y), main_text, font=font_main, fill=get_vibrant_color())
+        main_bbox = draw.textbbox((0, 0), main_text, font=font_main)
+        create_text(draw, main_text, font_main, banner_emoji_font_50, (main_x, main_y), [main_color])
 
         font_group = ImageFont.truetype(font_path_arial, 48)
         group_text = config['group_name_text']
@@ -3637,7 +3658,8 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 group_text = group_text[:-1]
                 group_bbox = draw.textbbox((0, 0), group_text + "...", font=font_group)
             group_text += "..."
-        draw.text((group_x, group_y), group_text, font=font_group, fill=get_vibrant_color())
+        group_color = get_vibrant_color()
+        create_text(draw, group_text, font_group, banner_emoji_font_48, (group_x, group_y), [group_color])
 
         font_credit = ImageFont.truetype(font_path_arial, 38)
         credit_text = config['credit_text']
@@ -3645,7 +3667,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         credit_width = credit_bbox[2] - credit_bbox[0]
         credit_x = rect_x0 + (rect_x1 - rect_x0 - credit_width) // 2
         credit_y = group_y + group_bbox[3] + 15
-        draw.text((credit_x, credit_y), credit_text, font=font_credit, fill=(255, 255, 255))
+        create_text(draw, credit_text, font_credit, banner_emoji_font_38, (credit_x, credit_y), [(255, 255, 255)])
 
         if config.get('banner_sub'):
             font_sub = ImageFont.truetype(font_path_arial, 24)
@@ -3654,14 +3676,14 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
             sub_width = sub_bbox[2] - sub_bbox[0]
             sub_x = rect_x0 + (rect_x1 - rect_x0 - sub_width) // 2
             sub_y = credit_y + credit_bbox[3] + 8
-            draw.text((sub_x, sub_y), sub_text, font=font_sub, fill=(220, 220, 220))
+            create_text(draw, sub_text, font_sub, banner_emoji_font_24, (sub_x, sub_y), [(220, 220, 220)])
 
         time_text = f" {time.strftime('%d/%m/%Y')}   {time.strftime('%H:%M:%S')}     Executed by {ow_name}" if ow_name else f" {time.strftime('%d/%m/%Y')}      {time.strftime('%H:%M:%S')}"
         font_footer = ImageFont.truetype(font_path_arial, 22)
         footer_bbox = draw.textbbox((0, 0), time_text, font=font_footer)
         footer_x = rect_x0 + (rect_x1 - rect_x0 - footer_bbox[2]) // 2 + 20
         footer_y = rect_y1 - footer_bbox[3] - 15
-        draw.text((footer_x, footer_y), time_text, font=font_footer, fill=(220, 220, 220))
+        create_text(draw, time_text, font_footer, banner_emoji_font_22, (footer_x, footer_y), [(220, 220, 220)])
 
         file_name = f"banner_{int(time.time())}.jpg"
         try:
@@ -3673,7 +3695,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                     thread_type=thread_type,
                     width=banner_width,
                     height=banner_height,
-                    message=_styled_banner_msg(config['msg'], mention=config.get('mention')),
+                    message=_styled_banner_msg(config['msg'], mention=config.get('mention'), event_type=event_type),
                     ttl=60000 * 60
                 )
         except Exception as e:

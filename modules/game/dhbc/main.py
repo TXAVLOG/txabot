@@ -344,11 +344,14 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         print(f"❌ Lỗi xử lý ảnh menu: {e}")
         return None
 
-timeLimit = 300
+timeLimit = 60  # 60 seconds timeout
 
 game_sessions = {}
 
 attendance_file = 'modules/game/dhbc/attendance.json'
+economy_file = 'modules/game/dhbc/economy.json'
+
+Vietnamese_chars = ['a', 'ă', 'â', 'b', 'c', 'd', 'đ', 'e', 'ê', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'ô', 'ơ', 'p', 'q', 'r', 's', 't', 'u', 'ư', 'v', 'x', 'y']
 
 def read_json(file):
     try:
@@ -369,10 +372,28 @@ def write_json(file, data):
     except Exception as e:
         print(f"[ERROR] Lỗi khi ghi dữ liệu vào file {file}: {e}")
 
+def get_coins(user_id):
+    economy = read_json(economy_file)
+    return economy.get(str(user_id), 0)
+
+def add_coins(user_id, amount):
+    economy = read_json(economy_file)
+    economy[str(user_id)] = economy.get(str(user_id), 0) + amount
+    write_json(economy_file, economy)
+    return economy[str(user_id)]
+
 def save_score(user_id, score):
     leaderboard = read_json('modules/game/dhbc/scoreboard.json')
     leaderboard[user_id] = leaderboard.get(user_id, 0) + score
     write_json('modules/game/dhbc/scoreboard.json', leaderboard)
+
+def generate_scrambled_letters(answer):
+    answer_chars = list(answer.lower())
+    num_random = 14 - len(answer_chars)
+    random_chars = random.choices(Vietnamese_chars, k=num_random)
+    all_chars = answer_chars + random_chars
+    random.shuffle(all_chars)
+    return ' '.join(all_chars)
 
 def handle_attendance(user_id, client, thread_id, thread_type):
     today = datetime.today().strftime('%Y-%m-%d')
@@ -389,8 +410,9 @@ def handle_attendance(user_id, client, thread_id, thread_type):
     attendance_data[str(user_id)] = today
     write_json(attendance_file, attendance_data)
     save_score(user_id, 100)
+    add_coins(user_id, 50)  # Give 50 coins for daily attendance
     client.sendMessage(
-        Message(text="🎉 Chúc mừng bạn đã điểm danh thành công và nhận 100 điểm!"),
+        Message(text="🎉 Chúc mừng bạn đã điểm danh thành công và nhận 100 điểm + 50 coins!"),
         thread_id=thread_id,
         thread_type=thread_type,
     )
@@ -413,6 +435,50 @@ def get_image_dimensions(url, headers):
         return None
 
 asked_questions = set()
+reaction_threads = {}
+
+def send_countdown_and_check_timeout(thread_id, thread_type, question_msg_id, client, correct_answer):
+    try:
+        # Send 30 ⏳ reactions to the question message
+        reactions_to_send = ['⏳'] * 30
+        for reaction in reactions_to_send:
+            client.sendReaction(question_msg_id, reaction, thread_id, thread_type)
+            time.sleep(0.05)
+        
+        # Remove one reaction every second
+        for i in range(30):
+            time.sleep(1)
+            # Try to remove a reaction if API supports it, otherwise just continue
+            # Since we don't have a removeReaction function, we'll skip this part, but leave a placeholder
+            pass
+            
+        # Wait remaining time (since timeLimit is 60s and we spent 30s removing reactions)
+        remaining_time = max(0, timeLimit - 30)
+        time.sleep(remaining_time)
+        
+        # Check if question is still active (not answered yet)
+        if thread_id in game_sessions and question_msg_id in game_sessions[thread_id]:
+            # Time's up! Reveal answer and clean up
+            client.sendMessage(
+                Message(text=f"⏰ Hết thời gian! Đáp án là: {correct_answer}"),
+                thread_id=thread_id,
+                thread_type=thread_type
+            )
+            # Try to delete the question message if API supports it
+            try:
+                # Assuming there's a deleteMessage function, otherwise skip
+                if hasattr(client, 'deleteMessage'):
+                    client.deleteMessage(question_msg_id, thread_id, thread_type)
+            except:
+                pass
+                
+            del game_sessions[thread_id][question_msg_id]
+            if not game_sessions[thread_id]:
+                del game_sessions[thread_id]
+                
+    except Exception as e:
+        print(f"[ERROR] Lỗi xử lý countdown: {e}")
+
 def send_next_question(thread_id, thread_type, client):
     try:
         if thread_id in game_sessions:
@@ -466,12 +532,12 @@ def send_next_question(thread_id, thread_type, client):
         if not width or not height:
             raise ValueError("Kích thước ảnh không xác định.")
 
+        scrambled_letters = generate_scrambled_letters(question['tukhoa'])
         hint = f"Từ này có {question['sokitu']} ký tự.\n"
-        if 'suggestions' in question:
-            hint += f"Gợi ý: {' '.join(question['suggestions'])}"
+        hint += f"🔤 Chữ cái trộn: {scrambled_letters}"
 
         message_to_send = Message(
-            text=f"Vui lòng trả lời câu hỏi dưới đây\n{hint}\n⏰ Bạn có {timeLimit}s = 5 phút để trả lời"
+            text=f"Vui lòng trả lời câu hỏi dưới đây\n{hint}\n⏰ Bạn có {timeLimit}s để trả lời!\n💡 Gõ \"{client.prefix}dhbc hint\" để dùng 20 coins để mở gợi ý chữ cái đầu!"
         )
         sent_message = client.sendLocalImage(
             image_path,
@@ -487,8 +553,16 @@ def send_next_question(thread_id, thread_type, client):
             sent_message.msgId: {
                 "tukhoa": question['tukhoa'],
                 "timestamp": time.time(),
+                "hint_used": False
             }
         }
+        
+        # Start the countdown and timeout check thread
+        if sent_message and hasattr(sent_message, 'msgId'):
+            countdown_thread = Thread(target=send_countdown_and_check_timeout, args=(thread_id, thread_type, sent_message.msgId, client, question['tukhoa']))
+            countdown_thread.daemon = True
+            countdown_thread.start()
+            
     except KeyError as e:
         print(f"[ERROR] Lỗi thiếu trường trong dữ liệu: {e}")
         client.sendMessage(
@@ -525,6 +599,55 @@ def get_user_name_by_id(bot, author_id):
     except Exception:
         return "Unknown User"
 
+def handle_hint(user_id, client, thread_id, thread_type):
+    try:
+        if thread_id not in game_sessions or not game_sessions[thread_id]:
+            client.sendMessage(
+                Message(text="⚠️ Không có câu hỏi nào đang chờ giải đáp để dùng hint!"),
+                thread_id=thread_id,
+                thread_type=thread_type,
+            )
+            return
+        
+        session = game_sessions[thread_id]
+        for msg_id, data in session.items():
+            if data.get('hint_used', False):
+                client.sendMessage(
+                    Message(text="⚠️ Bạn đã dùng hint cho câu hỏi này rồi!"),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+                return
+            
+            current_coins = get_coins(user_id)
+            if current_coins < 20:
+                client.sendMessage(
+                    Message(text=f"❌ Bạn không đủ coins! Bạn cần 20 coins để mở hint, bạn hiện có {current_coins} coins."),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+                return
+            
+            add_coins(user_id, -20)
+            correct_answer = data["tukhoa"]
+            first_char = correct_answer[0].upper()
+            data['hint_used'] = True
+            
+            client.sendMessage(
+                Message(text=f"💡 Gợi ý: Chữ cái đầu tiên của từ là \"{first_char}\"! Bạn đã dùng 20 coins."),
+                thread_id=thread_id,
+                thread_type=thread_type,
+            )
+            return
+            
+    except Exception as e:
+        print(f"[ERROR] Lỗi xử lý hint: {e}")
+        client.sendMessage(
+            Message(text=f"Đã xảy ra lỗi khi dùng hint: {e}"),
+            thread_id=thread_id,
+            thread_type=thread_type,
+        )
+
 def handle_answer(message, thread_id, thread_type, user_id, client, is_correct, is_quitting=False):
     try:
         position, user_score = get_current_top_and_score(user_id)
@@ -545,7 +668,9 @@ def handle_answer(message, thread_id, thread_type, user_id, client, is_correct, 
             response_message = f"❌ {user} đã đầu hàng!\n{user} bị trừ [20] điểm khi đầu hàng\nTổng điểm: {user_score - 20}\nTop: {position} trong bảng xếp hạng.\nBạn sẽ bị trừ 5 điểm khi không trả lời."
         elif is_correct:
             save_score(user_id, 10)
-            response_message = f"🎉 Chúc mừng {user} đã trả lời đúng!\n{user} được cộng [10] điểm khi trả lời đúng\nTổng điểm: {user_score + 10}\nTop: {position} trong bảng xếp hạng."
+            add_coins(user_id, 15)  # Give 15 coins for correct answer
+            current_coins = get_coins(user_id)
+            response_message = f"🎉 Chúc mừng {user} đã trả lời đúng!\n{user} được cộng [10] điểm và 15 coins khi trả lời đúng\nTổng điểm: {user_score + 10}\nTổng coins: {current_coins}\nTop: {position} trong bảng xếp hạng."
         else:
             save_score(user_id, -5)
             response_message = f"❌ Rất tiếc {user} đã trả lời sai.\n{user} bị trừ [5] điểm khi trả lời sai\nTổng điểm: {user_score - 5}\nTop: {position} trong bảng xếp hạng."
@@ -628,107 +753,6 @@ def send_answer_for_admin(thread_id, thread_type, client):
             thread_id=thread_id,
             thread_type=thread_type,
         )
-
-duck_base_image_path = "modules/game/dhbc/assets/duck.png"
-waiting_image_path = "modules/game/dhbc/assets/waiting.png"
-duck_race_gif_path = "modules/game/dhbc/assets/duck_race.gif"
-
-num_ducks = 10
-ducks = [f"🦆 {i+1}" for i in range(num_ducks)]
-
-def create_duck_image(duck_number, output_path):
-    try:
-        base_image = Image.open(duck_base_image_path)
-        draw = ImageDraw.Draw(base_image)
-        font = ImageFont.truetype("font/arial unicode ms.otf", 50)
-
-        # Thêm số lên lưng vịt
-        text_position = (base_image.width // 2 - 20, base_image.height // 2 - 20)
-        draw.text(text_position, duck_number, fill="red", font=font)
-
-        base_image.save(output_path)
-    except Exception as e:
-        print(f"[ERROR] Lỗi khi tạo ảnh vịt chiến thắng: {e}")
-
-def start_duck_race(thread_id, thread_type, client, player_choice):
-    try:
-        if player_choice not in ducks:
-            client.sendMessage(
-                Message(text="❌ Vịt bạn chọn không hợp lệ! Vui lòng chọn lại số vịt."),
-                thread_id=thread_id,
-                thread_type=thread_type,
-            )
-            return
-
-        client.sendMessage(
-            Message(text="🦆 Cuộc đua vịt sắp bắt đầu! Vui lòng chờ..."),
-            thread_id=thread_id,
-            thread_type=thread_type,
-        )
-
-        client.sendLocalImage(
-            waiting_image_path,
-            thread_id=thread_id,
-            thread_type=thread_type,
-        )
-
-        time.sleep(5)
-
-        # Đếm ngược từ 3
-        for i in range(3, 0, -1):
-            client.sendMessage(
-                Message(text=f"{i}..."),
-                thread_id=thread_id,
-                thread_type=thread_type,
-            )
-            time.sleep(1)
-
-        client.sendMessage(
-            Message(text="🏁 Cuộc đua vịt bắt đầu!"),
-            thread_id=thread_id,
-            thread_type=thread_type,
-        )
-
-        client.sendLocalGif(
-            duck_race_gif_path,
-            thumbnailUrl="modules/dhbc/assets/duck_race_thumbnail.jpg",
-            thread_id=thread_id,
-            thread_type=thread_type,
-        )
-
-        time.sleep(10)
-        winner_duck = random.choice(ducks)
-        race_image_path = "modules/dhbc/assets/duck_winner.png"
-        create_duck_image(winner_duck.split()[1], race_image_path)
-
-        if player_choice == winner_duck:
-            save_score(thread_id, 10)
-            client.sendMessage(
-                Message(text=f"🎉 Chúc mừng bạn! Vịt của bạn ({player_choice}) đã chiến thắng và bạn nhận được 10 điểm!"),
-                thread_id=thread_id,
-                thread_type=thread_type,
-            )
-        else:
-            client.sendMessage(
-                Message(text=f"😢 Rất tiếc, vịt của bạn ({player_choice}) đã thua. Vịt thắng cuộc là {winner_duck}."),
-                thread_id=thread_id,
-                thread_type=thread_type,
-            )
-        client.sendLocalImage(
-            race_image_path,
-            message=Message(text=f"Vịt thắng cuộc: {winner_duck}"),
-            thread_id=thread_id,
-            thread_type=thread_type,
-        )
-
-    except Exception as e:
-        print(f"[ERROR] Lỗi khi bắt đầu đua vịt: {e}")
-        client.sendMessage(
-            Message(text=f"Đã xảy ra lỗi khi bắt đầu đua vịt: {e}"),
-            thread_id=thread_id,
-            thread_type=thread_type,
-        )
-
 def handle_bc_on(bot, thread_id):
     settings = read_settings(bot.uid)
     if "bc" not in settings:
@@ -779,9 +803,9 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
                 f"\n📝 Bắt đầu trò chơi ({client.prefix}{commands} batdau)\n"
                 f"🎁 Nhận quà hàng ngày ({client.prefix}{commands} daily)\n"
                 f"🏆 Xem bảng xếp hạng ({client.prefix}{commands} bxh)\n"
-                f"🦆 Đua vịt ({client.prefix}{commands} duavit [số vịt])\n"
+                f"💡 Mở gợi ý ({client.prefix}{commands} hint)\n"
                 f"✋ Đầu hàng ({client.prefix}{commands} dauhang)\n"
-                f"💬 Đầu hàng ({client.prefix}{commands} dapans)\n"
+                f"💬 Đáp án (admin) ({client.prefix}{commands} dapans)\n"
             ])
             os.makedirs(CACHE_PATH, exist_ok=True)
     
@@ -855,29 +879,9 @@ def handle_dhbc_command(client, message_object, author_id, thread_id, thread_typ
                 thread_type=thread_type,
             )
             return
-
-        if content[1] == "duavit":
-            if len(content) < 3:
-                client.sendMessage(
-                    Message(text=f"❌ Vui lòng chọn số vịt bằng cách nhập: [{client.prefix}{commands} duavit [số vịt]]"),
-                    thread_id=thread_id,
-                    thread_type=thread_type,
-                )
-                return
-            
-            duck_number = content[2]
-            if not duck_number.isdigit() or int(duck_number) < 1 or int(duck_number) > 100:
-                client.sendMessage(
-                    Message(text="❌ Số vịt không hợp lệ! Vui lòng chọn một số từ 1 đến 100."),
-                    thread_id=thread_id,
-                    thread_type=thread_type,
-                )
-                return
-            
-            player_choice = f"🦆 {duck_number}"
-            start_duck_race(thread_id, thread_type, client, player_choice)
+        if content[1] == 'hint':
+            handle_hint(author_id, client, thread_id, thread_type)
             return
-        
         if content[1] == 'dapans':
             send_answer_for_admin(thread_id, thread_type, client)
             if not is_admin(client, author_id):

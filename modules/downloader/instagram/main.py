@@ -82,20 +82,75 @@ def _api_get(path, params):
     if response.status_code == 401:
         msg = data.get("message") if isinstance(data, dict) else None
         raise RuntimeError(msg or "API key KaiRobot không hợp lệ.")
-    response.raise_for_status()
+    
+    # Handle 400 Bad Request
+    if response.status_code == 400:
+        # Check both direct message and success flag
+        msg = data.get("message") if isinstance(data, dict) else None
+        if not msg and isinstance(data, dict) and data.get("success") is False:
+            msg = "API không thể xử lý link này."
+        
+        # Clean up error message if it contains technical details
+        if msg:
+            # Remove technical terms but keep user-friendly parts
+            if "Failed to get media ID" in msg:
+                msg = "Không thể lấy media từ link này. Link có thể bị giới hạn hoặc không công khai."
+            elif "Error downloading Instagram media" in msg:
+                msg = "Không thể tải xuống từ link Instagram này."
+            elif "Failed to get profile ID" in msg:
+                msg = "Không thể lấy thông tin profile. Tài khoản có thể bị giới hạn hoặc không tồn tại."
+            elif "Maximum number of redirects exceeded" in msg:
+                msg = "Không thể truy cập profile do quá nhiều chuyển hướng. Tài khoản có thể bị giới hạn."
+            elif "redirects exceeded" in msg.lower():
+                msg = "Không thể truy cập profile. Tài khoản có thể bị giới hạn hoặc private."
+        
+        raise RuntimeError(msg or "Link Instagram không hợp lệ. Vui lòng kiểm tra lại.")
+    
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        # Hide URL from error message
+        error_msg = str(e)
+        if "http" in error_msg.lower() or "instagram.com" in error_msg.lower():
+            raise RuntimeError("Không thể xử lý link này. Link có thể không hợp lệ hoặc đã bị giới hạn bởi Instagram.")
+        raise
+    
     if isinstance(data, dict) and data.get("success") is False:
-        raise RuntimeError(data.get("message") or data.get("error") or "API trả về trạng thái thất bại.")
+        msg = data.get("message") or data.get("error") or "API trả về trạng thái thất bại."
+        # Clean up technical error messages
+        if "Failed to get media ID" in msg:
+            msg = "Không thể lấy media từ link này. Link có thể bị giới hạn hoặc không công khai."
+        elif "Error downloading Instagram media" in msg:
+            msg = "Không thể tải xuống từ link Instagram này."
+        elif "Failed to get profile ID" in msg:
+            msg = "Không thể lấy thông tin profile. Tài khoản có thể bị giới hạn hoặc không tồn tại."
+        elif "Maximum number of redirects exceeded" in msg:
+            msg = "Không thể truy cập profile do quá nhiều chuyển hướng. Tài khoản có thể bị giới hạn."
+        elif "redirects exceeded" in msg.lower():
+            msg = "Không thể truy cập profile. Tài khoản có thể bị giới hạn hoặc private."
+        raise RuntimeError(msg)
     return data
 
-def _send_text(bot, thread_id, thread_type, text, reply_to=None):
+def _send_text(bot, thread_id, thread_type, text, reply_to=None, ttl=None):
     if reply_to:
-        bot.replyMessage(Message(text=text), reply_to, thread_id=thread_id, thread_type=thread_type)
+        msg = bot.replyMessage(Message(text=text), reply_to, thread_id=thread_id, thread_type=thread_type, ttl=ttl)
     else:
-        bot.send(Message(text=text), thread_id=thread_id, thread_type=thread_type)
+        msg = bot.send(Message(text=text), thread_id=thread_id, thread_type=thread_type, ttl=ttl)
+    return msg  # Return message object to potentially delete later
 
 def handle_instagram_download(bot, message_object, thread_id, thread_type, url):
-    loading = "🔎 Đang xử lý tải xuống Instagram... Vui lòng đợi trong giây lát ⏳✨"
-    _send_text(bot, thread_id, thread_type, loading, message_object)
+    # Validate Instagram URL
+    if not url or "instagram.com" not in url.lower():
+        _send_text(bot, thread_id, thread_type, "❌ Link không hợp lệ. Vui lòng cung cấp link Instagram hợp lệ.", message_object)
+        return
+    
+    # Check if URL contains required Instagram patterns
+    if not any(pattern in url.lower() for pattern in ['/p/', '/reel/', '/tv/']):
+        _send_text(bot, thread_id, thread_type, "❌ Link không phải là bài đăng Instagram (post/reel/tv). Vui lòng dùng link bài đăng hợp lệ.", message_object)
+        return
+    
+    # Send loading message with short TTL (30 seconds) only after validation passes
+    loading_msg = _send_text(bot, thread_id, thread_type, "🔎 Đang xử lý tải xuống Instagram... Vui lòng đợi trong giây lát ⏳✨", message_object, ttl=30000)
 
     try:
         data = _api_get("/instagram/download", {"link": url})
@@ -146,15 +201,45 @@ def handle_instagram_download(bot, message_object, thread_id, thread_type, url):
                     os.remove(path)
                 except:
                     pass
+        
+        # Delete loading message after success
+        try:
+            if loading_msg:
+                bot.deleteMessage(loading_msg)
+        except:
+            pass
+            
     except Exception as e:
-        _send_text(bot, thread_id, thread_type, f"❌ Lỗi tải xuống Instagram: {str(e)}", message_object)
+        # Hide URL in error message
+        error_msg = str(e)
+        if "http" in error_msg.lower() or "instagram.com" in error_msg.lower():
+            error_msg = "Không thể tải xuống từ link này. Link có thể không hợp lệ hoặc đã bị giới hạn."
+        _send_text(bot, thread_id, thread_type, f"❌ Lỗi tải xuống Instagram: {error_msg}", message_object)
+        
+        # Delete loading message after error
+        try:
+            if loading_msg:
+                bot.deleteMessage(loading_msg)
+        except:
+            pass
 
 def handle_instagram_info(bot, message_object, thread_id, thread_type, username_or_link):
-    _send_text(bot, thread_id, thread_type, "🔎 Đang lấy thông tin Instagram... Vui lòng đợi ⏳", message_object)
+    # Send loading message
+    loading_msg = _send_text(bot, thread_id, thread_type, "🔎 Đang lấy thông tin Instagram... Vui lòng đợi ⏳", message_object, ttl=60000)
     
     link = username_or_link
     if not link.startswith("http"):
         link = f"https://www.instagram.com/{username_or_link.lstrip('@')}/"
+    
+    # Check if it's a post/reel link, not a profile
+    if '/p/' in link or '/reel/' in link:
+        _send_text(bot, thread_id, thread_type, "❌ Link này là bài đăng Instagram, không phải profile. Vui lòng dùng lệnh ig/igdl để tải xuống.", message_object)
+        try:
+            if loading_msg:
+                bot.deleteMessage(loading_msg)
+        except:
+            pass
+        return
 
     try:
         data = _api_get("/instagram/info", {"link": link})
@@ -198,8 +283,34 @@ def handle_instagram_info(bot, message_object, thread_id, thread_type, username_
                 pass
         else:
             _send_text(bot, thread_id, thread_type, text, message_object)
+        
+        # Delete loading message after success
+        try:
+            if loading_msg:
+                bot.deleteMessage(loading_msg)
+        except:
+            pass
+            
     except Exception as e:
-        _send_text(bot, thread_id, thread_type, f"❌ Lỗi lấy thông tin Instagram: {str(e)}", message_object)
+        # Hide URL in error message and clean up technical details
+        error_msg = str(e)
+        if "http" in error_msg.lower() or "instagram.com" in error_msg.lower():
+            error_msg = "Không thể lấy thông tin từ link này. Link có thể không hợp lệ hoặc đã bị giới hạn."
+        
+        # Clean up specific API error messages
+        if "Maximum number of redirects exceeded" in error_msg or "redirects exceeded" in error_msg.lower():
+            error_msg = "Không thể truy cập profile. Tài khoản Instagram có thể bị giới hạn hoặc private."
+        elif "Failed to get profile ID" in error_msg:
+            error_msg = "Không thể lấy thông tin profile. Tài khoản có thể bị giới hạn hoặc không tồn tại."
+        
+        _send_text(bot, thread_id, thread_type, f"❌ Lỗi lấy thông tin Instagram: {error_msg}", message_object)
+        
+        # Delete loading message after error
+        try:
+            if loading_msg:
+                bot.deleteMessage(loading_msg)
+        except:
+            pass
 
 def txa_command(bot, message_object, author_id, thread_id, thread_type, message):
     parts = (message or "").strip().split(maxsplit=1)

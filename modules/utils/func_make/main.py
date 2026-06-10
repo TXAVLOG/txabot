@@ -404,9 +404,10 @@ def send_image_response(self, thread_id, thread_type, image_path, prompt, author
 
 def handle_make_command(message, message_object, thread_id, thread_type, author_id, self):
     try:
+        prefix = getattr(self, 'prefix', '.')
         settings = read_settings(self.uid)
     
-        user_message = message.replace(f"{self.prefix}make ", "").strip().lower()
+        user_message = message.replace(f"{prefix}make ", "").strip().lower()
         if user_message == "on":
             if not is_admin(self, author_id):  
                 response = "❌Bạn không phải admin bot!"
@@ -431,14 +432,14 @@ def handle_make_command(message, message_object, thread_id, thread_type, author_
         if not args:
             welcome_message = "".join([
                 f"{get_user_name_by_id(self, author_id)}\n",
-                f"➜ {self.prefix}make [nội dung]: 🖍️ Tạo ảnh từ nội dung\n"
-                f"💞 Ví dụ: {self.prefix}make Con mèo ✅"
+                f"➜ {prefix}make [nội dung]: 🖍️ Tạo ảnh từ nội dung\n"
+                f"💞 Ví dụ: {prefix}make Con mèo ✅"
             ])
             os.makedirs(CACHE_PATH, exist_ok=True)
     
             image_path = generate_menu_image(self, author_id, thread_id, thread_type)
             if not image_path:
-                self.sendMessage("❌ Không thể tạo ảnh menu!", thread_id, thread_type)
+                self.sendMessage(Message(text="❌ Không thể tạo ảnh menu!"), thread_id, thread_type)
                 return
 
             reaction = [
@@ -554,6 +555,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         args_map = {
             'bot': bot,
             'client': bot,
+            'self': bot,
             'message_object': message_object,
             'thread_id': thread_id,
             'thread_type': thread_type,

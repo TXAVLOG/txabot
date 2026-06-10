@@ -1,0 +1,23 @@
+=== HƯỚNG DẪN ĐĂNG KÝ LỆNH ===
+
+Mở file: modules/fun/txac.py
+
+Thêm dòng này vào "modules": {...} (trước dấu } cuối):
+
+        "chua_huong/main.py": {"emoji": "⛩️", "title": "Đi Chùa", "cmds": ["chua"]}
+
+File txac.py sau khi sửa:
+---
+CONFIG = {
+    "emoji": "🤭",
+    "title": "Giải trí",
+    "group_by_parent": False,
+    "modules": {
+        ...các module cũ...
+        "hoingu/main.py": {"emoji": "🤔", "title": "Hỏi Ngu", "cmds": ["hoingu", "dongu"]},
+        "chua_huong/main.py": {"emoji": "⛩️", "title": "Đi Chùa", "cmds": ["chua"]}  ← THÊM DÒNG NÀY
+    }
+}
+---
+
+Sau đó copy thư mục chua_huong/ vào modules/fun/

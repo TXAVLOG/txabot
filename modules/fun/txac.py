@@ -9,6 +9,7 @@ CONFIG = {
         "2c/main.py": {"emoji": "❖", "title": "2c", "cmds": ["2c"]},
         "reonamegr/main.py": {"emoji": "❖", "title": "Reonamegr", "cmds": ["reonamegr"]},
         "spamgroup/main.py": {"emoji": "❖", "title": "Spamgroup", "cmds": ["spamgroup"]},
-        "hoingu/main.py": {"emoji": "🤔", "title": "Hỏi Ngu", "cmds": ["hoingu", "dongu"]}
+        "hoingu/main.py": {"emoji": "🤔", "title": "Hỏi Ngu", "cmds": ["hoingu", "dongu"]},
+        "chua_huong/main.py": {"emoji": "⛩️", "title": "Đi Chùa", "cmds": ["chua"]}
     }
 }

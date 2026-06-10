@@ -10,7 +10,8 @@
     ],
     "allowed_thread_ids": [
         "6150866603217993790",
-        "6757453907566220197"
+        "6757453907566220197",
+        "9050521661076614651"
     ],
     "welcome": {
         "9050521661076614651": true,
@@ -69,7 +70,8 @@
         "5766287098679073895",
         "7326311889962270926",
         "5788812850506714167",
-        "1661186671700169583"
+        "1661186671700169583",
+        "4443675077821554633"
     ],
     "remote_allowed_users": [
         "1934642265051564731"
@@ -138,7 +140,8 @@
         "5766287098679073895": null,
         "7326311889962270926": null,
         "5788812850506714167": 1781269200.0,
-        "1661186671700169583": 1781269200.0
+        "1661186671700169583": 1781269200.0,
+        "4443675077821554633": 1781240400.0
     },
     "weather": {
         "9050521661076614651": true
@@ -186,9 +189,7 @@
     "autosend_content": {
         "6150866603217993790": "music"
     },
-    "disabled_by_admin": [
-        "9050521661076614651"
-    ],
+    "disabled_by_admin": [],
     "auto_approve_members": {
         "6757453907566220197": true
     },
@@ -211,11 +212,37 @@
             "20:30",
             "22:06",
             "23:30"
+        ],
+        "9050521661076614651": [
+            "00:00",
+            "01:00",
+            "02:30",
+            "04:00",
+            "05:30",
+            "07:00",
+            "08:30",
+            "10:06",
+            "11:30",
+            "13:00",
+            "14:30",
+            "16:00",
+            "17:30",
+            "19:00",
+            "20:30",
+            "22:06",
+            "23:30"
         ]
     },
-    "welcome_caption": {},
+    "welcome_caption": {
+        "9050521661076614651": "Chào con bò {user} đã đến với {type} {group} của chúng ta.\nBạn là con bò thứ {member} của {type} {group} này!",
+        "6757453907566220197": "Chúc mừng em {{user}} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!",
+        "6150866603217993790": "Chúc mừng em {{user}} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!"
+    },
     "bye_caption": {},
     "autodown_enabled": [
         "6150866603217993790"
-    ]
+    ],
+    "bc": {
+        "6150866603217993790": true
+    }
 }

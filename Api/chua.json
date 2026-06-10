@@ -1,0 +1,21 @@
+{
+    "_comment": "Điền link ảnh thật vào từng key. Đặt file này vào Api/chua.json",
+    "_format": "key = img_key trong CHUA_LIST, value = list URL ảnh chùa đó",
+    "_note": "Nếu list rỗng [] hoặc key không có → dùng fallback URL trong code",
+    "chua_huong":  [],
+    "bai_dinh":    [],
+    "yen_tu":      [],
+    "thien_mu":    [],
+    "linh_ung":    [],
+    "giac_lam":    [],
+    "mot_cot":     [],
+    "tay_thien":   [],
+    "long_son":    [],
+    "phuc_khanh":  [],
+    "tran_quoc":   [],
+    "vinh_nghiem": [],
+    "tam_chuc":    [],
+    "chua_thay":   [],
+    "chua_dau":    [],
+    "default":     []
+}

@@ -318,7 +318,24 @@ def handle_recent_group_delete(bot, message_object, author_id, thread_id, thread
         if not group_msgs:
             return "➜ Không có tin nhắn nào để xóa trong recent group 🤧"
     except Exception as e:
-        return f"➜ Lỗi khi lấy tin nhắn gần nhất: {e}"
+        error_msg = str(e)
+        if "http" in error_msg.lower() or "instagram.com" in error_msg.lower():
+            error_msg = "Không thể lấy tin nhắn gần nhất từ nhóm này."
+        return f"➜ Lỗi khi lấy tin nhắn gần nhất: {error_msg}"
+
+    # Check if bot has admin permission in group
+    try:
+        group_info = bot.fetchGroupInfo(groupId=thread_id)
+        if group_info and thread_id in group_info.gridInfoMap:
+            group_data = group_info.gridInfoMap[thread_id]
+            admin_ids = group_data.get('adminIds', [])
+            creator_id = group_data.get('creatorId', '')
+            is_bot_admin = bot.uid in admin_ids or bot.uid == creator_id
+            
+            if not is_bot_admin:
+                return "➜ Bot không có quyền admin trong nhóm để xóa tin nhắn. Vui lòng thêm Bot làm quản trị viên 🤧"
+    except Exception as e:
+        print(f"[WARNING] Không thể kiểm tra quyền admin bot: {e}")
 
     command_msg_id = str(getattr(message_object, "msgId", ""))
     deleted_count = 0

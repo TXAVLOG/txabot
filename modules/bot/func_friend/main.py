@@ -165,17 +165,19 @@ def addallfriongr(message, message_object, thread_id, thread_type, author_id, se
         )
         return
 
+    prefix = getattr(self, 'prefix', '.')
+
     try:
         command, content = message.split(' ', 1)
     except ValueError:
         self.replyMessage(
-            Message(text=f"🚦 Sai cú pháp. Vui lòng sử dụng: {self.prefix}kb\"Nội dung kết bạn\""),
+            Message(text=f"🚦 Sai cú pháp. Vui lòng sử dụng: {prefix}kbgr\"Nội dung kết bạn\""),
             message_object, thread_id, thread_type, ttl=60000
         )
         return
 
     if not (content.startswith('"') and content.endswith('"')):
-        warning_message = f"🚦 Vui lòng cung cấp nội dung trong dấu ngoặc kép. Ví dụ: {self.prefix}kb \"Nội dung kết bạn\""
+        warning_message = f"🚦 Vui lòng cung cấp nội dung trong dấu ngoặc kép. Ví dụ: {prefix}kbgr \"Nội dung kết bạn\""
         self.replyMessage(
             Message(text=warning_message), message_object, thread_id, thread_type, ttl=60000
         )
@@ -243,6 +245,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         args_map = {
             'bot': bot,
             'client': bot,
+            'self': bot,
             'message_object': message_object,
             'thread_id': thread_id,
             'thread_type': thread_type,
