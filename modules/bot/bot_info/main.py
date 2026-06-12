@@ -30,6 +30,7 @@ from core.bot_sys import (
     handle_welcome_off,
     handle_goodbye_on,
     handle_goodbye_off,
+    get_tech_icon,
 )
 
 thread_local = threading.local()
@@ -2068,16 +2069,27 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         else:
                             response = f"➜ Lệnh {prefix}bot remote {sub_action} không được hỗ trợ 🤧"
                 elif action == 'info':
-                    import modules.txacommand as txacommand
-                    total_commands = len(txacommand.loaded_commands)
-                    response = (
-                        f"➜ 💻 Phiên bản: {bot.version}\n"
-                        f"➜ 📅 Ngày cập nhật: {bot.date_update}\n"
-                        f"➜ 👨‍💻 Tác giả: {bot.me_name} (TXA)\n"
-                        f"➜ 📖 Cách dùng: Lệnh [{prefix}bot/help]\n"
-                        f"➜ ⏳ Thời gian chờ: 1 giây\n"
-                        f"➜ 🗃️ Tổng lệnh: {total_commands} 🍬 public 🌏 BOT(11), 🌀 Facebook(6), ⬇️ Downloader(1) , 💬 Chat AI(1), 🩴 Zép Lào(9), 🧙‍♂️ Bói bói Jocker(1), 📢 Tin tức(4), 🎮 Game(1),🔑 Key API ZL(1), 🌌 Tính năng ẩn(...)"
-                    )
+                    try:
+                        img_path = create_mybot_image(bot, author_id, mode='info')
+                        bot.sendLocalImage(
+                            img_path, thread_id=thread_id, thread_type=thread_type,
+                            width=1000, height=480
+                        )
+                        if os.path.exists(img_path):
+                            os.remove(img_path)
+                        response = None
+                    except Exception as e:
+                        print(f"[bot_info] Error creating info image: {e}")
+                        import modules.txacommand as txacommand
+                        total_commands = len(txacommand.loaded_commands)
+                        response = (
+                            f"➜ 💻 Phiên bản: {bot.version}\n"
+                            f"➜ 📅 Ngày cập nhật: {bot.date_update}\n"
+                            f"➜ 👨‍💻 Tác giả: {bot.me_name} (TXA)\n"
+                            f"➜ 📖 Cách dùng: Lệnh [{prefix}bot/help]\n"
+                            f"➜ ⏳ Thời gian chờ: 1 giây\n"
+                            f"➜ 🗃️ Tổng lệnh: {total_commands} 🍬 public 🌏 BOT(11), 🌀 Facebook(6), ⬇️ Downloader(1) , 💬 Chat AI(1), 🩴 Zép Lào(9), 🧙‍♂️ Bói bói Jocker(1), 📢 Tin tức(4), 🎮 Game(1),🔑 Key API ZL(1), 🌌 Tính năng ẩn(...)"
+                        )
                 elif action == 'approved':
                     if len(parts) < 3:
                         response = f"➜ Vui lòng nhập [list/add/remove] sau lệnh: {prefix}bot approved 🤧\n➜ Ví dụ: {prefix}bot approved list hoặc {prefix}bot approved add @username hoặc {prefix}bot approved remove @username ✅"
@@ -2618,20 +2630,31 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         else:
                             response = f"➜ Cú pháp: {prefix}bot policy {policy_type} [on/off] hoặc {prefix}bot policy {policy_type} [lần] [phút] [mute/kick/warn]"
                 elif action == 'mybot':
-                    import datetime as _dt
-                    uptime_sec = int(time.time() - bot.start_time)
-                    uptime_str = str(_dt.timedelta(seconds=uptime_sec))
-                    response = (
-                        f"🤖 [ THÔNG TIN BOT ]\n"
-                        f"━━━━━━━━━━━━━━━━━━━━\n"
-                        f"➜ 🆔 Tên: {bot.me_name}\n"
-                        f"➜ 🔢 Version: {bot.version}\n"
-                        f"➜ 📅 Update: {bot.date_update}\n"
-                        f"➜ ⌨️ Prefix: {bot.prefix}\n"
-                        f"➜ ⏱️ Uptime: {uptime_str}\n"
-                        f"➜ 🆔 UID: {bot.uid}\n"
-                        f"━━━━━━━━━━━━━━━━━━━━"
-                    )
+                    try:
+                        img_path = create_mybot_image(bot, author_id, mode='mybot')
+                        bot.sendLocalImage(
+                            img_path, thread_id=thread_id, thread_type=thread_type,
+                            width=1000, height=480
+                        )
+                        if os.path.exists(img_path):
+                            os.remove(img_path)
+                        response = None
+                    except Exception as e:
+                        print(f"[bot_info] Error creating mybot image: {e}")
+                        import datetime as _dt
+                        uptime_sec = int(time.time() - bot.start_time)
+                        uptime_str = str(_dt.timedelta(seconds=uptime_sec))
+                        response = (
+                            f"🤖 [ THÔNG TIN BOT ]\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"➜ 🆔 Tên: {bot.me_name}\n"
+                            f"➜ 🔢 Version: {bot.version}\n"
+                            f"➜ 📅 Update: {bot.date_update}\n"
+                            f"➜ ⌨️ Prefix: {bot.prefix}\n"
+                            f"➜ ⏱️ Uptime: {uptime_str}\n"
+                            f"➜ 🆔 UID: {bot.uid}\n"
+                            f"━━━━━━━━━━━━━━━━━━━━"
+                        )
 
                 elif action == 'prefix':
                     if not is_admin(author_id):
@@ -2864,6 +2887,204 @@ def create_menu1_image(command_names, page, bot, author_id):
     overlay.save(temp_image_path)
 
     return temp_image_path
+
+def _font(path: str, size: int) -> ImageFont.FreeTypeFont:
+    fallback_paths = ["font/arial unicode ms.otf", "font/Roboto-Regular.ttf", "font/arial.ttf"]
+    for p in ([path] + fallback_paths):
+        try:
+            return ImageFont.truetype(p, size)
+        except:
+            continue
+    return ImageFont.load_default()
+
+def _text_w(font, text: str) -> int:
+    try:
+        bb = font.getbbox(text)
+        return bb[2] - bb[0]
+    except Exception:
+        try:
+            return int(font.getlength(text))
+        except Exception:
+            return len(text) * (getattr(font, 'size', 12))
+
+def _is_emoji(ch: str) -> bool:
+    return ch in emoji.EMOJI_DATA
+
+def draw_mixed(draw, text: str, pos: Tuple[int, int],
+               font, emoji_font, fill, center_w: int = 0):
+    text = text.replace("\uFE0F", "")
+    if center_w:
+        total = sum(
+            _text_w(emoji_font if _is_emoji(c) else font, c) + (1 if _is_emoji(c) else 0)
+            for c in text
+        )
+        pos = (pos[0] + (center_w - total) // 2, pos[1])
+    x, y = pos
+    for ch in text:
+        f  = emoji_font if _is_emoji(ch) else font
+        oy = y - f.size // 6 if _is_emoji(ch) else y
+        draw.text((x, oy), ch, font=f, fill=fill)
+        x += _text_w(f, ch) + (1 if _is_emoji(ch) else 0)
+    return x
+
+def create_mybot_image(bot, author_id, mode='mybot'):
+    import time
+    from io import BytesIO
+    import datetime as _dt
+    
+    # Get user info and avatar
+    avatar_url = None
+    display_name = "Người dùng"
+    if author_id:
+        try:
+            user_info = bot.fetchUserInfo(author_id)
+            if author_id in user_info.changed_profiles:
+                avatar_url = user_info.changed_profiles[author_id].avatar
+                display_name = user_info.changed_profiles[author_id].displayName
+        except Exception as e:
+            print(f"[create_mybot_image] Error getting user info: {e}")
+            
+    # Calculate uptime
+    uptime_sec = int(time.time() - bot.start_time)
+    uptime_str = str(_dt.timedelta(seconds=uptime_sec))
+    
+    W, H = 1000, 480
+    
+    # ── Background ────────────────────────────────────────────────────
+    background_dir = "background"
+    bg_image = None
+    if os.path.exists(background_dir):
+        background_files = [os.path.join(background_dir, f) for f in os.listdir(background_dir) if f.endswith(('.png', '.jpg'))]
+        if background_files:
+            bg_path = random.choice(background_files)
+            try:
+                bg_image = Image.open(bg_path).convert("RGBA").resize((W, H))
+                bg_image = bg_image.filter(ImageFilter.GaussianBlur(radius=6))
+            except:
+                pass
+                
+    if not bg_image:
+        bg_image = Image.new("RGBA", (W, H), (10, 18, 40, 255))
+        
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    
+    # Glassmorphism main card
+    rect_x0 = 40
+    rect_y0 = 40
+    rect_x1 = W - 40
+    rect_y1 = H - 40
+    draw.rounded_rectangle([rect_x0, rect_y0, rect_x1, rect_y1], radius=32, fill=(8, 14, 28, 192), outline=(255, 255, 255, 36), width=2)
+    
+    # Draw avatar on the left
+    avatar_size = 140
+    avatar_x = rect_x0 + 40
+    avatar_y = rect_y0 + 60
+    
+    avatar_img = None
+    if avatar_url:
+        try:
+            avatar_response = requests.get(avatar_url, timeout=10)
+            avatar_img = Image.open(BytesIO(avatar_response.content)).convert("RGBA").resize((avatar_size, avatar_size))
+        except:
+            pass
+            
+    if not avatar_img:
+        avatar_img = Image.new("RGBA", (avatar_size, avatar_size), (40, 60, 100, 255))
+        
+    mask = Image.new("L", (avatar_size, avatar_size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, avatar_size, avatar_size), fill=255)
+    
+    # Rainbow border
+    border_size = avatar_size + 12
+    border_img = Image.new("RGBA", (border_size, border_size), (0, 0, 0, 0))
+    border_draw = ImageDraw.Draw(border_img)
+    gradient_colors = create_gradient_colors(8)
+    for i, color in enumerate(gradient_colors):
+        r = border_size // 2 - i
+        border_draw.ellipse(
+            (i, i, border_size - i, border_size - i),
+            outline=color,
+            width=2
+        )
+        
+    border_img.paste(avatar_img, (6, 6), mask)
+    overlay.paste(border_img, (avatar_x - 6, avatar_y - 6), border_img)
+    
+    # Greeting text under avatar
+    font_hi = _font("font/Kai.ttf", 32)
+    hi_text = f"Hi, {display_name}!"
+    hi_w = _text_w(font_hi, hi_text)
+    draw.text((avatar_x + (avatar_size - hi_w) // 2, avatar_y + avatar_size + 20), hi_text, font=font_hi, fill=(255, 255, 255, 240))
+    
+    # Right column: Bot Information
+    info_x = avatar_x + avatar_size + 60
+    info_y = rect_y0 + 50
+    
+    font_title = _font("font/SF-Pro.ttf", 36)
+    font_text = _font("font/arial unicode ms.otf", 22)
+    font_bold = _font("font/SF-Pro.ttf", 22)
+    
+    title_text = "🤖 THÔNG TIN BOT" if mode == 'mybot' else "💻 CHI TIẾT HỆ THỐNG BOT"
+    emoji_font = _font("font/NotoEmoji-Bold.ttf", 36)
+    draw_mixed(draw, title_text, (info_x, info_y), font_title, emoji_font, (0, 229, 255, 255))
+    draw.line([info_x, info_y + 50, rect_x1 - 40, info_y + 50], fill=(255, 255, 255, 40), width=1)
+    
+    # Details
+    import modules.txacommand as txacommand
+    total_commands = len(txacommand.loaded_commands)
+    
+    if mode == 'mybot':
+        details = [
+            ("Tên Bot:", bot.me_name, (255, 193, 7)),
+            ("Phiên bản:", bot.version, (34, 197, 94)),
+            ("Ngày cập nhật:", bot.date_update, (59, 130, 246)),
+            ("Prefix hệ thống:", bot.prefix, (255, 64, 129)),
+            ("Thời gian hoạt động:", uptime_str, (0, 229, 255)),
+        ]
+    else:
+        details = [
+            ("Phiên bản:", bot.version, (34, 197, 94)),
+            ("Ngày cập nhật:", bot.date_update, (59, 130, 246)),
+            ("Tác giả:", "TXA", (255, 193, 7)),
+            ("Tổng số lệnh:", f"{total_commands} lệnh", (255, 64, 129)),
+            ("Thời gian hoạt động:", uptime_str, (0, 229, 255)),
+        ]
+        
+    curr_y = info_y + 70
+    for label, val, color in details:
+        draw.text((info_x, curr_y), label, font=font_bold, fill=(200, 220, 255, 220))
+        val_x = info_x + _text_w(font_bold, label + " ")
+        draw.text((val_x, curr_y), val, font=font_text, fill=color)
+        curr_y += 36
+        
+    # Tech Stack section at the bottom of the card
+    tech_y = curr_y + 20
+    emoji_font_bold = _font("font/NotoEmoji-Bold.ttf", 22)
+    draw_mixed(draw, "🛠️ TECH STACK:", (info_x, tech_y), font_bold, emoji_font_bold, (220, 230, 255, 240))
+    
+    # Draw developer-icons (Python, Docker, React, JavaScript, Git)
+    icons_list = ["python", "docker", "react", "javascript", "git"]
+    icon_size = 36
+    icon_start_x = info_x + _text_w(font_bold, "🛠️ TECH STACK:  ")
+    icon_y = tech_y - 6
+    
+    for idx, icon_name in enumerate(icons_list):
+        try:
+            icon_img = get_tech_icon(icon_name, size=icon_size)
+            if icon_img:
+                overlay.paste(icon_img, (icon_start_x + idx * (icon_size + 12), icon_y), icon_img)
+        except Exception as e:
+            print(f"[create_mybot_image] Error pasting icon {icon_name}: {e}")
+            
+    final_img = Image.alpha_composite(bg_image, overlay)
+    
+    cache_dir = "modules/cache"
+    os.makedirs(cache_dir, exist_ok=True)
+    out_path = os.path.join(cache_dir, f"mybot_{int(time.time())}.png")
+    final_img.convert("RGB").save(out_path, "PNG", quality=95)
+    return out_path
+
 
 def create_gradient_colors(num_colors):
     return [(random.randint(100, 175), random.randint(100, 180), random.randint(100, 170)) for _ in range(num_colors)]

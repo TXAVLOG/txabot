@@ -7,6 +7,7 @@ from typing import Tuple
 import emoji
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from zlapi.models import Message
+from core.bot_sys import get_tech_icon
 
 # Try to import psutil, make it optional
 try:
@@ -65,6 +66,7 @@ def _is_emoji(ch: str) -> bool:
 def draw_mixed(draw, text: str, pos: Tuple[int, int],
                font, emoji_font, fill, center_w: int = 0):
     """Vẽ text có emoji, tùy chọn căn giữa trong center_w px."""
+    text = text.replace("\uFE0F", "")
     if center_w:
         total = sum(
             _text_w(emoji_font if _is_emoji(c) else font, c) + (1 if _is_emoji(c) else 0)
@@ -289,6 +291,23 @@ def create_uptime_image(bot_name: str, days: int, hours: int,
                f_sub, f_emoji2, (190, 210, 255, 230))
     draw.text((card_x + 30, boot_y + 58), last_boot,
               font=f_header, fill=(255, 255, 255, 246))
+
+    # ── Draw Tech Stack Icons ─────────────────────────────────────────
+    tech_x = card_x + 480
+    draw_mixed(draw, "🛠️ TECH STACK", (tech_x, boot_y + 24),
+               f_sub, f_emoji2, (190, 210, 255, 230))
+               
+    tech_icons = ["python", "docker", "react", "javascript", "git"]
+    icon_size = 42
+    icon_y = boot_y + 54
+    for idx, name in enumerate(tech_icons):
+        try:
+            icon_img = get_tech_icon(name, size=icon_size)
+            if icon_img:
+                ov.paste(icon_img, (tech_x + idx * (icon_size + 14), icon_y), icon_img)
+        except Exception as e:
+            print(f"[uptime] Error drawing tech icon {name}: {e}")
+
     status = "ONLINE"
     sw = _text_w(f_header, status)
     badge_x = W - PAD - 18 - 190

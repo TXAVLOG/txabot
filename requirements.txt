@@ -16,3 +16,4 @@ pytz
 requests
 speedtest-cli
 websockets
+pymupdf

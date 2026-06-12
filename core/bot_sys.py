@@ -4391,4 +4391,75 @@ def process_next_music_queue(bot, author_id):
         # Thực thi lệnh
         bot.onMessage(msg_obj)
 
+def get_tech_icon(name: str, size: int = 64):
+    """
+    Tải file SVG từ developer-icons (hoặc dùng local file nếu có),
+    chuyển đổi sang PNG có nền trong suốt bằng PyMuPDF và cache lại.
+    """
+    import os
+    import requests
+    from PIL import Image
+    
+    # Thư mục lưu cache các icon
+    TECH_ICONS_DIR = "modules/cache/tech_icons"
+    os.makedirs(TECH_ICONS_DIR, exist_ok=True)
+    
+    png_path = os.path.join(TECH_ICONS_DIR, f"{name}_{size}.png")
+    
+    if os.path.exists(png_path):
+        try:
+            return Image.open(png_path).convert("RGBA")
+        except:
+            pass
+            
+    # Xử lý mapping tên nếu cần
+    svg_name = name.lower()
+    if svg_name == "react":
+        svg_name = "reactjs"
+        
+    url = f"https://raw.githubusercontent.com/xandemon/developer-icons/main/icons/{svg_name}.svg"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            svg_content = r.text
+            
+            # Thay thế gradient fill bằng màu phẳng để tránh bị hiển thị màu đen trên Windows
+            SVG_COLOR_REPLACEMENTS = {
+                "python.svg": [
+                    ('fill="url(#a)"', 'fill="#3776AB"'),
+                    ('fill="url(#b)"', 'fill="#FFD343"')
+                ],
+                "git.svg": [
+                    ('fill="url(#a)"', 'fill="#F05032"')
+                ]
+            }
+            filename = f"{svg_name}.svg"
+            if filename in SVG_COLOR_REPLACEMENTS:
+                for target, replacement in SVG_COLOR_REPLACEMENTS[filename]:
+                    svg_content = svg_content.replace(target, replacement)
+            
+            # Khởi tạo fitz (PyMuPDF) trong hàm để an toàn
+            try:
+                import fitz
+            except ImportError:
+                print("[tech_icons] CẢNH BÁO: Thư viện 'pymupdf' chưa được cài đặt. Không thể vẽ icon công nghệ.")
+                return None
+                
+            doc = fitz.open(stream=svg_content.encode("utf-8"), filetype="svg")
+            page = doc[0]
+            
+            rect = page.rect
+            zoom = size / rect.width
+            
+            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=True)
+            pix.save(png_path)
+            return Image.open(png_path).convert("RGBA")
+        else:
+            print(f"[tech_icons] Lỗi tải SVG cho {name}, status: {r.status_code}")
+    except Exception as e:
+        print(f"[tech_icons] Lỗi xử lý/chuyển đổi icon {name}: {e}")
+        
+    return None
+
+
 
