@@ -391,7 +391,7 @@ def handle_menu_or_commands(message, message_object, thread_id, thread_type, aut
     
     if random.random() > 0.3:
         bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
     bot.sendLocalImage(
         imagePath=image_path,
         message=Message(text=command_names, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -498,7 +498,7 @@ def handle_menu_or_commands(message, message_object, thread_id, thread_type, aut
     reaction = ["❌", "🤧", "😊", "🔥", "👍", "💖", "🚀", "😍", "😂", "😎", "🙌", "🌟", "🍀", "🎉", "💡"]
     if random.random() > 0.3:
         bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
     bot.sendLocalImage(
         imagePath=image_path,
         message=Message(text=command_names, mention=Mention(author_id, length=len(user_name), offset=0)),

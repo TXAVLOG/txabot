@@ -175,6 +175,66 @@ Sử dụng `tmux` hoặc `screen` để giữ bot chạy 24/7:
 
 ---
 
+## 🎵 Hướng dẫn cài đặt FFmpeg (Yêu cầu cho tính năng nhạc)
+
+Bot sử dụng FFmpeg để chuyển đổi định dạng nhạc sang m4a giúp thiết bị iOS nghe được voice tin nhắn. Nếu hệ thống tự động cài đặt không thành công, hãy cài đặt thủ công theo hướng dẫn bên dưới:
+
+<details>
+<summary><b>💻 Windows</b></summary>
+
+### Cách 1: Sử dụng Winget (Khuyến nghị)
+Mở PowerShell (Run as Administrator) và chạy lệnh:
+```bash
+winget install Gyan.FFmpeg
+```
+Sau đó khởi động lại Terminal/PowerShell của bạn.
+
+### Cách 2: Tải thủ công
+1. Tải bản build của FFmpeg từ trang chủ: [ffmpeg.org](https://ffmpeg.org/download.html) hoặc [Gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
+2. Giải nén thư mục và copy thư mục `bin` (chứa `ffmpeg.exe`) vào ổ đĩa mong muốn (ví dụ `C:\ffmpeg\bin`).
+3. Thêm đường dẫn `C:\ffmpeg\bin` vào biến môi trường `PATH` của hệ thống.
+</details>
+
+<details>
+<summary><b>📱 Termux (Android)</b></summary>
+
+Chạy lệnh sau trong ứng dụng Termux:
+```bash
+pkg update && pkg install -y ffmpeg
+```
+</details>
+
+<details>
+<summary><b>🐧 Linux / VPS (Ubuntu, Debian, CentOS, Arch)</b></summary>
+
+### Trên Ubuntu / Debian:
+```bash
+sudo apt update && sudo apt install -y ffmpeg
+```
+
+### Trên CentOS / RHEL:
+```bash
+sudo yum install epel-release -y
+sudo yum install ffmpeg ffmpeg-devel -y
+```
+
+### Trên Arch Linux:
+```bash
+sudo pacman -S ffmpeg
+```
+</details>
+
+<details>
+<summary><b>🍎 macOS</b></summary>
+
+Yêu cầu đã cài đặt [Homebrew](https://brew.sh/). Mở Terminal và chạy:
+```bash
+brew install ffmpeg
+```
+</details>
+
+---
+
 ## ⚠️ Lưu ý quan trọng
 * Không chia sẻ thư mục chứa `txa.json` và `config.json` cho bất cứ ai.
 * Nếu bot Zalo bị mất kết nối, hãy kiểm tra lại Cookie/IMEI trong `txa.json`.

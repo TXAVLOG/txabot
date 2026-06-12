@@ -1,9 +1,19 @@
+import config
+from core import bot_sys
+from glob import glob
 from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import os
+import sys
 import random
 import re
+import shutil
+import traceback
+import colorsys
+import modules.txacommand as txacommand
+from colorama import Fore, Style
+from core.bot_sys import parse_expiration_time
 import string
 import threading
 import time
@@ -295,17 +305,63 @@ def handle_recent_group_delete(bot, message_object, author_id, thread_id, thread
     if not (is_admin(author_id) or is_group_admin_or_creator(bot, author_id, thread_id)):
         return "➜ Lệnh này chỉ khả thi với Admin Bot hoặc quản trị viên nhóm 🤧"
 
-    num_to_delete = 50
-    for part in parts[1:]:
-        clean_part = part.strip()
-        if clean_part.isdigit():
-            num_to_delete = int(clean_part)
-            break
+    prefix = getattr(bot, 'prefix', '-')
+    bot_id = str(bot.uid)
 
-    if num_to_delete <= 0:
-        return "➜ Số lượng tin nhắn cần xóa phải lớn hơn 0 🤧"
+    # --- Parse command syntax ---
+    args = parts[1:]  # e.g. ["@User", "10"] or ["all", "5"] or ["3"]
+    
+    target_uids = set()
+    num_to_delete = 0
 
-    target_uids = {str(uid) for uid in extract_uids_from_mentions(message_object)}
+    # Extract mentions from message_object (Zalo tự mention khi reply)
+    mention_uids = {str(uid) for uid in extract_uids_from_mentions(message_object)}
+
+    # Lấy số lượng từ phần tử cuối cùng
+    if args:
+        try:
+            num_to_delete = int(args[-1])
+        except ValueError:
+            num_to_delete = 0
+
+    if mention_uids:
+        # Mode: reply/mention - Zalo tự mention khi reply tin nhắn
+        # -del (reply) → xóa 1 tin nhắn của người đó
+        # -del 3 (reply) → xóa 3 tin nhắn của người đó
+        target_uids = mention_uids
+        if num_to_delete <= 0:
+            num_to_delete = 1  # Reply mà không có số → xóa 1 tin
+    elif len(args) >= 1 and args[0].lower() == "all":
+        # Mode: -del all <số lượng>
+        target_uids = None  # None = xóa tất cả
+        if num_to_delete <= 0:
+            return "➜ Hãy nhập số lượng tin nhắn cần xóa 🤧"
+    elif len(args) >= 1 and num_to_delete > 0:
+        # Mode: -del <số lượng> (xóa tất cả N tin gần nhất)
+        target_uids = None
+    else:
+        # Không có reply, không có gì → hiển thị hướng dẫn
+        return (
+            f"➜ Cú pháp không hợp lệ 🤧\n"
+            f"📝 Reply tin nhắn + {prefix}del - Xóa tin nhắn đang reply\n"
+            f"📝 Reply tin nhắn + {prefix}del [số] - Xóa N tin của người đó\n"
+            f"📝 {prefix}del all [số lượng] - Xóa tất cả tin nhắn\n"
+            f"📝 {prefix}del [số lượng] - Xóa N tin nhắn gần nhất"
+        )
+
+    # Check if bot has admin permission in group
+    try:
+        group_info = bot.fetchGroupInfo(groupId=thread_id)
+        if group_info and thread_id in group_info.gridInfoMap:
+            gdata = group_info.gridInfoMap[thread_id]
+            admin_ids = gdata.get('adminIds', [])
+            creator_id = gdata.get('creatorId', '')
+            is_bot_admin = bot.uid in admin_ids or bot.uid == creator_id
+            
+            if not is_bot_admin:
+                return "➜ Bot không có quyền admin trong nhóm để xóa tin nhắn. Vui lòng thêm Bot làm quản trị viên 🤧"
+    except Exception as e:
+        print(f"[WARNING] Không thể kiểm tra quyền admin bot: {e}")
 
     try:
         group_data = bot.getRecentGroup(thread_id)
@@ -323,62 +379,64 @@ def handle_recent_group_delete(bot, message_object, author_id, thread_id, thread
             error_msg = "Không thể lấy tin nhắn gần nhất từ nhóm này."
         return f"➜ Lỗi khi lấy tin nhắn gần nhất: {error_msg}"
 
-    # Check if bot has admin permission in group
+    # Sort messages by timestamp descending (newest first) - same as reference bot
     try:
-        group_info = bot.fetchGroupInfo(groupId=thread_id)
-        if group_info and thread_id in group_info.gridInfoMap:
-            group_data = group_info.gridInfoMap[thread_id]
-            admin_ids = group_data.get('adminIds', [])
-            creator_id = group_data.get('creatorId', '')
-            is_bot_admin = bot.uid in admin_ids or bot.uid == creator_id
-            
-            if not is_bot_admin:
-                return "➜ Bot không có quyền admin trong nhóm để xóa tin nhắn. Vui lòng thêm Bot làm quản trị viên 🤧"
-    except Exception as e:
-        print(f"[WARNING] Không thể kiểm tra quyền admin bot: {e}")
+        group_msgs = sorted(group_msgs, key=lambda m: int(_get_msg_value(m, "ts", 0) or 0), reverse=True)
+    except Exception:
+        pass
 
     command_msg_id = str(getattr(message_object, "msgId", ""))
     deleted_count = 0
     failed_count = 0
-    scanned_count = 0
 
-    for msg in reversed(group_msgs):
+    for msg in group_msgs:
         if deleted_count >= num_to_delete:
             break
 
-        msg_id = _get_msg_value(msg, "msgId")
+        # Get fields directly matching reference bot: msg.cliMsgId, msg.msgId, msg.uidFrom
         cli_msg_id = _get_msg_value(msg, "cliMsgId")
-        owner_id = _get_msg_value(msg, "uidFrom")
+        msg_id = _get_msg_value(msg, "msgId")
+        uid_from = _get_msg_value(msg, "uidFrom")
 
         if not msg_id or not cli_msg_id:
             continue
         if command_msg_id and str(msg_id) == command_msg_id:
             continue
 
-        owner_id = str(owner_id if owner_id not in (None, "0", 0) else author_id)
-        if target_uids and owner_id not in target_uids:
-            continue
+        # Reference bot logic: uidFrom === "0" means bot's own message, replace with bot ID
+        owner_id = str(uid_from) if str(uid_from) not in ("0", "None", "") else bot_id
 
-        scanned_count += 1
+        # Filter by target user if specified
+        if target_uids is not None:
+            # target_uids is a set of specific UIDs to delete
+            should_delete = owner_id in target_uids
+            if bot_id in target_uids and str(uid_from) == "0":
+                should_delete = True
+            if not should_delete:
+                continue
+        # target_uids is None means "all" mode - delete everything
+
         try:
-            result = bot.deleteGroupMsg(msg_id, owner_id, cli_msg_id, thread_id)
-            status = _get_msg_value(result, "status", 0)
-            if status == 0 or str(status) == "0":
-                deleted_count += 1
-            else:
-                failed_count += 1
+            # deleteGroupMsg(msgId=globalMsgId, ownerId, clientMsgId, groupId)
+            result = bot.deleteGroupMsg(str(msg_id), str(owner_id), str(cli_msg_id), str(thread_id))
+            deleted_count += 1
         except Exception as e:
-            print(f"[ERROR] delete recent group msg failed: {e}")
+            print(f"[ERROR] delete msg failed: msgId={msg_id}, ownerId={owner_id}, cliMsgId={cli_msg_id} | {e}")
             failed_count += 1
 
-    target_text = " của người được tag" if target_uids else ""
-    if scanned_count == 0:
+    if target_uids is not None:
+        target_text = " của người được tag"
+    else:
+        target_text = ""
+
+    if deleted_count == 0 and failed_count == 0:
         return f"➜ Không tìm thấy tin nhắn phù hợp{target_text} trong recent group 🤧"
 
     return (
         f"➜ Đã xóa {deleted_count}/{num_to_delete} tin nhắn{target_text} từ recent group ✅\n"
         f"➜ Không thể xóa: {failed_count} tin"
     )
+
 
 def handle_bot_admin(bot):
     settings = read_settings()
@@ -1397,7 +1455,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         BACKGROUND_PATH = "background/"
                         CACHE_PATH = "modules/cache/"
                         
-                        images_bg = glob.glob(BACKGROUND_PATH + "*.jpg") + glob.glob(BACKGROUND_PATH + "*.png") + glob.glob(BACKGROUND_PATH + "*.jpeg")
+                        images_bg = glob(BACKGROUND_PATH + "*.jpg") + glob(BACKGROUND_PATH + "*.png") + glob(BACKGROUND_PATH + "*.jpeg")
                         if not images_bg:
                             return None
                         
@@ -1626,258 +1684,263 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     response += f"🤖 BOT {get_user_name_by_id(bot, bot.uid)} luôn sẵn sàng phục vụ bạn! 🌸\n"
                     response += f"💡 Mẹo: Để xem toàn bộ danh sách tính năng & phím tắt của BOT, hãy gõ: {prefix}menu 🚀"
                 
-                # === GỬI ẢNH HƯỚNG DẪN DEMO ===
-                def generate_guide_image(title, guide_lines, filename):
-                    try:
-                        BACKGROUND_PATH = "background/"
-                        CACHE_PATH = "modules/cache/"
-
-                        images_bg = glob.glob(BACKGROUND_PATH + "*.jpg") + glob.glob(BACKGROUND_PATH + "*.png") + glob.glob(BACKGROUND_PATH + "*.jpeg")
-                        if not images_bg:
-                            return None
-
-                        # ── Font ──────────────────────────────────────────────────
-                        font_path      = "font/arial unicode ms.otf"
-                        font_bold_path = "font/arial unicode ms bold.otf"
-                        font_emoji_path = "font/NotoEmoji-Bold.ttf"
-
-                        def _fnt(path, size):
-                            try:
-                                return ImageFont.truetype(path, size)
-                            except Exception:
-                                return ImageFont.load_default()
-
-                        f_title   = _fnt(font_bold_path,  38)
-                        f_section = _fnt(font_bold_path,  26)
-                        f_text    = _fnt(font_path,       22)
-                        f_example = _fnt(font_path,       20)
-                        f_note    = _fnt(font_path,       19)
-                        f_emoji_t = _fnt(font_emoji_path, 36)
-                        f_emoji_s = _fnt(font_emoji_path, 26)
-                        f_emoji_x = _fnt(font_emoji_path, 20)
-
-                        # ── Row-height map ────────────────────────────────────────
-                        def row_h(line):
-                            if   line.startswith("##"):  return 52   # section header
-                            elif line.startswith("!!"):  return 34   # command
-                            elif line.startswith(">>"):  return 32   # example
-                            elif line == "---":          return 22   # divider
-                            else:                        return 30   # plain / note
-
-                        # ── Calculate total height ────────────────────────────────
-                        PADDING_TOP    = 130   # title + divider
-                        PADDING_BOTTOM = 40
-                        SIDE_PAD       = 55
-                        total_content_h = sum(row_h(l) for l in guide_lines)
-                        H = max(600, PADDING_TOP + total_content_h + PADDING_BOTTOM + 20)
-                        W = 1100
-
-                        # ── Background ────────────────────────────────────────────
-                        image_path = random.choice(images_bg)
-                        bg = Image.open(image_path).convert("RGBA").resize((W, H), Image.Resampling.LANCZOS)
-                        bg = bg.filter(ImageFilter.GaussianBlur(radius=14))
-
-                        ov   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                        draw = ImageDraw.Draw(ov)
-
-                        # Glass card
-                        draw.rounded_rectangle(
-                            [(30, 20), (W - 30, H - 20)],
-                            radius=28, fill=(8, 10, 18, 215),
-                            outline=(255, 255, 255, 20), width=1
-                        )
-
-                        # ── Helper: draw mixed emoji+text ─────────────────────────
-                        def emoji_tokens(text_str):
-                            tokens = []
-                            i = 0
-                            while i < len(text_str):
-                                token = text_str[i]
-                                i += 1
-                                while i < len(text_str) and text_str[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
-                                    token += text_str[i]
+                # === GỬI ẢNH HƯỚNG DẪN DEMO (chỉ cho người chưa được duyệt) ===
+                settings = read_settings()
+                admin_bot = settings.get("admin_bot", [])
+                approved_users = settings.get("approved_users", [])
+                is_allowed = author_id in admin_bot or author_id in approved_users
+                if author_id in admin_bot:
+                    def generate_guide_image(title, guide_lines, filename):
+                        try:
+                            BACKGROUND_PATH = "background/"
+                            CACHE_PATH = "modules/cache/"
+    
+                            images_bg = glob(BACKGROUND_PATH + "*.jpg") + glob(BACKGROUND_PATH + "*.png") + glob(BACKGROUND_PATH + "*.jpeg")
+                            if not images_bg:
+                                return None
+    
+                            # ── Font ──────────────────────────────────────────────────
+                            font_path      = "font/arial unicode ms.otf"
+                            font_bold_path = "font/arial unicode ms bold.otf"
+                            font_emoji_path = "font/NotoEmoji-Bold.ttf"
+    
+                            def _fnt(path, size):
+                                try:
+                                    return ImageFont.truetype(path, size)
+                                except Exception:
+                                    return ImageFont.load_default()
+    
+                            f_title   = _fnt(font_bold_path,  38)
+                            f_section = _fnt(font_bold_path,  26)
+                            f_text    = _fnt(font_path,       22)
+                            f_example = _fnt(font_path,       20)
+                            f_note    = _fnt(font_path,       19)
+                            f_emoji_t = _fnt(font_emoji_path, 36)
+                            f_emoji_s = _fnt(font_emoji_path, 26)
+                            f_emoji_x = _fnt(font_emoji_path, 20)
+    
+                            # ── Row-height map ────────────────────────────────────────
+                            def row_h(line):
+                                if   line.startswith("##"):  return 52   # section header
+                                elif line.startswith("!!"):  return 34   # command
+                                elif line.startswith(">>"):  return 32   # example
+                                elif line == "---":          return 22   # divider
+                                else:                        return 30   # plain / note
+    
+                            # ── Calculate total height ────────────────────────────────
+                            PADDING_TOP    = 130   # title + divider
+                            PADDING_BOTTOM = 40
+                            SIDE_PAD       = 55
+                            total_content_h = sum(row_h(l) for l in guide_lines)
+                            H = max(600, PADDING_TOP + total_content_h + PADDING_BOTTOM + 20)
+                            W = 1100
+    
+                            # ── Background ────────────────────────────────────────────
+                            image_path = random.choice(images_bg)
+                            bg = Image.open(image_path).convert("RGBA").resize((W, H), Image.Resampling.LANCZOS)
+                            bg = bg.filter(ImageFilter.GaussianBlur(radius=14))
+    
+                            ov   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                            draw = ImageDraw.Draw(ov)
+    
+                            # Glass card
+                            draw.rounded_rectangle(
+                                [(30, 20), (W - 30, H - 20)],
+                                radius=28, fill=(8, 10, 18, 215),
+                                outline=(255, 255, 255, 20), width=1
+                            )
+    
+                            # ── Helper: draw mixed emoji+text ─────────────────────────
+                            def emoji_tokens(text_str):
+                                tokens = []
+                                i = 0
+                                while i < len(text_str):
+                                    token = text_str[i]
                                     i += 1
-                                while i < len(text_str) and text_str[i] == "\u200d":
-                                    token += text_str[i]
-                                    i += 1
-                                    if i < len(text_str):
-                                        token += text_str[i]
-                                        i += 1
                                     while i < len(text_str) and text_str[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
                                         token += text_str[i]
                                         i += 1
-                                tokens.append(token)
-                            return tokens
-
-                        def is_emoji_token(token):
-                            return (
-                                token in emoji.EMOJI_DATA
-                                or "\ufe0f" in token
-                                or "\u200d" in token
-                                or any(ch in emoji.EMOJI_DATA or ord(ch) > 0xFFFF for ch in token)
-                            )
-
-                        def draw_mixed(text_str, pos, base_font, emoji_f, fill_color):
-                            cx, cy = pos
-                            for token in emoji_tokens(text_str):
-                                is_e = is_emoji_token(token)
-                                sf = emoji_f if is_e else base_font
-                                oy   = cy - sf.size // 6 if is_e else cy
-                                draw.text((cx, oy), token, fill=fill_color, font=sf)
-                                try:
-                                    cx += sf.getlength(token)
-                                except Exception:
-                                    cw = draw.textbbox((0, 0), token, font=sf)[2]
-                                    cx += cw if cw > 0 else sf.size // 2
-
-                        def line_w(text_str, base_font, emoji_f):
-                            w = 0
-                            for token in emoji_tokens(text_str):
-                                sf = emoji_f if is_emoji_token(token) else base_font
-                                try:
-                                    w += sf.getlength(token)
-                                except Exception:
-                                    cw = draw.textbbox((0, 0), token, font=sf)[2]
-                                    w += cw if cw > 0 else sf.size // 2
-                            return w
-
-                        # ── Title ─────────────────────────────────────────────────
-                        tw = line_w(title, f_title, f_emoji_t)
-                        draw_mixed(title, ((W - tw) // 2, 42), f_title, f_emoji_t, (0, 229, 255, 255))
-                        draw.line([(SIDE_PAD, 100), (W - SIDE_PAD, 100)], fill=(255, 64, 129, 140), width=2)
-
-                        # ── Body ──────────────────────────────────────────────────
-                        y = PADDING_TOP
-                        neon_section = (255, 64, 129, 255)
-                        neon_cmd     = (0, 230, 118, 255)
-                        white_text   = (215, 215, 220, 230)
-                        example_col  = (255, 235, 59, 210)
-                        note_col     = (180, 200, 230, 200)
-
-                        for line in guide_lines:
-                            if line.startswith("##"):
-                                # Section header — with subtle bg strip
-                                strip_h = 38
-                                draw.rounded_rectangle(
-                                    [(SIDE_PAD - 10, y - 4), (W - SIDE_PAD + 10, y + strip_h - 4)],
-                                    radius=8, fill=(255, 64, 129, 18)
+                                    while i < len(text_str) and text_str[i] == "\u200d":
+                                        token += text_str[i]
+                                        i += 1
+                                        if i < len(text_str):
+                                            token += text_str[i]
+                                            i += 1
+                                        while i < len(text_str) and text_str[i] in ("\ufe0f", "\ufe0e", "\u20e3"):
+                                            token += text_str[i]
+                                            i += 1
+                                    tokens.append(token)
+                                return tokens
+    
+                            def is_emoji_token(token):
+                                return (
+                                    token in emoji.EMOJI_DATA
+                                    or "\ufe0f" in token
+                                    or "\u200d" in token
+                                    or any(ch in emoji.EMOJI_DATA or ord(ch) > 0xFFFF for ch in token)
                                 )
-                                draw_mixed(line[2:].strip(), (SIDE_PAD, y), f_section, f_emoji_s, neon_section)
-                                y += 52
-
-                            elif line.startswith("!!"):
-                                draw_mixed(line[2:].strip(), (SIDE_PAD + 20, y), f_text, f_emoji_x, neon_cmd)
-                                y += 34
-
-                            elif line.startswith(">>"):
-                                example_str = f"💡 Ví dụ: {line[2:].strip()}"
-                                draw_mixed(example_str, (SIDE_PAD + 20, y), f_example, f_emoji_x, example_col)
-                                y += 32
-
-                            elif line == "---":
-                                draw.line([(SIDE_PAD, y + 8), (W - SIDE_PAD, y + 8)],
-                                          fill=(100, 105, 120, 90), width=1)
-                                y += 22
-
-                            else:
-                                # Plain text / note (starts with 📌 etc.)
-                                draw_mixed(line, (SIDE_PAD, y), f_note, f_emoji_x, note_col)
-                                y += 30
-
-                        # ── Compose ───────────────────────────────────────────────
-                        result = Image.alpha_composite(bg, ov)
-                        output_path = os.path.join(CACHE_PATH, filename)
-                        result.convert("RGB").save(output_path, quality=93)
-                        return output_path
-
-                    except Exception as e:
-                        print(f"[ERROR] generate_guide_image {filename}: {e}")
-                        import traceback; traceback.print_exc()
-                        return None
+    
+                            def draw_mixed(text_str, pos, base_font, emoji_f, fill_color):
+                                cx, cy = pos
+                                for token in emoji_tokens(text_str):
+                                    is_e = is_emoji_token(token)
+                                    sf = emoji_f if is_e else base_font
+                                    oy   = cy - sf.size // 6 if is_e else cy
+                                    draw.text((cx, oy), token, fill=fill_color, font=sf)
+                                    try:
+                                        cx += sf.getlength(token)
+                                    except Exception:
+                                        cw = draw.textbbox((0, 0), token, font=sf)[2]
+                                        cx += cw if cw > 0 else sf.size // 2
+    
+                            def line_w(text_str, base_font, emoji_f):
+                                w = 0
+                                for token in emoji_tokens(text_str):
+                                    sf = emoji_f if is_emoji_token(token) else base_font
+                                    try:
+                                        w += sf.getlength(token)
+                                    except Exception:
+                                        cw = draw.textbbox((0, 0), token, font=sf)[2]
+                                        w += cw if cw > 0 else sf.size // 2
+                                return w
+    
+                            # ── Title ─────────────────────────────────────────────────
+                            tw = line_w(title, f_title, f_emoji_t)
+                            draw_mixed(title, ((W - tw) // 2, 42), f_title, f_emoji_t, (0, 229, 255, 255))
+                            draw.line([(SIDE_PAD, 100), (W - SIDE_PAD, 100)], fill=(255, 64, 129, 140), width=2)
+    
+                            # ── Body ──────────────────────────────────────────────────
+                            y = PADDING_TOP
+                            neon_section = (255, 64, 129, 255)
+                            neon_cmd     = (0, 230, 118, 255)
+                            white_text   = (215, 215, 220, 230)
+                            example_col  = (255, 235, 59, 210)
+                            note_col     = (180, 200, 230, 200)
+    
+                            for line in guide_lines:
+                                if line.startswith("##"):
+                                    # Section header — with subtle bg strip
+                                    strip_h = 38
+                                    draw.rounded_rectangle(
+                                        [(SIDE_PAD - 10, y - 4), (W - SIDE_PAD + 10, y + strip_h - 4)],
+                                        radius=8, fill=(255, 64, 129, 18)
+                                    )
+                                    draw_mixed(line[2:].strip(), (SIDE_PAD, y), f_section, f_emoji_s, neon_section)
+                                    y += 52
+    
+                                elif line.startswith("!!"):
+                                    draw_mixed(line[2:].strip(), (SIDE_PAD + 20, y), f_text, f_emoji_x, neon_cmd)
+                                    y += 34
+    
+                                elif line.startswith(">>"):
+                                    example_str = f"💡 Ví dụ: {line[2:].strip()}"
+                                    draw_mixed(example_str, (SIDE_PAD + 20, y), f_example, f_emoji_x, example_col)
+                                    y += 32
+    
+                                elif line == "---":
+                                    draw.line([(SIDE_PAD, y + 8), (W - SIDE_PAD, y + 8)],
+                                              fill=(100, 105, 120, 90), width=1)
+                                    y += 22
+    
+                                else:
+                                    # Plain text / note (starts with 📌 etc.)
+                                    draw_mixed(line, (SIDE_PAD, y), f_note, f_emoji_x, note_col)
+                                    y += 30
+    
+                            # ── Compose ───────────────────────────────────────────────
+                            result = Image.alpha_composite(bg, ov)
+                            output_path = os.path.join(CACHE_PATH, filename)
+                            result.convert("RGB").save(output_path, quality=93)
+                            return output_path
+    
+                        except Exception as e:
+                            print(f"[ERROR] generate_guide_image {filename}: {e}")
+                            import traceback; traceback.print_exc()
+                            return None
                 
-                # Ảnh 1: Hướng dẫn Duyệt quyền
-                duyet_guide = [
-                    "## 🔑 DUYỆT QUYỀN SỬ DỤNG BOT",
-                    f"!!{prefix}bot approved add @tag  → Duyệt dùng Bot vô thời hạn",
-                    f"!!{prefix}bot approved add @tag 60  → Duyệt dùng Bot trong 60 giây",
-                    f"!!{prefix}bot approved add @tag 10:30:00 06/06/2026  → Duyệt đến mốc giờ",
-                    f"!!{prefix}bot approved remove @tag  → Thu hồi quyền dùng Bot",
-                    f"!!{prefix}bot approved list  → Xem danh sách đã duyệt",
-                    f">>Admin gõ: {prefix}bot approved add 123456789 120",
-                    "---",
-                    "## 🌸 DUYỆT QUYỀN KHO ẢNH",
-                    f"!!{prefix}duyet @tag  → Duyệt quyền Kho ảnh vô thời hạn",
-                    f"!!{prefix}duyet @tag 300  → Duyệt Kho ảnh trong 5 phút",
-                    f"!!{prefix}duyet @tag 23:59:00 31/12/2026  → Duyệt đến cuối năm",
-                    f"!!{prefix}unduyet @tag  → Thu hồi quyền Kho ảnh",
-                    f">>Admin gõ: {prefix}duyet @XuânAnh 3600",
-                    "---",
-                    "📌 Bot tự động thu hồi và thông báo inbox khi hết hạn quyền",
-                    "📌 Hỗ trợ nhập UID trực tiếp thay vì @tag",
-                    "📌 Admin được dùng mọi lệnh mà không cần duyệt",
-                ]
-                
-                # Ảnh 2: Hướng dẫn Xóa tin nhắn
-                del_guide = [
-                    "## 🗑️ CÁCH 1: REPLY ĐỂ XÓA",
-                    "Phản hồi (Reply) tin nhắn muốn xóa",
-                    f"rồi gõ {prefix}del hoặc {prefix}xoa",
-                    "→ Bot xóa tin nhắn được reply + lệnh Admin",
-                    f">>Reply tin nhắn A → gõ {prefix}del",
-                    "---",
-                    "## 🗑️ CÁCH 2: TAG + COUNT ĐỂ XÓA",
-                    f"Gõ {prefix}del @Tên_Thành_Viên [số_lượng]",
-                    "→ Count là số tin gần nhất của user được tag cần xóa",
-                    "→ Bot lấy recent group, lọc UID user rồi xóa đủ count tin",
-                    f">>{prefix}del @XuânAnh 5",
-                    f">>{prefix}xoa @XuânAnh 10",
-                    "---",
-                    "## 🗑️ CÁCH 3: XÓA TIN KỀ TRƯỚC",
-                    f"Chỉ cần gõ {prefix}del (không reply, không tag)",
-                    "→ Bot xóa tin nhắn kề trước tin lệnh",
-                    f">>{prefix}del",
-                    "---",
-                    "📌 Chỉ Admin Bot hoặc Quản trị viên nhóm mới dùng được",
-                    "📌 Nếu không nhập count khi tag, mặc định xóa 1 tin gần nhất",
-                    "📌 Nếu người thường gõ, Bot báo lỗi rồi tự xóa sau 5s",
-                    f"📌 Hỗ trợ: {prefix}del, {prefix}xoa, {prefix}delete",
-                ]
-                
-                time.sleep(0.5)
-                
-                guide1_path = generate_guide_image("📖 HƯỚNG DẪN DUYỆT QUYỀN", duyet_guide, "guide_duyet.png")
-                if guide1_path and os.path.exists(guide1_path):
-                    try:
-                        bot.sendLocalImage(
-                            imagePath=guide1_path,
-                            thread_id=thread_id,
-                            thread_type=thread_type,
-                            width=1200,
-                            height=900,
-                            message=Message(text=f"📖 Hướng dẫn Duyệt quyền sử dụng Bot & Kho ảnh\n➜ Gõ {prefix}help duyet hoặc {prefix}help unduyet để xem thêm."),
-                            ttl=60000
-                        )
-                        os.remove(guide1_path)
-                    except Exception as e:
-                        print(f"[ERROR] send guide duyet: {e}")
-                
-                time.sleep(0.3)
-                
-                guide2_path = generate_guide_image("📖 HƯỚNG DẪN XÓA TIN NHẮN", del_guide, "guide_del.png")
-                if guide2_path and os.path.exists(guide2_path):
-                    try:
-                        bot.sendLocalImage(
-                            imagePath=guide2_path,
-                            thread_id=thread_id,
-                            thread_type=thread_type,
-                            width=1200,
-                            height=900,
-                            message=Message(text=f"📖 Hướng dẫn Xóa tin nhắn trong nhóm\n➜ Gõ {prefix}help del để xem thêm."),
-                            ttl=60000
-                        )
-                        os.remove(guide2_path)
-                    except Exception as e:
-                        print(f"[ERROR] send guide del: {e}")
+                    # Ảnh 1: Hướng dẫn Duyệt quyền
+                    duyet_guide = [
+                        "## 🔑 DUYỆT QUYỀN SỬ DỤNG BOT",
+                        f"!!{prefix}bot approved add @tag  → Duyệt dùng Bot vô thời hạn",
+                        f"!!{prefix}bot approved add @tag 60  → Duyệt dùng Bot trong 60 giây",
+                        f"!!{prefix}bot approved add @tag 10:30:00 06/06/2026  → Duyệt đến mốc giờ",
+                        f"!!{prefix}bot approved remove @tag  → Thu hồi quyền dùng Bot",
+                        f"!!{prefix}bot approved list  → Xem danh sách đã duyệt",
+                        f">>Admin gõ: {prefix}bot approved add 123456789 120",
+                        "---",
+                        "## 🌸 DUYỆT QUYỀN KHO ẢNH",
+                        f"!!{prefix}duyet @tag  → Duyệt quyền Kho ảnh vô thời hạn",
+                        f"!!{prefix}duyet @tag 300  → Duyệt Kho ảnh trong 5 phút",
+                        f"!!{prefix}duyet @tag 23:59:00 31/12/2026  → Duyệt đến cuối năm",
+                        f"!!{prefix}unduyet @tag  → Thu hồi quyền Kho ảnh",
+                        f">>Admin gõ: {prefix}duyet @XuânAnh 3600",
+                        "---",
+                        "📌 Bot tự động thu hồi và thông báo inbox khi hết hạn quyền",
+                        "📌 Hỗ trợ nhập UID trực tiếp thay vì @tag",
+                        "📌 Admin được dùng mọi lệnh mà không cần duyệt",
+                    ]
+                    
+                    # Ảnh 2: Hướng dẫn Xóa tin nhắn
+                    del_guide = [
+                        "## 🗑️ CÁCH 1: REPLY ĐỂ XÓA",
+                        "Phản hồi (Reply) tin nhắn muốn xóa",
+                        f"rồi gõ {prefix}del hoặc {prefix}xoa",
+                        "→ Bot xóa tin nhắn được reply + lệnh Admin",
+                        f">>Reply tin nhắn A → gõ {prefix}del",
+                        "---",
+                        "## 🗑️ CÁCH 2: TAG + COUNT ĐỂ XÓA",
+                        f"Gõ {prefix}del @Tên_Thành_Viên [số_lượng]",
+                        "→ Count là số tin gần nhất của user được tag cần xóa",
+                        "→ Bot lấy recent group, lọc UID user rồi xóa đủ count tin",
+                        f">>{prefix}del @XuânAnh 5",
+                        f">>{prefix}xoa @XuânAnh 10",
+                        "---",
+                        "## 🗑️ CÁCH 3: XÓA TIN KỀ TRƯỚC",
+                        f"Chỉ cần gõ {prefix}del (không reply, không tag)",
+                        "→ Bot xóa tin nhắn kề trước tin lệnh",
+                        f">>{prefix}del",
+                        "---",
+                        "📌 Chỉ Admin Bot hoặc Quản trị viên nhóm mới dùng được",
+                        "📌 Nếu không nhập count khi tag, mặc định xóa 1 tin gần nhất",
+                        "📌 Nếu người thường gõ, Bot báo lỗi rồi tự xóa sau 5s",
+                        f"📌 Hỗ trợ: {prefix}del, {prefix}xoa, {prefix}delete",
+                    ]
+                    
+                    time.sleep(0.5)
+                    
+                    guide1_path = generate_guide_image("📖 HƯỚNG DẪN DUYỆT QUYỀN", duyet_guide, "guide_duyet.png")
+                    if guide1_path and os.path.exists(guide1_path):
+                        try:
+                            bot.sendLocalImage(
+                                imagePath=guide1_path,
+                                thread_id=thread_id,
+                                thread_type=thread_type,
+                                width=1200,
+                                height=900,
+                                message=Message(text=f"📖 Hướng dẫn Duyệt quyền sử dụng Bot & Kho ảnh\n➜ Gõ {prefix}help duyet hoặc {prefix}help unduyet để xem thêm."),
+                                ttl=60000
+                            )
+                            os.remove(guide1_path)
+                        except Exception as e:
+                            print(f"[ERROR] send guide duyet: {e}")
+                    
+                    time.sleep(0.3)
+                    
+                    guide2_path = generate_guide_image("📖 HƯỚNG DẪN XÓA TIN NHẮN", del_guide, "guide_del.png")
+                    if guide2_path and os.path.exists(guide2_path):
+                        try:
+                            bot.sendLocalImage(
+                                imagePath=guide2_path,
+                                thread_id=thread_id,
+                                thread_type=thread_type,
+                                width=1200,
+                                height=900,
+                                message=Message(text=f"📖 Hướng dẫn Xóa tin nhắn trong nhóm\n➜ Gõ {prefix}help del để xem thêm."),
+                                ttl=60000
+                            )
+                            os.remove(guide2_path)
+                        except Exception as e:
+                            print(f"[ERROR] send guide del: {e}")
                 
                 response = None
 
@@ -2135,11 +2198,11 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
 
                             
                             if link_action == 'on':
-                                settings['allow_link'][thread_id] = True
-                                response = "➜ Tùy chọn cho phép gởi link 🔗 đã được bật 🟢 cho nhóm này ✅"
+                                settings['allow_link'][thread_id] = True  # Anti-link ON → block links
+                                response = "➜ Anti-Link 🔗 đã được bật 🟢 cho nhóm này (chặn gửi link) ✅"
                             elif link_action == 'off':
-                                settings['allow_link'][thread_id] = False
-                                response = "➜ Tùy chọn cho phép gởi link 🔗 đã được tắt 🔴 cho nhóm này ✅"
+                                settings['allow_link'][thread_id] = False  # Anti-link OFF → allow links
+                                response = "➜ Anti-Link 🔗 đã được tắt 🔴 cho nhóm này (cho phép gửi link) ✅"
                             else:
                                 response = f"➜ Lệnh {prefix}bot link {link_action} không được hỗ trợ 🤧"
                         write_settings(settings)

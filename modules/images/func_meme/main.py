@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from io import BytesIO
 import os
 import random
@@ -184,7 +184,7 @@ def meme(bot, message_object, author_id, thread_id, thread_type, command):
                     ]
                     if random.random() > 0.3:
                         bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-                    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                    bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                     bot.sendLocalImage(
                         temp_image_path, thread_id=thread_id, thread_type=thread_type,
                         message=Message(text=response), height=500, width=1280, ttl=1200000
@@ -364,8 +364,10 @@ def interpolate_colors(colors, text_length, change_every):
 def get_user_name_by_id(bot, author_id):
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
-    except Exception as e:
+        name = user_info.zaloName or user_info.displayName or ""
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
+    except Exception:
         return "Unknown User"
 
 txa = {
@@ -375,6 +377,17 @@ txa = {
     "command": ['meme']
 }
 
+def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
+    prefix = getattr(bot, 'prefix', '.')
+    if not message_text:
+        return
+    
+    cmd = message_text[len(prefix):].split()[0].lower() if len(message_text) > len(prefix) else ''
+    
+    if cmd != 'meme':
+        return
+    
+    meme(bot, message_object, author_id, thread_id, thread_type, message_text)
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     if not message_text:

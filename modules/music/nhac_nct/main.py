@@ -1,6 +1,9 @@
+from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file
 from aiohttp import client_exceptions
 import requests
 import json
+import subprocess
+import inspect
 import re
 import urllib.parse
 import os
@@ -13,9 +16,8 @@ from io import BytesIO
 import emoji
 from colorsys import hsv_to_rgb, rgb_to_hsv
 from zlapi.models import *
-from core.bot_sys import _music_styled_msg
 
-user_states = {}
+user_states = USER_MUSIC_STATES
 SEARCH_TIMEOUT = 120
 
 BACKGROUND_PATH = "background/"
@@ -323,6 +325,8 @@ def truncate_text(draw, text, max_width, font_text, font_emoji):
     result = ''
     total_width = 0
     for char in text:
+        if char == '\ufe0f':
+            continue
         font_used = font_emoji if emoji.is_emoji(char) else font_text
         char_width = get_text_width(draw, char, font_used)
         if total_width + char_width > max_width:
@@ -458,6 +462,8 @@ def create_song_list_image(songs):
             truncated_title = truncate_text(draw, title, max_text_width, font, emoji_font)
 
             for char in truncated_title:
+                if char == '\ufe0f':
+                    continue
                 font_used = emoji_font if emoji.is_emoji(char) else font
                 draw_text_with_shadow(draw, (x_text, y_text), char, font_used, title_color)
                 x_text += get_text_width(draw, char, font_used)
@@ -466,6 +472,8 @@ def create_song_list_image(songs):
             y_artist = y_text + int(35 * scale)
             truncated_artist = truncate_text(draw, artists, max_text_width, artist_font, artist_emoji_font)
             for char in truncated_artist:
+                if char == '\ufe0f':
+                    continue
                 font_used = artist_emoji_font if emoji.is_emoji(char) else artist_font
                 draw_text_with_shadow(draw, (x_artist, y_artist), char, font_used, artist_color, shadow_offset=(1, 1))
                 x_artist += get_text_width(draw, char, font_used)
@@ -475,6 +483,8 @@ def create_song_list_image(songs):
             info_height = info_font.size
             y_info = top + card_height - card_padding - info_height
             for char in info_text:
+                if char == '\ufe0f':
+                    continue
                 font_used = info_emoji_font if emoji.is_emoji(char) else info_font
                 draw_text_with_shadow(draw, (x_info, y_info), char, font_used, info_color, shadow_offset=(1, 1))
                 x_info += get_text_width(draw, char, font_used)
@@ -573,6 +583,8 @@ def create_single_song_image(song):
             current_width = 0
             result = ""
             for char in text:
+                if char == '\ufe0f':
+                    continue
                 f = emoji_font if emoji.emoji_count(char) else font
                 char_width = f.getlength(char)
                 if current_width + char_width > max_text_width:
@@ -584,10 +596,12 @@ def create_single_song_image(song):
 
         def draw_gradient_text_line(draw, text, x, y, font, emoji_font):
             shortened = shorten_text(text, font, emoji_font)
-            total_width = sum((emoji_font if emoji.emoji_count(c) else font).getlength(c) for c in shortened)
+            total_width = sum((emoji_font if emoji.emoji_count(c) else font).getlength(c) for c in shortened if c != '\ufe0f')
 
             current_x = x
             for char in shortened:
+                if char == '\ufe0f':
+                    continue
                 f = emoji_font if emoji.emoji_count(char) else font
                 char_width = f.getlength(char)
                 color = get_gradient_color(current_x - x, total_width)
@@ -617,13 +631,23 @@ def create_single_song_image(song):
         return None
 
 def upload_to_uguu(file_path):
+    if file_path.endswith('.mp3') or file_path.endswith('.m4a'):
+        return upload_file(file_path, "audio/mp4")
+    elif file_path.endswith('.webp'):
+        return upload_file(file_path, "image/webp")
+    else:
+        return upload_file(file_path, "image/png")
+
+def convert_mp3_to_m4a(mp3_path):
+    m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
-        with open(file_path, 'rb') as file:
-            response = requests.post("https://uguu.se/upload", files={'files[]': file})
-            return response.json().get('files')[0].get('url')
+        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        if os.path.exists(m4a_path):
+            return m4a_path
     except Exception as e:
-        print("Upload to uguu error:", e)
-        return None
+        print(f"Error converting to m4a: {e}")
+    return mp3_path
 
 def delete_file(file_path):
     try:
@@ -775,26 +799,35 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
     content = message.strip().split()
 
+    # Check if it's just a digit and we have a state for this user
+    is_direct_selection = message.strip().isdigit() and author_id in user_states and user_states[author_id].get('source') == 'nct'
+    is_command_selection = len(content) == 2 and content[0].lower() in [f"{client.prefix}nct", f"{client.prefix}nhaccuatui"] and content[1].isdigit()
+    
     # Selection reply handling
-    if len(content) == 2 and content[0].lower() in [f"{client.prefix}ncl", f"{client.prefix}nct", f"{client.prefix}nhaccuatui"] and content[1].isdigit():
+    if is_direct_selection or is_command_selection:
+        selected_number = message.strip() if is_direct_selection else content[1]
         if author_id not in user_states:
             return
 
         state = user_states[author_id]
         if time.time() - state['time_of_search'] > SEARCH_TIMEOUT:
             del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
             text = f"🚦{username} Thời gian chọn bài hát đã hết hạn! Vui lòng tìm kiếm lại nhé."
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             return
 
         songs = state['songs']
-        selector_index = int(content[1]) - 1 
+        selector_index = int(selected_number) - 1 
 
         if selector_index < 0 or selector_index >= len(songs):
-            text = f"🚦{username}, số thứ tự không hợp lệ: {content[1]}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            text = f"🚦{username}, số thứ tự không hợp lệ: {selected_number}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
@@ -828,11 +861,12 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         artists = song["artistsNames"]
         song_id = song["id"]
 
-        text = f"""🚦{username} chọn: {content[1]}
+        text = f"""🚦{username} chọn: {selected_number}
 📩 Tên Bài Hát: {title}
 ☁️ Nguồn: NhacCuaTui
 ⏳ Bé đang tải nhạc, đợi tí nha... 🎧"""
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
         # Get stream url & stats
@@ -858,8 +892,11 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
             with open(temp_file, "wb") as f:
                 f.write(r_audio.content)
             
-            upload_url = upload_to_uguu(temp_file)
+            m4a_file = convert_mp3_to_m4a(temp_file)
+            upload_url = upload_to_uguu(m4a_file)
             delete_file(temp_file)
+            if m4a_file != temp_file:
+                delete_file(m4a_file)
 
             if not upload_url:
                 text = f"🚦{username}, không thể tải nhạc lên server trung gian 🤧"
@@ -874,12 +911,33 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
             client.sendRemoteVoice(voiceUrl=upload_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
 
+            try:
+                cover_url = song.get("thumbnail")
+                if cover_url:
+
+                    res = create_rotating_webp(cover_url)
+                    if res:
+                        static_path, animated_path = res
+                        delete_file(static_path)
+                        try:
+                            upload_res = client._uploadImage(animated_path, thread_id, thread_type)
+                            if upload_res:
+                                webp_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
+                                if webp_url:
+                                    client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                        finally:
+                            delete_file(animated_path)
+            except Exception as disc_err:
+                print("Lỗi tạo sticker đĩa xoay NCT:", disc_err)
+
         except Exception as e:
             print("NCT play error:", e)
             client.replyMessage(_music_styled_msg(text=f"🚦{username}, đã xảy ra lỗi khi tải nhạc: {str(e)}"), message_object, thread_id, thread_type, ttl=60000)
 
         if author_id in user_states:
             del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
         return
 
     # Help/No search keyword
@@ -887,13 +945,14 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         action = random.choice(reactions)
         if random.random() > 0.3:
             client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
-        client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         
         caption = f"""🚦{username}
 ➜ Vui lòng nhập từ khóa tìm kiếm sau lệnh {client.prefix}nct 🎵
 ➜ Ví dụ: {client.prefix}nct dừng thương
 ➜ Lấy BXH HOT nhất: {client.prefix}nct chart hoặc {client.prefix}nct bxh"""
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = caption.find(username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=caption, mention=mention), message_object, thread_id, thread_type)
         return
 
@@ -902,7 +961,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
     action = random.choice(reactions)
     if random.random() > 0.3:
         client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
-    client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
 
     cmd = content[0][len(client.prefix):].lower() if content[0].startswith(client.prefix) else content[0].lower()
     is_chart_query = (query.lower() in ["chart", "bxh"]) or (cmd == "nctchart")
@@ -921,7 +980,8 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
             except:
                 pass
         text = f"🚦{username}, không tìm thấy bài hát nào trên NhacCuaTui."
-        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        offset = zalo_offset(text, username)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
         return
 
     songs = songs[:20]
@@ -929,13 +989,15 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         'songs': songs,
         'time_of_search': time.time(),
         'query_msg_id': message_object.msgId if message_object else None,
-        'query_cli_msg_id': message_object.cliMsgId if message_object else None
+        'query_cli_msg_id': message_object.cliMsgId if message_object else None,
+        'source': 'nct'
     }
 
     image_path = create_song_list_image(songs)
     if image_path:
         text = f"🚦{username}, Nhập {client.prefix}nct <số> để chọn nghe bài nhé! 🎧"
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         with Image.open(image_path) as img:
             w, h = img.size
         sent_msg = client.sendLocalImage(image_path, message=_music_styled_msg(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
@@ -944,7 +1006,8 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         delete_file(image_path)
     else:
         text = f"🚦{username}, gặp lỗi khi tạo danh sách hình ảnh bài hát."
-        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        offset = zalo_offset(text, username)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
 
     if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
         try:
@@ -954,15 +1017,14 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
 
 txa = {
-    "name": "pro_ncl",
+    "name": "pro_nct",
     "desc": {
-        "ncl": "Nghe nhạc NhacCuaTui",
         "nct": "Nghe nhạc NhacCuaTui",
         "nhaccuatui": "Nghe nhạc NhacCuaTui",
         "nctchart": "Bảng xếp hạng NCT"
     },
     "author": "TXA",
-    "command": ['ncl', 'nct', 'nhaccuatui', 'nctchart']
+    "command": ['nct', 'nhaccuatui', 'nctchart']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -974,7 +1036,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         custom_msg = f"{prefix}nct chart"
         
     dispatch_map = {
-        'ncl': handle_nct_command,
         'nct': handle_nct_command,
         'nhaccuatui': handle_nct_command,
         'nctchart': handle_nct_command
@@ -982,7 +1043,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     
     func = dispatch_map.get(cmd)
     if func:
-        import inspect
+
         sig = inspect.signature(func)
         args_map = {
             'bot': bot,

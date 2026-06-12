@@ -2,6 +2,9 @@ import requests
 import hashlib
 import hmac
 import time
+import subprocess
+import inspect
+import unicodedata
 import urllib.parse
 import os
 import re
@@ -12,15 +15,13 @@ from io import BytesIO
 import emoji
 from colorsys import hsv_to_rgb, rgb_to_hsv
 from zlapi.models import *
-from core.bot_sys import _music_styled_msg
-
+from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file
+user_states = USER_MUSIC_STATES
 API_KEY = "X5BM3w8N7MKozC0B85o4KMlzLZKhV00y"
 SECRET_KEY = "acOrvUS15XRW2o9JksiK1KgQ6Vbds8ZW"
 VERSION = "1.11.13"
 ZING_URL = "https://zingmp3.vn"
-
-p_list = ["ctime", "id", "type", "page", "count", "version"]
-user_states = {}
+p_list = ["id", "ctime", "version", "page", "count", "type"]
 SEARCH_TIMEOUT = 120
 
 BACKGROUND_PATH = "background/"
@@ -126,15 +127,54 @@ def format_number(number):
     except:
         return str(number)
 
+def sanitize_text(text):
+    """Remove/replace characters that cause rendering issues (boxes) in PIL fonts."""
+    if not text:
+        return ""
+    result = []
+    for char in text:
+        cp = ord(char)
+        # Skip variation selectors, zero-width chars, and other invisible modifiers
+        if cp in (0xFE0F, 0xFE0E, 0x200B, 0x200C, 0x200D, 0xFEFF, 0x2060):
+            continue
+        # Skip combining marks that don't render standalone
+        cat = unicodedata.category(char)
+        if cat.startswith('Mn') or cat.startswith('Mc') or cat.startswith('Me'):
+            continue
+        # Skip private use area characters
+        if 0xE000 <= cp <= 0xF8FF or 0xF0000 <= cp <= 0xFFFFF:
+            continue
+        # Skip surrogate pairs (shouldn't appear in Python 3 but just in case)
+        if 0xD800 <= cp <= 0xDFFF:
+            continue
+        result.append(char)
+    return ''.join(result)
+
+def font_has_glyph(font, char):
+    """Check if a font can render a character (not a tofu/box)."""
+    try:
+        # If the font returns 0 width for the char, it likely can't render it
+        if hasattr(font, 'getbbox'):
+            bbox = font.getbbox(char)
+            if bbox is None or (bbox[2] - bbox[0]) <= 0:
+                return False
+        return True
+    except:
+        return False
+
 def get_text_width(draw, text, font_used):
     bbox = draw.textbbox((0, 0), text, font=font_used)
     return bbox[2] - bbox[0]
 
 def truncate_text(draw, text, max_width, font_text, font_emoji):
+    text = sanitize_text(text)
     result = ''
     total_width = 0
     for char in text:
-        font_used = font_emoji if emoji.is_emoji(char) else font_text
+        if emoji.is_emoji(char) and font_has_glyph(font_emoji, char):
+            font_used = font_emoji
+        else:
+            font_used = font_text
         char_width = get_text_width(draw, char, font_used)
         if total_width + char_width > max_width:
             result += '...'
@@ -147,6 +187,7 @@ def draw_text_with_shadow(draw, position, text, font, fill, shadow_color=(0, 0, 
     x, y = position
     draw.text((x + shadow_offset[0], y + shadow_offset[1]), text, font=font, fill=shadow_color)
     draw.text((x, y), text, font=font, fill=fill)
+
 
 def create_song_list_image(songs):
     try:
@@ -268,7 +309,10 @@ def create_song_list_image(songs):
             truncated_title = truncate_text(draw, title, max_text_width, font, emoji_font)
 
             for char in truncated_title:
-                font_used = emoji_font if emoji.is_emoji(char) else font
+                if emoji.is_emoji(char) and font_has_glyph(emoji_font, char):
+                    font_used = emoji_font
+                else:
+                    font_used = font
                 draw_text_with_shadow(draw, (x_text, y_text), char, font_used, title_color)
                 x_text += get_text_width(draw, char, font_used)
 
@@ -276,7 +320,10 @@ def create_song_list_image(songs):
             y_artist = y_text + int(35 * scale)
             truncated_artist = truncate_text(draw, artists, max_text_width, artist_font, artist_emoji_font)
             for char in truncated_artist:
-                font_used = artist_emoji_font if emoji.is_emoji(char) else artist_font
+                if emoji.is_emoji(char) and font_has_glyph(artist_emoji_font, char):
+                    font_used = artist_emoji_font
+                else:
+                    font_used = artist_font
                 draw_text_with_shadow(draw, (x_artist, y_artist), char, font_used, artist_color, shadow_offset=(1, 1))
                 x_artist += get_text_width(draw, char, font_used)
 
@@ -284,8 +331,12 @@ def create_song_list_image(songs):
             x_info = left + card_padding + thumb_size + 20 * scale
             info_height = info_font.size
             y_info = top + card_height - card_padding - info_height
+            info_text = sanitize_text(info_text)
             for char in info_text:
-                font_used = info_emoji_font if emoji.is_emoji(char) else info_font
+                if emoji.is_emoji(char) and font_has_glyph(info_emoji_font, char):
+                    font_used = info_emoji_font
+                else:
+                    font_used = info_font
                 fill_color = icon_colors.get(char, info_color) 
                 draw_text_with_shadow(draw, (x_info, y_info), char, font_used, fill_color, shadow_offset=(1, 1))
                 x_info += get_text_width(draw, char, font_used)
@@ -379,10 +430,14 @@ def create_single_song_image(song):
         max_text_width = img_width - text_x - padding
 
         def shorten_text(text, font, emoji_font):
+            text = sanitize_text(text)
             current_width = 0
             result = ""
             for char in text:
-                f = emoji_font if emoji.emoji_count(char) else font
+                if emoji.is_emoji(char) and font_has_glyph(emoji_font, char):
+                    f = emoji_font
+                else:
+                    f = font
                 char_width = f.getlength(char)
                 if current_width + char_width > max_text_width:
                     result += "..."
@@ -393,13 +448,21 @@ def create_single_song_image(song):
 
         def draw_gradient_text_line(draw, text, x, y, font, emoji_font):
             shortened = shorten_text(text, font, emoji_font)
-            total_width = sum((emoji_font if emoji.emoji_count(c) else font).getlength(c) for c in shortened)
+            total_width = 0
+            for c in shortened:
+                if emoji.is_emoji(c) and font_has_glyph(emoji_font, c):
+                    total_width += emoji_font.getlength(c)
+                else:
+                    total_width += font.getlength(c)
 
             current_x = x
             for char in shortened:
-                f = emoji_font if emoji.emoji_count(char) else font
+                if emoji.is_emoji(char) and font_has_glyph(emoji_font, char):
+                    f = emoji_font
+                else:
+                    f = font
                 char_width = f.getlength(char)
-                color = get_gradient_color(current_x - x, total_width)
+                color = get_gradient_color(current_x - x, total_width) if total_width > 0 else (255, 255, 255)
 
                 shadow_offset = 2
                 draw.text((current_x + shadow_offset, y + shadow_offset), char, font=f, fill=(0, 0, 0, 120))
@@ -422,13 +485,23 @@ def create_single_song_image(song):
         return None
 
 def upload_to_uguu(file_path):
+    if file_path.endswith('.mp3') or file_path.endswith('.m4a'):
+        return upload_file(file_path, "audio/mp4")
+    elif file_path.endswith('.webp'):
+        return upload_file(file_path, "image/webp")
+    else:
+        return upload_file(file_path, "image/png")
+
+def convert_mp3_to_m4a(mp3_path):
+    m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
-        with open(file_path, 'rb') as file:
-            response = requests.post("https://uguu.se/upload", files={'files[]': file})
-            return response.json().get('files')[0].get('url')
+        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        if os.path.exists(m4a_path):
+            return m4a_path
     except Exception as e:
-        print("Upload to uguu error:", e)
-        return None
+        print(f"Error converting to m4a: {e}")
+    return mp3_path
 
 def delete_file(file_path):
     try:
@@ -458,26 +531,35 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
     content = message.strip().split()
 
+    # Check if it's just a digit and we have a state for this user
+    is_direct_selection = message.strip().isdigit() and author_id in user_states and user_states[author_id].get('source') == 'zingmp3'
+    is_command_selection = len(content) == 2 and content[0].lower() in [f"{client.prefix}mp3", f"{client.prefix}zingmp3"] and content[1].isdigit()
+    
     # Reply Selection
-    if len(content) == 2 and content[0].lower() in [f"{client.prefix}mp3", f"{client.prefix}zingmp3"] and content[1].isdigit():
+    if is_direct_selection or is_command_selection:
+        selected_number = message.strip() if is_direct_selection else content[1]
         if author_id not in user_states:
             return
 
         state = user_states[author_id]
         if time.time() - state['time_of_search'] > SEARCH_TIMEOUT:
             del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
             text = f"🚦{username} Thời gian chọn bài hát đã hết hạn! Vui lòng tìm kiếm lại nhé."
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             return
 
         songs = state['songs']
-        selector_index = int(content[1]) - 1 
+        selector_index = int(selected_number) - 1 
 
         if selector_index < 0 or selector_index >= len(songs):
-            text = f"🚦{username}, số thứ tự không hợp lệ: {content[1]}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            text = f"🚦{username}, số thứ tự không hợp lệ: {selected_number}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
@@ -517,11 +599,12 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             comments = info_data.get("comment", comments)
             song = (encode_id, title, cover_url, plays, likes, comments, artists)
 
-        text = f"""🚦{username} chọn: {content[1]}
+        text = f"""🚦{username} chọn: {selected_number}
 📩 Tên Bài Hát: {title}
 👤 Ca sĩ: {artists}
 ⏳ Bé đang tải nhạc, đợi tí nha... 🎧"""
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
         # Get stream link
@@ -549,8 +632,11 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             with open(temp_file, "wb") as f:
                 f.write(r_audio.content)
             
-            upload_url = upload_to_uguu(temp_file)
+            m4a_file = convert_mp3_to_m4a(temp_file)
+            upload_url = upload_to_uguu(m4a_file)
             delete_file(temp_file)
+            if m4a_file != temp_file:
+                delete_file(m4a_file)
 
             if not upload_url:
                 text = f"🚦{username}, không thể tải nhạc lên server trung gian 🤧"
@@ -564,6 +650,24 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                 delete_file(song_image_path)
 
             client.sendRemoteVoice(voiceUrl=upload_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+
+            try:
+                if cover_url:
+
+                    res = create_rotating_webp(cover_url)
+                    if res:
+                        static_path, animated_path = res
+                        delete_file(static_path)
+                        try:
+                            upload_res = client._uploadImage(animated_path, thread_id, thread_type)
+                            if upload_res:
+                                webp_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
+                                if webp_url:
+                                    client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                        finally:
+                            delete_file(animated_path)
+            except Exception as disc_err:
+                print("Lỗi tạo sticker đĩa xoay ZingMP3:", disc_err)
             
             # Send lyrics if available
             lyric_res = request_zing("/api/v2/lyric/get/lyric", {"id": encode_id})
@@ -583,6 +687,8 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
         if author_id in user_states:
             del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
         return
 
     # Help/No search keyword
@@ -590,13 +696,14 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         action = random.choice(reactions)
         if random.random() > 0.3:
             client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
-        client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         
         caption = f"""🚦{username}
 ➜ Vui lòng nhập từ khóa tìm kiếm sau lệnh {client.prefix}mp3 🎵
 ➜ Ví dụ: {client.prefix}mp3 dừng thương
 ➜ Lấy BXH HOT nhất: {client.prefix}mp3 chart"""
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = caption.find(username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=caption, mention=mention), message_object, thread_id, thread_type)
         return
 
@@ -605,7 +712,7 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
     action = random.choice(reactions)
     if random.random() > 0.3:
         client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
-    client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
 
     if query.lower() == "chart":
         pending_msg = client.replyMessage(_music_styled_msg(text="⏳ Đang tải bảng xếp hạng ZingMP3..."), message_object, thread_id, thread_type)
@@ -618,7 +725,8 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                 except:
                     pass
             text = f"🚦{username}, không thể lấy bảng xếp hạng ZingMP3."
-            client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+            offset = zalo_offset(text, username)
+            client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
             return
 
         items = chart_res["data"]["RTChart"].get("items", [])[:20]
@@ -629,7 +737,8 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                 except:
                     pass
             text = f"🚦{username}, bảng xếp hạng rỗng."
-            client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+            offset = zalo_offset(text, username)
+            client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
             return
 
         songs_list = []
@@ -678,13 +787,15 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             'songs': songs_list,
             'time_of_search': time.time(),
             'query_msg_id': message_object.msgId if message_object else None,
-            'query_cli_msg_id': message_object.cliMsgId if message_object else None
+            'query_cli_msg_id': message_object.cliMsgId if message_object else None,
+            'source': 'zingmp3'
         }
         
         image_path = create_song_list_image(songs_list)
         if image_path:
             text = f"🏆 TOP 10 Bài Hát Hot Nhất ZingMP3 BXH 🏆\n\n🚦{username}, Nhập {client.prefix}mp3 <số> để chọn nghe bài nhé!"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             with Image.open(image_path) as img:
                 w, h = img.size
             sent_msg = client.sendLocalImage(image_path, message=_music_styled_msg(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
@@ -710,7 +821,8 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             except:
                 pass
         text = f"🚦{username}, không tìm thấy bài hát nào trên ZingMP3."
-        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        offset = zalo_offset(text, username)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
         return
 
     items = search_res["data"]["items"][:20]
@@ -761,13 +873,15 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         'songs': songs_list,
         'time_of_search': time.time(),
         'query_msg_id': message_object.msgId if message_object else None,
-        'query_cli_msg_id': message_object.cliMsgId if message_object else None
+        'query_cli_msg_id': message_object.cliMsgId if message_object else None,
+        'source': 'zingmp3'
     }
 
     image_path = create_song_list_image(songs_list)
     if image_path:
         text = f"🚦{username}, Nhập {client.prefix}mp3 <số> để chọn nghe bài nhé! 🎧"
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         with Image.open(image_path) as img:
             w, h = img.size
         sent_msg = client.sendLocalImage(image_path, message=_music_styled_msg(text=text, mention=mention), thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
@@ -776,7 +890,8 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         delete_file(image_path)
     else:
         text = f"🚦{username}, gặp lỗi khi tạo danh sách hình ảnh bài hát."
-        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None), message_object, thread_id, thread_type)
+        offset = zalo_offset(text, username)
+        client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
 
     if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
         try:
@@ -810,7 +925,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     
     func = dispatch_map.get(cmd)
     if func:
-        import inspect
+
         sig = inspect.signature(func)
         args_map = {
             'bot': bot,

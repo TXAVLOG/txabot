@@ -69,6 +69,18 @@ class State(object):
 				url = f"https://wpa.chat.zalo.me/api/login/getLoginInfo?imei={imei}&type=30&client_version=645&computer_name=Web&ts={_util.now()}"
 				response = requests.get(url, headers=headers, cookies=cls._cookies)
 				data = response.json()
+				
+				if not isinstance(data, dict) or not data.get("data"):
+					error_code = data.get("error_code") if isinstance(data, dict) else "Unknown"
+					error_msg = data.get("error_message") if isinstance(data, dict) else "Unknown"
+					raise _exception.ZaloLoginError(
+						"\n\033[1;31m======================================================\033[0m"
+						"\n\033[1;33m⚠️  CẢNH BÁO: PHIÊN ĐĂNG NHẬP ZALO HẾT HẠN HOẶC SAI THÔNG TIN!\033[0m"
+						"\n\033[1;36m👉 Vui lòng lấy cookie/imei mới cập nhật vào file txa.json\033[0m"
+						f"\n\033[1;31m❌ Chi tiết lỗi Zalo: Code={error_code} | Message='{error_msg}'\033[0m"
+						"\n\033[1;31m======================================================\033[0m"
+					)
+				
 				zpw = data["data"]["zpw_ws"]
 				uid = data["data"]["uid"]
 				phone = data["data"]["phone_number"]

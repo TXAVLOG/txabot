@@ -1,3 +1,4 @@
+import os
 import inspect
 from core.bot_sys import is_admin, read_settings, write_settings, get_user_name_by_id, cleanup_pending_messages, is_group_admin_or_creator
 from zlapi.models import Message, ThreadType, Mention
@@ -11,10 +12,12 @@ txa = {
         "huykey": "Hủy key",
         "listkey": "Danh sách key",
         "duyetmedia": "Duyệt gửi media",
-        "duyetanh": "Duyệt gửi ảnh"
+        "duyetanh": "Duyệt gửi ảnh",
+        "duyetnude": "Duyệt gửi ảnh nude",
+        "unduyetnude": "Hủy duyệt gửi ảnh nude"
     },
     "author": "TXA",
-    "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh"],
+    "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh", "duyetnude", "unduyetnude"],
     "help": {
         "duyet": {
             "usage": [
@@ -80,6 +83,84 @@ def duyet_cmd(bot, message_object, thread_id, thread_type, author_id, message_te
             Message(text="⚠️ Vui lòng tag người dùng hoặc nhập UID để duyệt quyền.\n➜ Cú pháp: !duyet <@tag/ID>"),
             message_object, thread_id, thread_type
         )
+        return
+
+    if target_uid.lower() in ['y', 'yes', 'n', 'no']:
+        from core import bot_sys
+        pending_file = "cache/pending_image_approvals.txt"
+        if not bot_sys.PENDING_IMAGE_STATE and os.path.exists(pending_file):
+            with open(pending_file, "r", encoding="utf-8") as f:
+                bot_sys.PENDING_IMAGE_STATE = [line.strip() for line in f if line.strip()]
+                
+        uids_to_approve = list(bot_sys.PENDING_IMAGE_STATE)
+        if not uids_to_approve:
+            bot.replyMessage(
+                Message(text="⚠️ Không có yêu cầu duyệt kho ảnh nào đang chờ!"),
+                message_object, thread_id, thread_type
+            )
+            return
+        
+        settings = read_settings(bot.uid)
+        approved_users = settings.setdefault("image_approved_users", [])
+        image_expiry = settings.setdefault("image_approved_users_expiry", {})
+        
+        if target_uid.lower() in ['y', 'yes']:
+            time_arg = ""
+            parts = message_text.split()
+            if len(parts) > 2:
+                time_arg = " ".join(parts[2:])
+            from core.bot_sys import parse_expiration_time, datetime as sys_datetime
+            expiry_time = None
+            if time_arg:
+                expiry_time = parse_expiration_time(time_arg)
+                
+            approved_names = []
+            for p_uid in uids_to_approve:
+                if p_uid not in approved_users:
+                    approved_users.append(p_uid)
+                image_expiry[p_uid] = expiry_time
+                cleanup_pending_messages(bot, p_uid)
+                try:
+                    if expiry_time:
+                        expiry_str = sys_datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
+                        inbox_text = f"🎉 Chào bạn, bạn đã được Admin duyệt quyền sử dụng các lệnh kho ảnh của TXA Bot đến {expiry_str}! Hãy trải nghiệm nhé. 🌸"
+                    else:
+                        inbox_text = f"🎉 Chào bạn, bạn đã được Admin duyệt quyền sử dụng các lệnh kho ảnh của TXA Bot vô thời hạn! Hãy trải nghiệm nhé. 🌸"
+                    bot.send(Message(text=inbox_text), thread_id=p_uid, thread_type=ThreadType.USER)
+                except Exception as e:
+                    print(f"[ERROR] Không thể gửi tin nhắn riêng cho {p_uid}: {e}")
+                p_name = get_user_name_by_id(bot, p_uid)
+                approved_names.append(f"{p_name} ({p_uid})")
+                
+            settings["image_approved_users"] = approved_users
+            settings["image_approved_users_expiry"] = image_expiry
+            write_settings(bot.uid, settings)
+            
+            names_str = ", ".join(approved_names)
+            if expiry_time:
+                expiry_str = sys_datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
+                response_text = f"🔑 Đã duyệt quyền sử dụng Kho ảnh đến {expiry_str} cho các thành viên:\n➜ {names_str} thành công! ✅"
+            else:
+                response_text = f"🔑 Đã duyệt quyền sử dụng Kho ảnh vô thời hạn cho các thành viên:\n➜ {names_str} thành công! ✅"
+            bot.replyMessage(Message(text=response_text), message_object, thread_id, thread_type)
+        else:
+            bot.replyMessage(
+                Message(text=f"❌ Đã từ chối duyệt Kho ảnh cho {len(uids_to_approve)} yêu cầu trong danh sách chờ."),
+                message_object, thread_id, thread_type
+            )
+            
+        bot_sys.PENDING_IMAGE_STATE = []
+        try:
+            if os.path.exists(pending_file):
+                os.remove(pending_file)
+        except Exception as e:
+            print("Error removing pending_image_approvals file:", e)
+            
+        from colorama import Fore, Style
+        print(f"{Fore.GREEN}{Style.BRIGHT}[IMAGE STATE] ============================================================{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}│- GIẢI PHÓNG STATE DUYỆT ẢNH - Xác nhận bởi Admin ({target_uid}){Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}│- Đã giải phóng {len(uids_to_approve)} UID khỏi state chờ duyệt kho ảnh.{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}[IMAGE STATE] ============================================================{Style.RESET_ALL}")
         return
 
     if not target_uid.isdigit():
@@ -574,6 +655,187 @@ def duyetmedia_cmd(bot, message_object, thread_id, thread_type, author_id, messa
             message_object, thread_id, thread_type
         )
 
+def duyetnude_cmd(bot, message_object, thread_id, thread_type, author_id, message_text):
+    if not is_admin(bot, author_id):
+        bot.replyMessage(
+            Message(text="❌ Bạn không có quyền sử dụng lệnh này (Chỉ dành cho Admin Bot)."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    target_uid = None
+    if message_object.mentions:
+        target_uid = message_object.mentions[0]['uid']
+    else:
+        parts = message_text.split()
+        if len(parts) > 1:
+            target_uid = parts[1].strip()
+            if target_uid.startswith('@'):
+                target_uid = target_uid[1:]
+
+    if not target_uid:
+        bot.replyMessage(
+            Message(text="⚠️ Vui lòng tag người dùng hoặc nhập UID để duyệt quyền nude.\n➜ Cú pháp: !duyetnude <@tag/ID>"),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    if not target_uid.isdigit():
+        bot.replyMessage(
+            Message(text="⚠️ ID người dùng không hợp lệ! Vui lòng nhập UID dạng số hoặc tag trực tiếp người đó."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    settings = read_settings(bot.uid)
+    nude_approved = settings.setdefault("nude_approved_users", [])
+
+    if target_uid in nude_approved:
+        target_name = get_user_name_by_id(bot, target_uid)
+        bot.replyMessage(
+            Message(text=f"💡 Người dùng {target_name} ({target_uid}) đã được duyệt quyền nude từ trước rồi."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    # Lấy time_arg cho !duyetnude
+    time_arg = ""
+    if message_object.mentions:
+        mention = message_object.mentions[0]
+        offset = mention['offset']
+        length = mention['length']
+        time_arg = message_text[offset + length:].strip()
+    else:
+        parts = message_text.split()
+        if len(parts) > 2:
+            time_arg = " ".join(parts[2:])
+
+    from core.bot_sys import parse_expiration_time, datetime
+    import time
+    expiry_time = None
+    if time_arg:
+        expiry_time = parse_expiration_time(time_arg)
+        if not expiry_time:
+            bot.replyMessage(
+                Message(text="⚠️ Định dạng thời gian không hợp lệ! Vui lòng nhập số giây (ví dụ: 60) hoặc ngày giờ (ví dụ: 10:30:00 06/06/2026)."),
+                message_object, thread_id, thread_type
+            )
+            return
+    else:
+        # Nếu không có time_arg, mặc định cấp quyền 1 ngày (50k / 1 ngày)
+        expiry_time = time.time() + 86400
+
+    nude_approved.append(target_uid)
+    settings["nude_approved_users"] = nude_approved
+    
+    nude_expiry = settings.setdefault("nude_approved_users_expiry", {})
+    nude_expiry[target_uid] = expiry_time
+    settings["nude_approved_users_expiry"] = nude_expiry
+    
+    write_settings(bot.uid, settings)
+
+    target_name = get_user_name_by_id(bot, target_uid)
+    
+    # Gửi tin nhắn riêng (Inbox) báo cho người dùng biết
+    try:
+        if expiry_time:
+            expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
+            inbox_text = f"🎉 Chào bạn, bạn đã được Admin duyệt quyền sử dụng các lệnh ảnh nude/nhạy cảm (girlnude, girllon) của TXA Bot đến {expiry_str}! Hãy trải nghiệm nhé. 🌸"
+        else:
+            inbox_text = f"🎉 Chào bạn, bạn đã được Admin duyệt quyền sử dụng các lệnh ảnh nude/nhạy cảm (girlnude, girllon) của TXA Bot vô thời hạn! Hãy trải nghiệm nhé. 🌸"
+        bot.send(Message(text=inbox_text), thread_id=target_uid, thread_type=ThreadType.USER)
+    except Exception as e:
+        print(f"[ERROR] Không thể gửi tin nhắn riêng cho {target_uid}: {e}")
+
+    # Gửi phản hồi lại nhóm chat / thread hiện tại
+    if expiry_time:
+        expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
+        response_text = f"✅ Đã duyệt quyền sử dụng các lệnh ảnh nude cho {target_name} ({target_uid}) đến {expiry_str}."
+    else:
+        response_text = f"✅ Đã duyệt quyền sử dụng các lệnh ảnh nude cho {target_name} ({target_uid}) vô thời hạn."
+        
+    mention = None
+    if target_name != "Unknown User":
+        if expiry_time:
+            response_text = f"✅ Đã duyệt quyền sử dụng các lệnh ảnh nude cho {target_name} đến {expiry_str}."
+        else:
+            response_text = f"✅ Đã duyệt quyền sử dụng các lệnh ảnh nude cho {target_name} vô thời hạn."
+        offset = response_text.find(target_name)
+        length = len(target_name)
+        mention = Mention(uid=target_uid, length=length, offset=offset)
+
+    bot.replyMessage(Message(text=response_text, mention=mention), message_object, thread_id, thread_type)
+
+def unduyetnude_cmd(bot, message_object, thread_id, thread_type, author_id, message_text):
+    if not is_admin(bot, author_id):
+        bot.replyMessage(
+            Message(text="❌ Bạn không có quyền sử dụng lệnh này (Chỉ dành cho Admin Bot)."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    target_uid = None
+    if message_object.mentions:
+        target_uid = message_object.mentions[0]['uid']
+    else:
+        parts = message_text.split()
+        if len(parts) > 1:
+            target_uid = parts[1].strip()
+            if target_uid.startswith('@'):
+                target_uid = target_uid[1:]
+
+    if not target_uid:
+        bot.replyMessage(
+            Message(text="⚠️ Vui lòng tag người dùng hoặc nhập UID để hủy duyệt quyền nude.\n➜ Cú pháp: !unduyetnude <@tag/ID>"),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    if not target_uid.isdigit():
+        bot.replyMessage(
+            Message(text="⚠️ ID người dùng không hợp lệ! Vui lòng nhập UID dạng số hoặc tag trực tiếp người đó."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    settings = read_settings(bot.uid)
+    nude_approved = settings.setdefault("nude_approved_users", [])
+
+    if target_uid not in nude_approved:
+        target_name = get_user_name_by_id(bot, target_uid)
+        bot.replyMessage(
+            Message(text=f"💡 Người dùng {target_name} ({target_uid}) chưa từng được duyệt quyền nude."),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    nude_approved.remove(target_uid)
+    settings["nude_approved_users"] = nude_approved
+    
+    nude_expiry = settings.get("nude_approved_users_expiry", {})
+    nude_expiry.pop(target_uid, None)
+    settings["nude_approved_users_expiry"] = nude_expiry
+    
+    write_settings(bot.uid, settings)
+
+    target_name = get_user_name_by_id(bot, target_uid)
+
+    try:
+        inbox_text = f"⚠️ Chào bạn, bạn đã bị Admin hủy quyền sử dụng các lệnh ảnh nude/nhạy cảm (girlnude, girllon) của TXA Bot."
+        bot.send(Message(text=inbox_text), thread_id=target_uid, thread_type=ThreadType.USER)
+    except Exception as e:
+        print(f"[ERROR] Không thể gửi tin nhắn riêng cho {target_uid}: {e}")
+
+    response_text = f"✅ Đã hủy duyệt quyền sử dụng các lệnh ảnh nude đối với {target_name} ({target_uid})."
+    mention = None
+    if target_name != "Unknown User":
+        response_text = f"✅ Đã hủy duyệt quyền sử dụng các lệnh ảnh nude đối với {target_name}."
+        offset = response_text.find(target_name)
+        length = len(target_name)
+        mention = Mention(uid=target_uid, length=length, offset=offset)
+
+    bot.replyMessage(Message(text=response_text, mention=mention), message_object, thread_id, thread_type)
+
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()
@@ -585,7 +847,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         'huykey': huykey_cmd,
         'listkey': listkey_cmd,
         'duyetmedia': duyetmedia_cmd,
-        'duyetanh': duyetmedia_cmd
+        'duyetanh': duyetmedia_cmd,
+        'duyetnude': duyetnude_cmd,
+        'unduyetnude': unduyetnude_cmd
     }
     
     func = dispatch_map.get(cmd)

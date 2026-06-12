@@ -294,7 +294,7 @@ def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_typ
         return
 
     try:
-        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
     except Exception:
         pass
 
@@ -313,7 +313,7 @@ def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_typ
                 message=Message(text=f"Tiêu đề: TikTok video\n🔗 Link: {link}")
             )
             try:
-                bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
             except Exception:
                 pass
             return
@@ -348,7 +348,7 @@ def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_typ
             message=Message(text=f"Tiêu đề: {title}")
         )
         try:
-            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         except Exception:
             pass
     except Exception as e:

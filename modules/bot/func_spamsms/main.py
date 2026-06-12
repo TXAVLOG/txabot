@@ -185,7 +185,7 @@ def handle_sms_command(message, message_object, thread_id, thread_type, author_i
         remaining_seconds = remaining_time % 60
         if random.random() > 0.3:
             bot.sendReaction(message_object, "⏱️", thread_id, thread_type)
-        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         return
 
     current_processing_number = sdt

@@ -426,16 +426,18 @@ def qr(message, message_object, thread_id, thread_type, author_id, client):
         background = background.resize((840, 1280), Image.LANCZOS)
         background = background.filter(ImageFilter.GaussianBlur(radius=5))
 
-        qr_data = client.getQRLink(target_id)
-        if not qr_data or target_id not in qr_data:
-            client.send(
-                Message(text="Không thể lấy mã QR của người dùng."),
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-            return
+        qr_link = None
+        if hasattr(client, "getQRLink"):
+            try:
+                qr_data = client.getQRLink(target_id)
+                if qr_data and target_id in qr_data:
+                    qr_link = qr_data[target_id]
+            except Exception as e:
+                print(f"[menu_zl] Lỗi gọi client.getQRLink: {e}")
 
-        qr_link = qr_data[target_id]
+        if not qr_link:
+            qr_link = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=https://zalo.me/{target_id}"
+
         qr_response = requests.get(qr_link)
         if qr_response.status_code != 200:
             client.send(
@@ -679,8 +681,8 @@ def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
     for i, char in enumerate(text):
         color = tuple(gradient[i])
         try:
-            is_emoji_char = ord(char) >= 0x1F000
-            selected_font = emoji_font if is_emoji_char and emoji_font else font
+            is_emoji_char = is_emoji(char)
+            selected_font = emoji_font if is_emoji_char else font
             draw.text((current_x, text_position[1]), char, fill=color, font=selected_font)
             try:
                 text_width = selected_font.getlength(char)
@@ -694,312 +696,58 @@ def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
             print(f"Lỗi khi vẽ ký tự '{char}': {e}. Bỏ qua ký tự này.")
             continue
 
-def add_round_corners(image: Image.Image, radius: int) -> Image.Image:
-    mask = Image.new("L", image.size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([(0, 0), image.size], radius=radius, fill=255)
-    image.putalpha(mask)
-    return image
-
-
-def get_random_text_color():
-    return random.choice([(255, 255, 255), (0, 0, 0)])
-
-def info(message, message_object, thread_id, thread_type, author_id, client):
-    try:
-        mentions = message_object.mentions
-        if mentions:
-            target_id = mentions[0]['uid']
-        else:
-            target_id = author_id
-
-        user_info = client.fetchUserInfo(target_id)
-        user = user_info.changed_profiles.get(target_id)
-        if not user:
-            client.send(
-                Message(text="Không thể lấy thông tin người dùng."),
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-            return
-        text_mode = random.choice(['black', 'white'])
-        text_color = (0, 0, 0) if text_mode == 'black' else (255, 255, 255)
-        
-        glass_color_r = random.randint(50, 200)
-        glass_color_g = random.randint(50, 200)
-        glass_color_b = random.randint(50, 200)
-        glass_color = (glass_color_r, glass_color_g, glass_color_b, 180)
-        
-        bg_color = (
-            random.randint(0, 255),
-            random.randint(0, 255),
-            random.randint(0, 255)
-        )
-        background = Image.new("RGB", (1280, 768), bg_color)
-        background_dir = "background"
-        background_files = [os.path.join(background_dir, f) for f in os.listdir(background_dir) if f.endswith(('.png', '.jpg'))]
-        glass_background_path = random.choice(background_files)
-        glass_background = Image.open(glass_background_path).convert("RGBA")
-        glass_background = glass_background.resize((1280, 768))
-        blurred_glass_bg = glass_background.filter(ImageFilter.GaussianBlur(radius=15))
-        overlay = Image.new("RGBA", background.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-        margin = 50
-        glass_width = background.size[0] - 2 * margin
-        glass_height = background.size[1] - 2 * margin
-        mask = Image.new("L", background.size, 0)
-        mask_draw = ImageDraw.Draw(mask)
-        mask_draw.rounded_rectangle([(margin, margin), (margin + glass_width, margin + glass_height)], 
-                                  radius=30, fill=255)
-        glass_layer = Image.new("RGBA", background.size, (0, 0, 0, 0))
-        glass_layer.paste(blurred_glass_bg, (0, 0), mask)
-        overlay = Image.alpha_composite(overlay, glass_layer)
-        background = Image.alpha_composite(background.convert("RGBA"), overlay)
-        
-        small_glass_width = 420
-        small_glass_height = glass_height - 1
-        small_glass_x = margin + 1
-        small_glass_y = margin + 1
-        cover_photo = None
-        if hasattr(user, 'cover') and user.cover:
-            try:
-                cover_response = requests.get(user.cover)
-                if cover_response.status_code == 200:
-                    cover_photo = Image.open(BytesIO(cover_response.content)).convert("RGBA")
-                    cover_photo = cover_photo.resize((small_glass_width, small_glass_height), Image.LANCZOS)
-                    cover_photo = cover_photo.filter(ImageFilter.GaussianBlur(radius=10))
-                    cover_overlay = Image.new("RGBA", (small_glass_width, small_glass_height), (0, 0, 0, 100))
-                    cover_photo = Image.alpha_composite(cover_photo, cover_overlay)
-                    cover_mask = Image.new("L", (small_glass_width, small_glass_height), 0)
-                    mask_draw = ImageDraw.Draw(cover_mask)
-                    mask_draw.rounded_rectangle([(0, 0), (small_glass_width, small_glass_height)], 
-                                              radius=25, fill=255)
-                    cover_photo.putalpha(cover_mask)
-            except Exception as e:
-                print(f"Error loading cover photo: {e}")
-        
-        small_overlay = Image.new("RGBA", (small_glass_width, small_glass_height), (0, 0, 0, 0))
-        small_draw = ImageDraw.Draw(small_overlay)
-        if cover_photo:
-            small_overlay.paste(cover_photo, (0, 0), cover_photo)
-        else:
-            small_draw.rounded_rectangle([(0, 0), (small_glass_width, small_glass_height)], 
-                                       radius=25, fill=glass_color)
-        
-        shadow_overlay = Image.new("RGBA", (small_glass_width, small_glass_height), (0, 0, 0, 0))
-        shadow_draw = ImageDraw.Draw(shadow_overlay)
-        shadow_draw.rounded_rectangle([(0, 0), (small_glass_width, small_glass_height)], 
-                                    radius=25, outline=(0, 0, 0, 120), width=3)
-        small_overlay = Image.alpha_composite(small_overlay, shadow_overlay)
-        background.paste(small_overlay, (small_glass_x, small_glass_y), small_overlay)
-        
-        avatar_overlay = Image.new("RGBA", (240, 240), glass_color)
-        avatar_overlay = add_round_corners(avatar_overlay, 120)
-        avatar_x = small_glass_x + (small_glass_width - 240) // 2
-        avatar_y = small_glass_y + 30
-        background.paste(avatar_overlay, (avatar_x, avatar_y), avatar_overlay)
-        
-        below_avatar_glass_width = 340
-        below_avatar_glass_x = small_glass_x + (small_glass_width - below_avatar_glass_width) // 2
-        below_avatar_glass_y = avatar_y + 240 + 20
-        below_avatar_glass_height = 350
-        below_avatar_overlay = Image.new("RGBA", (below_avatar_glass_width, below_avatar_glass_height), (0, 0, 0, 0))
-        below_avatar_draw = ImageDraw.Draw(below_avatar_overlay)
-        below_avatar_glass_color = (255, 255, 255, 40)
-        below_avatar_draw.rounded_rectangle(
-            [(0, 0), (below_avatar_glass_width, below_avatar_glass_height)],
-            radius=20,
-            fill=below_avatar_glass_color
-        )
-        bio_text = user.status if user.status else "Mặc định"
-        bio_font = ImageFont.truetype("font/arial unicode ms.otf", 30)
-        font_path_emoji = os.path.join("font/NotoEmoji-Bold.ttf")
-        emoji_font = ImageFont.truetype(font_path_emoji, size=30) if os.path.exists(font_path_emoji) else None
-        max_width = below_avatar_glass_width - 20
-        wrapped_bio = textwrap.fill(bio_text, width=int(max_width / (bio_font.size * 0.6)))
-        bio_lines = wrapped_bio.split('\n')
-        line_height = bio_font.getbbox('A')[3]
-        total_height = line_height * len(bio_lines)
-        bio_y = (below_avatar_glass_height - total_height) // 2
-        for i, line in enumerate(bio_lines):
-            bio_bbox = below_avatar_draw.textbbox((0, 0), line, font=bio_font)
-            bio_width = bio_bbox[2] - bio_bbox[0]
-            bio_x = (below_avatar_glass_width - bio_width) // 2
-            create_text(below_avatar_draw, line, bio_font, emoji_font, (bio_x, bio_y + i * line_height), [text_color])
-        background.paste(below_avatar_overlay, (below_avatar_glass_x, below_avatar_glass_y), below_avatar_overlay)
-
-        avatar_url = user.avatar
-        if avatar_url:
-            avatar_response = requests.get(avatar_url)
-            if avatar_response.status_code == 200:
-                avatar_image = Image.open(BytesIO(avatar_response.content)).convert("RGBA")
-                avatar_size = 200
-                avatar_image = avatar_image.resize((avatar_size, avatar_size), Image.LANCZOS)
-                mask = Image.new("L", avatar_image.size, 0)
-                draw_mask = ImageDraw.Draw(mask)
-                draw_mask.ellipse((0, 0, avatar_size, avatar_size), fill=255)
-                avatar_image.putalpha(mask)
-                background.paste(avatar_image, (avatar_x + 20, avatar_y + 20), avatar_image)
-
-        name = user.displayName
-        box_width = 350
-        box_height = 80
-        inner_margin = 20
-        right_column_x = margin + glass_width - box_width - inner_margin
-        left_column_x = small_glass_x + small_glass_width + 20
-        total_info_width = (right_column_x - left_column_x) + box_width
-        center_info_x = left_column_x + (total_info_width / 2)
-        max_name_width = right_column_x - left_column_x - 40
-        font_size = 60
-        name_font = ImageFont.truetype("font/arial unicode ms.otf", font_size)
-        font_path_emoji = os.path.join("font/NotoEmoji-Bold.ttf")
-        emoji_font = ImageFont.truetype(font_path_emoji, size=font_size) if os.path.exists(font_path_emoji) else None
-        draw = ImageDraw.Draw(background)
-        name_bbox = draw.textbbox((0, 0), name, font=name_font)
-        name_length = name_bbox[2] - name_bbox[0]
-        while name_length > max_name_width and font_size > 30:
-            font_size -= 5
-            name_font = ImageFont.truetype("font/arial unicode ms.otf", font_size)
-            emoji_font = ImageFont.truetype(font_path_emoji, size=font_size) if os.path.exists(font_path_emoji) else None
-            name_bbox = draw.textbbox((0, 0), name, font=name_font)
-            name_length = name_bbox[2] - name_bbox[0]
-        name_x = center_info_x - (name_length / 2)
-        name_y = margin + 50
-        create_text(draw, name, name_font, emoji_font, (name_x, name_y), [text_color])
-        
-        offset = 50
-        start_y = name_y + 100 + offset
-        vertical_spacing = 95
-        box_base_color = (glass_color[0], glass_color[1], glass_color[2])
-        box_color = (
-            box_base_color[0],
-            box_base_color[1],
-            box_base_color[2],
-            160
-        )
-        
-        info_boxes = [
-            {"title": "ID", "value": str(user.userId), "position": (left_column_x, start_y)},
-            {"title": "Sinh nhật", "value": datetime.fromtimestamp(user.dob).strftime("%d/%m/%Y") if user.dob else "hidden", "position": (left_column_x, start_y + vertical_spacing)},
-            {"title": "Hoạt động", "value": datetime.fromtimestamp(user.lastActionTime/1000).strftime("%H:%M %d/%m/%Y") if user.lastActionTime else "Không xác định", "position": (left_column_x, start_y + vertical_spacing*2)},
-            {"title": "Business", "value": "Có" if hasattr(user, 'bizPkg') and user.bizPkg and user.bizPkg.label else "Không", "position": (left_column_x, start_y + vertical_spacing*3)},
-            {"title": "Giới tính", "value": 'Nam' if user.gender == 0 else 'Nữ' if user.gender == 1 else 'Không xác định', "position": (right_column_x, start_y)},
-            {"title": "Ngày tạo", "value": datetime.fromtimestamp(user.createdTs).strftime("%H:%M %d/%m/%Y") if user.createdTs else "Không xác định", "position": (right_column_x, start_y + vertical_spacing)},
-            {"title": "Global ID", "value": str(user.globalId) if hasattr(user, 'globalId') else "Không có", "position": (right_column_x, start_y + vertical_spacing*2)},
-            {"title": "Số điện thoại", "value": "hidden", "position": (right_column_x, start_y + vertical_spacing*3)},
-        ]
-        
-        title_font = ImageFont.truetype("font/arial unicode ms.otf", 20)
-        emoji_font_small = ImageFont.truetype(font_path_emoji, size=20) if os.path.exists(font_path_emoji) else None
-        
-        for box in info_boxes:
-            box_overlay = Image.new("RGBA", (box_width, box_height), (0, 0, 0, 0))
-            box_draw = ImageDraw.Draw(box_overlay)
-            box_draw.rounded_rectangle([(0, 0), (box_width, box_height)], radius=15, fill=box_color)
+def zl_card(bot, message_object, author_id, thread_id, thread_type, command):
+    def send_card():
+        try:
+            # 1. Lấy nội dung tin nhắn AN TOÀN
+            full_text = getattr(message_object, 'text', '') or ''
             
-            title = box["title"]
-            box_draw.text((10, 5), title, fill=text_color, font=title_font)
+            # 2. Tách nội dung sau lệnh (cực kỳ chắc chắn)
+            content = "Ẩn danh"  # Giá trị mặc định
             
-            value = str(box["value"])
-            value_font_size = 20
-            if len(value) > 25:
-                value_font_size = 16
-            elif len(value) > 20:
-                value_font_size = 18
-            value_font = ImageFont.truetype("font/arial unicode ms.otf", value_font_size)
-            emoji_font_value = ImageFont.truetype(font_path_emoji, size=value_font_size) if os.path.exists(font_path_emoji) else None
-            max_chars = int(box_width / (value_font_size * 0.6))
-            if len(value) > max_chars:
-                value = value[:max_chars-3] + "..."
-            create_text(box_draw, value, value_font, emoji_font_value, (10, 35), [text_color])
-            background.paste(box_overlay, box["position"], box_overlay)
-
-        status_font = ImageFont.truetype("font/arial unicode ms.otf", 50)
-        emoji_font_status = ImageFont.truetype(font_path_emoji, size=50) if os.path.exists(font_path_emoji) else None
-        status_text = "📱 💻 🌎"
-        status_bbox = draw.textbbox((0, 0), status_text, font=status_font)
-        status_length = status_bbox[2] - status_bbox[0]
-        left_info_right_edge = left_column_x + box_width
-        right_info_left_edge = right_column_x
-        available_space = right_info_left_edge - left_info_right_edge
-        status_x = left_info_right_edge + (available_space - status_length) // 2
-        status_y = margin + glass_height - 130 + offset
-
-        create_text(draw, status_text, status_font, emoji_font_status, (status_x, status_y), [text_color])
-        
-        qr_data = client.getQRLink(target_id)
-        if not qr_data or target_id not in qr_data:
-            client.send(
-                Message(text="Không thể lấy mã QR của người dùng."),
+            if isinstance(full_text, str):
+                if full_text.startswith('/zl card '):
+                    content = full_text[9:].strip() or "Ẩn danh"
+                elif full_text.startswith('/zlcard '):
+                    content = full_text[8:].strip() or "Ẩn danh"
+            
+            # 3. Xác định người nhận (có mention hay không)
+            mentions = getattr(message_object, 'mentions', [])
+            target_id = mentions[0]['uid'] if mentions else author_id
+            
+            # 4. Lấy thông tin người dùng
+            user_info = bot.fetchUserInfo(target_id)
+            user = user_info.changed_profiles.get(target_id)
+            
+            # 5. Gửi danh thiếp
+            bot.sendBusinessCard(
+                userId=target_id,
+                qrCodeUrl=user.avatar,
+                thread_id=thread_id,
+                thread_type=thread_type,
+                phone=content,
+                ttl=0
+            )
+            
+            # 6. Phản hồi
+            bot.replyMessage(
+                Message(text=f"Đã gửi danh thiếp cho {user.displayName}\nNội dung: {content}"),
+                message_object,
                 thread_id=thread_id,
                 thread_type=thread_type
             )
-            return
-
-        qr_link = qr_data[target_id]
-        qr_response = requests.get(qr_link)
-        if qr_response.status_code != 200:
-            client.send(
-                Message(text="Không thể tải mã QR."),
+            
+        except Exception as e:
+            print(f"Lỗi hệ thống: {str(e)}")
+            bot.replyMessage(
+                Message(text="⚠️ Đã xảy ra lỗi khi gửi danh thiếp"),
+                message_object,
                 thread_id=thread_id,
                 thread_type=thread_type
             )
-            return
 
-        qr_image = Image.open(BytesIO(qr_response.content)).convert("RGBA")
-        qr_size = 120
-        qr_image = qr_image.resize((qr_size, qr_size), Image.LANCZOS)
-        qr_position = (margin + glass_width - qr_size - inner_margin, margin + inner_margin)
-        background.paste(qr_image, qr_position, qr_image)
-
-        image_path = "info.png"
-        background.save(image_path)
-        user_info = client.fetchUserInfo(target_id)
-        user_name = user_info.changed_profiles.get(target_id).displayName
-        message_info = f"🚦 {get_user_name_by_id(client, author_id)} profile {user_name} của bạn đây ✅"
-        client.sendLocalImage(
-            imagePath=image_path,
-            thread_id=thread_id,
-            thread_type=thread_type,
-            message=Message(text=message_info, mention=Mention(author_id, length=len(f"{get_user_name_by_id(client, author_id)}"), offset=3)),
-            height=768,
-            width=1280,
-            ttl=6000000
-        )
-    except Exception as e:
-        client.send(
-            Message(text=f"Đã xảy ra lỗi: {str(e)}"),
-            thread_id=thread_id,
-            thread_type=thread_type
-        )
-
-def create_gradient_colors(num_colors):
-    colors = []
-    for _ in range(num_colors):
-        colors.append((random.randint(100, 175), random.randint(100, 180), random.randint(100, 170)))
-    return colors
-
-def interpolate_colors(colors, text_length, change_every):
-    gradient = []
-    num_segments = len(colors) - 1
-    steps_per_segment = (text_length // change_every) + 1
-
-    for i in range(num_segments):
-        for j in range(steps_per_segment):
-            if len(gradient) < text_length:
-                ratio = j / steps_per_segment
-                interpolated_color = (
-                    int(colors[i][0] * (1 - ratio) + colors[i + 1][0] * ratio),
-                    int(colors[i][1] * (1 - ratio) + colors[i + 1][1] * ratio),
-                    int(colors[i][2] * (1 - ratio) + colors[i + 1][2] * ratio)
-                )
-                gradient.append(interpolated_color)
-    
-    while len(gradient) < text_length:
-        gradient.append(colors[-1])
-
-    return gradient[:text_length]
-
+    thread = Thread(target=send_card)
+    thread.start()
 
 def get_id(bot, message_object, thread_id, author_id):
     try:
@@ -1107,7 +855,7 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
             ]
             if random.random() > 0.3:
                 client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-            client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
             client.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=msg, mention=Mention(author_id, length=len(f"{get_user_name_by_id(client, author_id)}"), offset=0)),
@@ -1128,14 +876,16 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
             command = content[1].lower()
 
             if command == 'qr':
-                qr(message, message_object, thread_id, thread_type, author_id, client)
+                from modules.menu.info_qr.main import qr as run_qr
+                run_qr(message, message_object, thread_id, thread_type, author_id, client)
             elif command == 'id':
                 info_user=get_id(client, message_object, thread_id, author_id)
                 client.replyMessage(Message(text=f"{info_user}"), message_object,thread_id,thread_type)
             elif command == 'card':
                 zl_card(client, message_object, author_id, thread_id, thread_type, command)
             elif command == 'info':
-                info(message, message_object, thread_id, thread_type, author_id, client)
+                from modules.menu.info.main import info as run_info
+                run_info(message, message_object, thread_id, thread_type, author_id, client)
             else:
                 client.replyMessage(Message(text=f"➜ Lệnh [{commands} {command}] không được hỗ trợ 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
 

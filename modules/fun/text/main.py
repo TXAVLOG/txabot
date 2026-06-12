@@ -1,4 +1,4 @@
-import colorsys
+﻿import colorsys
 from datetime import datetime
 import glob
 import os
@@ -518,7 +518,9 @@ def create_glass_layer(background, image_width, image_height):
 def get_user_name_by_id(bot, author_id):
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
+        name = user_info.zaloName or user_info.displayName or ""
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
     except Exception:
         return "Unknown User"
 
@@ -641,7 +643,7 @@ def handle_create_image_command(message, message_object, thread_id, thread_type,
             
             if random.random() > 0.3:
                 client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-            client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
             client.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(client, author_id)}"), offset=0)),
@@ -747,6 +749,36 @@ txa = {
     "command": ['create_image']
 }
 
+def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
+    prefix = getattr(bot, 'prefix', '.')
+    cmd = message_text[len(prefix):].split()[0].lower()
+    
+    dispatch_map = {
+        'create_image': handle_create_image_command
+    }
+    
+    func = dispatch_map.get(cmd)
+    if func:
+        import inspect
+        sig = inspect.signature(func)
+        args_map = {
+            'bot': bot,
+            'client': bot,
+            'message_object': message_object,
+            'thread_id': thread_id,
+            'thread_type': thread_type,
+            'author_id': author_id,
+            'message': message_text,
+            'message_text': message_text,
+            'message_lower': message_text.lower()
+        }
+        args = []
+        for param_name in sig.parameters:
+            if param_name in args_map:
+                args.append(args_map[param_name])
+            else:
+                args.append(None)
+        func(*args)
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()

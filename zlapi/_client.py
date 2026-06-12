@@ -3550,13 +3550,47 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
-		width = int(width) if width else 0
-		height = int(height) if height else 0
+		import os
+		import requests
+		import tempfile
+
+		def is_zalo_url(url):
+			if not url:
+				return True
+			url_lower = url.lower()
+			return "zalo.me" in url_lower or "zadn.vn" in url_lower or "zdn.vn" in url_lower
+
+		if animationImgUrl and animationImgUrl.startswith("http") and not is_zalo_url(animationImgUrl):
+			try:
+				response = self._state._session.get(animationImgUrl, timeout=15)
+				if response.status_code == 200:
+					fd, temp_path = tempfile.mkstemp(suffix=".webp")
+					try:
+						with os.fdopen(fd, 'wb') as tmp:
+							tmp.write(response.content)
+						upload_res = self._uploadImage(temp_path, thread_id, thread_type)
+						if upload_res:
+							zalo_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
+							if zalo_url:
+								animationImgUrl = zalo_url
+								staticImgUrl = zalo_url
+					finally:
+						try:
+							os.remove(temp_path)
+						except:
+							pass
+			except Exception as download_err:
+				print(f"[zlapi] Custom sticker fallback download/upload error: {download_err}")
+				
+		width = int(width) if width else 512
+		height = int(height) if height else 512
 		params = {
 			"zpw_ver": 645,
 			"zpw_type": 30,
 			"nretry": 0
 		}
+		
+		actual_content_id = int(contentId) if contentId and str(contentId).isdigit() else int(_util.now())
 		
 		payload = {
 			"params": {
@@ -3577,13 +3611,22 @@ class ZaloAPI(object):
 						"sSrcType": 0
 					})
 				}),
-				"contentId": contentId or _util.now(),
+				"contentId": actual_content_id,
 				"thumb_height": width,
 				"thumb_width": height,
 				"webp": json.dumps({
 					"width": width,
 					"height": height,
 					"url": animationImgUrl
+				}),
+				"pStickerType": 1,
+				"pStickerRootCateId": 10368,
+				"pStickerId": actual_content_id,
+				"tracking": json.dumps({
+					"source": 18,
+					"keyword": "",
+					"contentID": str(actual_content_id),
+					"send_method": 0
 				}),
 				"zsource": -1,
 				"ttl": ttl
@@ -3856,6 +3899,51 @@ class ZaloAPI(object):
 				if thread_type == ThreadType.GROUP else 
 				User.fromDict(results, None)
 			)
+			
+		error_code = data.get("error_code")
+		error_message = data.get("error_message") or data.get("data")
+		raise ZaloAPIException(f"Error #{error_code} when sending requests: {error_message}")
+	
+	def getQRLink(self, userId):
+		"""Lay Link QR cua nguoi dung.
+		
+		Args:
+			userId (int | str): ID nguoi dung can lay QR code
+			
+		Returns:
+			dict: Dictionary chua QR code URL cua nguoi dung
+			dict: Dictionary chua error_code va response neu that bai
+			
+		Raises:
+			ZaloAPIException: Neu request that bai
+		"""
+		params = {
+			"zpw_ver": 685,
+			"zpw_type": 30
+		}
+		
+		payload = {
+			"params": self._encode({
+				"fids": [str(userId)]
+			})
+		}
+		
+		response = self._post("https://tt-friend-wpa.chat.zalo.me/api/friend/mget-qr", params=params, data=payload)
+		data = response.json()
+		results = data.get("data") if data.get("error_code") == 0 else None
+		if results:
+			results = self._decode(results)
+			results = results.get("data") if results.get("data") else results
+			if results == None:
+				results = {"error_code": 1337, "error_message": "Data is None"}
+			
+			if isinstance(results, str):
+				try:
+					results = json.loads(results)
+				except:
+					results = {"error_code": 1337, "error_message": results}
+			
+			return results
 			
 		error_code = data.get("error_code")
 		error_message = data.get("error_message") or data.get("data")

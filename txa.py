@@ -35,25 +35,35 @@ import glob
 import pytz
 from io import BytesIO
 from datetime import datetime
+import requests
 
 logger = logging.getLogger("txabot")
 
 message_count = {}
+message_threshold = {}  # Lưu ngưỡng cho mỗi thread
 def send_random_sticker(bot, thread_id, thread_type):
     with open('auto_sticker.json', 'r', encoding='utf-8') as file:
         stickers = json.load(file)
     sticker = random.choice(stickers)
     bot.sendSticker(sticker['stickerType'], sticker['stickerId'], sticker['cateId'], thread_id, thread_type)
 
-def auto_stk(bot, message_object, author_id, thread_id, thread_type):
+def auto_stk(bot, message_object, author_id, thread_id, thread_type, message_text):
+    # Không đếm tin nhắn không phải text (sticker, ảnh, v.v.)
+    if not message_text or not isinstance(message_text, str) or message_text.strip() == "":
+        return
+        
     settings = read_settings(bot.uid)
     if settings.get('auto_sticker', {}).get(thread_id, False) and thread_id in settings.get('allowed_thread_ids', []):
         if thread_id not in message_count:
             message_count[thread_id] = 0
+        if thread_id not in message_threshold:
+            message_threshold[thread_id] = random.randint(10, 11)  # Random ngưỡng lần đầu
+            
         message_count[thread_id] += 1
-        if message_count[thread_id] >= random.randint(10,11):
+        if message_count[thread_id] >= message_threshold[thread_id]:
             send_random_sticker(bot, thread_id, thread_type)
             message_count[thread_id] = 0
+            message_threshold[thread_id] = random.randint(10, 11)  # Random ngưỡng mới
 
 current_word = None
 wrong_attempts = 0
@@ -371,7 +381,7 @@ def process_valid_word(bot, message_object, author_id, thread_id, thread_type, p
         for _ in range(correct_attempts):
             if random.random() > 0.3:
                 bot.sendReaction(message_object, "❤️", thread_id, thread_type)
-            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         
         response = f"{get_user_name_by_id(bot, author_id)} {next_word}"
         start_timeout(bot, message_object, thread_id, thread_type)
@@ -1002,8 +1012,11 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
 def get_user_name_by_id(bot, author_id):
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
-    except Exception as e:
+        name = user_info.zaloName or user_info.displayName or ""
+        # Xóa suffix trong ngoặc đơn ở cuối tên: "Nguyễn A (Biệt danh)" → "Nguyễn A"
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
+    except Exception:
         return "Unknown User"
     
 def tim_kiem_yanhh3d(bot, message_object, author_id, thread_id, thread_type, message_lower, message):
@@ -1051,7 +1064,7 @@ def tim_kiem_yanhh3d(bot, message_object, author_id, thread_id, thread_type, mes
             
             if random.random() > 0.3:
                 bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-            bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
             bot.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -1523,6 +1536,9 @@ colors = [
     "FF3300"
 ]
 
+# Lock để tránh log đè nhau từ nhiều thread
+_console_lock = threading.Lock()
+
 def hex_to_ansi(hex_color):
     hex_color = hex_color.lstrip('#')
     r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
@@ -1574,7 +1590,7 @@ class DynamicCommandHandler:
         try:
             if random.random() > 0.3:
                 self.client.sendReaction(message_object, "⏳", thread_id, thread_type)
-            self.client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            self.client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         except Exception as react_err:
             print(f"[DynamicCommandHandler] Lỗi gửi waiting reaction: {react_err}")
             
@@ -1616,7 +1632,7 @@ class DynamicCommandHandler:
                 success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
                 if random.random() > 0.3:
                     self.client.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
-                self.client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                self.client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
             except Exception as react_err:
                 print(f"[DynamicCommandHandler] Lỗi gửi success reaction: {react_err}")
                 
@@ -1669,6 +1685,7 @@ class bot(ZaloAPI):
         self.group_info_cache = {}
         self.last_sms_times = {}
         handle_bot_admin(self)
+        load_pending_states(self)
         self.Group = False
         self.is_spamming = False
         self.spam_thread = None
@@ -1807,12 +1824,167 @@ class bot(ZaloAPI):
         self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
         return result
 
+    def sendLocalVideo(self, filePath, thread_id, thread_type, message=None, ttl=0):
+        msg_text = message.text if isinstance(message, Message) else message or ''
+        self.log_bot_message(f"🎥 [GỬI VIDEO LOCAL] {msg_text} (Đường dẫn: {filePath})", thread_id, thread_type)
+        
+        if not os.path.exists(filePath):
+            raise Exception(f"Video file not found: {filePath}")
+            
+        # 1. Extract video metadata using ffprobe
+        duration = 10000 # default 10s
+        width = 1280
+        height = 720
+        try:
+            probe_cmd = [
+                "ffprobe", "-v", "quiet",
+                "-print_format", "json",
+                "-show_format", "-show_streams",
+                filePath
+            ]
+            res = subprocess.run(probe_cmd, capture_output=True, text=True)
+            if res.returncode == 0:
+                probe_data = json.loads(res.stdout)
+                if "format" in probe_data and "duration" in probe_data["format"]:
+                    duration = int(float(probe_data["format"]["duration"]) * 1000)
+                for stream in probe_data.get("streams", []):
+                    if stream.get("codec_type") == "video":
+                        width = int(stream.get("width", width))
+                        height = int(stream.get("height", height))
+                        if "duration" in stream:
+                            duration = int(float(stream["duration"]) * 1000)
+                        break
+        except Exception as probe_err:
+            logging.error(f"Error extracting video metadata with ffprobe: {probe_err}")
+            
+        # 2. Transcode audio stream to AAC for iOS compatibility
+        fd_out, temp_out_path = tempfile.mkstemp(suffix=".mp4")
+        os.close(fd_out)
+        
+        transcoded = False
+        try:
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", filePath,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                temp_out_path
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if res.returncode == 0 and os.path.exists(temp_out_path) and os.path.getsize(temp_out_path) > 0:
+                transcoded = True
+        except Exception as trans_err:
+            logging.error(f"Error transcoding video audio: {trans_err}")
+            
+        upload_path = temp_out_path if transcoded else filePath
+        
+        try:
+            # 3. Upload to Zalo CDN via photo_original upload endpoint
+            file_size = os.path.getsize(upload_path)
+            file_name = os.path.basename(filePath)
+            
+            if thread_type == ThreadType.GROUP:
+                url = "https://tt-files-wpa.chat.zalo.me/api/group/photo_original/upload"
+                upload_type = 11
+                to_key = "grid"
+            else:
+                url = "https://tt-files-wpa.chat.zalo.me/api/message/photo_original/upload"
+                upload_type = 2
+                to_key = "toid"
+                
+            with open(upload_path, "rb") as f:
+                files = [("chunkContent", f)]
+                params = {
+                    "params": self._encode({
+                        "totalChunk": 1,
+                        "fileName": file_name,
+                        "clientId": int(time.time() * 1000),
+                        "totalSize": file_size,
+                        "imei": self.imei,
+                        "isE2EE": 0,
+                        "jxl": 0,
+                        "chunkId": 1,
+                        to_key: str(thread_id)
+                    }),
+                    "zpw_ver": 685,
+                    "zpw_type": 30,
+                    "type": upload_type
+                }
+                
+                response = self._post(url, params=params, files=files)
+                res_data = response.json()
+                if res_data.get("error_code") != 0:
+                    raise Exception(f"Upload to Zalo CDN failed: {res_data}")
+                    
+                decoded = self._decode(res_data["data"])
+                if decoded.get("error_code") != 0:
+                    raise Exception(f"Decode Zalo CDN upload response failed: {decoded}")
+                    
+                uploaded_url = decoded["data"]["normalUrl"]
+                
+            # 4. Send video using Zalo remote video message
+            thumbnail_url = "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl"
+            
+            result = super().sendRemoteVideo(
+                videoUrl=uploaded_url,
+                thumbnailUrl=thumbnail_url,
+                duration=duration,
+                thread_id=thread_id,
+                thread_type=thread_type,
+                width=width,
+                height=height,
+                message=message,
+                ttl=ttl
+            )
+            self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+            return result
+            
+        finally:
+            try:
+                if os.path.exists(temp_out_path):
+                    os.remove(temp_out_path)
+            except Exception:
+                pass
+
     def sendRemoteVideo(self, videoUrl, thumbnailUrl, duration, thread_id, thread_type, width=1280, height=720, message=None, ttl=0):
         msg_text = message.text if isinstance(message, Message) else message or ''
-        self.log_bot_message(f"🎥 [GỬI VIDEO] {msg_text}\nURL video: {videoUrl}", thread_id, thread_type)
-        result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
-        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
-        return result
+        self.log_bot_message(f"🎥 [GỬI VIDEO REMOTE] {msg_text}\nURL video: {videoUrl}", thread_id, thread_type)
+        
+        # Intercept external URLs to upload them to Zalo CDN first for iOS audio compatibility
+        if videoUrl.startswith("http") and "zdn.vn" not in videoUrl and "zalo.me" not in videoUrl:
+            
+            fd, temp_path = tempfile.mkstemp(suffix=".mp4")
+            os.close(fd)
+            
+            try:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+                response = requests.get(videoUrl, headers=headers, stream=True)
+                response.raise_for_status()
+                with open(temp_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        
+                # Send the downloaded local video
+                result = self.sendLocalVideo(temp_path, thread_id, thread_type, message, ttl)
+                return result
+            except Exception as e:
+                logging.error(f"Failed to auto-process and send remote video via Zalo CDN: {e}. Falling back to direct URL sending.")
+                result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
+                self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+                return result
+            finally:
+                try:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                except Exception:
+                    pass
+        else:
+            result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
+            self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+            return result
+
 
     def sendSticker(self, stickerType, stickerId, cateId, thread_id, thread_type, ttl=0):
         self.log_bot_message(f"✨ [GỬI STICKER] ID: {stickerId}, Cate: {cateId}", thread_id, thread_type)
@@ -1979,33 +2151,36 @@ class bot(ZaloAPI):
             message_text = message.text if hasattr(message, 'text') else str(message)
             current_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
             selected_colors = random.sample(colors, 8)
-            
-            print(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+
+            lines = []
+            lines.append(f"\n{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
             if thread_type == ThreadType.USER:
-                print(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}🔒 BOT GỬI TIN NHẮN RIÊNG TƯ{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}🔒 BOT GỬI TIN NHẮN RIÊNG TƯ{Style.RESET_ALL}")
             else:
-                print(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}💬 BOT GỬI TIN NHẮN NHÓM{Style.RESET_ALL}")
-            print(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-            print(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}💬 BOT GỬI TIN NHẮN NHÓM{Style.RESET_ALL}")
+            lines.append(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+            lines.append(f"{hex_to_ansi(selected_colors[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
             if thread_type == ThreadType.GROUP:
                 try:
                     group_info_log = self.fetchGroupInfo(thread_id)
                     group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
                 except Exception:
                     group_name = 'N/A'
-                print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- ID nhóm: {thread_id}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Tên nhóm: {group_name}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(selected_colors[5])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- ID nhóm: {thread_id}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Tên nhóm: {group_name}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[5])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
             else:
                 try:
                     user_info_log = self.fetchUserInfo(thread_id)
                     user_name = user_info_log.changed_profiles.get(thread_id, {}).get('zaloName', 'N/A')
                 except Exception:
                     user_name = 'N/A'
-                print(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- Đến người dùng: {thread_id}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Tên người dùng: {user_name}{Style.RESET_ALL}")
-                print(f"{hex_to_ansi(selected_colors[5])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
-            print(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[3])}{Style.BRIGHT}│- Đến người dùng: {thread_id}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[4])}{Style.BRIGHT}│- Tên người dùng: {user_name}{Style.RESET_ALL}")
+                lines.append(f"{hex_to_ansi(selected_colors[5])}{Style.BRIGHT}│- Thời gian: {current_time}{Style.RESET_ALL}")
+            lines.append(f"{hex_to_ansi(selected_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+            with _console_lock:
+                print("\n".join(lines))
         except Exception as e:
             print(f"[ERROR] Không thể in log tin nhắn bot: {e}")
 
@@ -2058,11 +2233,34 @@ class bot(ZaloAPI):
                     except Exception as e:
                         print(f"[ERROR] Không thể inbox báo hết hạn kho ảnh cho {uid}: {e}")
                 
+                # 3. Quét hết hạn nude_approved_users
+                nude_approved = settings.get("nude_approved_users", [])
+                nude_expiry = settings.get("nude_approved_users_expiry", {})
+                
+                nude_uids_to_remove = []
+                for uid, expiry in list(nude_expiry.items()):
+                    if expiry is not None and current_time >= expiry:
+                        nude_uids_to_remove.append(uid)
+                        
+                for uid in nude_uids_to_remove:
+                    if uid in nude_approved:
+                        nude_approved.remove(uid)
+                    nude_expiry.pop(uid, None)
+                    modified = True
+                    try:
+                        inbox_text = "⚠️ Quyền sử dụng các lệnh ảnh nude/nhạy cảm (girlnude, girllon) của bạn trên TXA Bot đã hết hạn."
+                        self.send(Message(text=inbox_text), thread_id=uid, thread_type=ThreadType.USER)
+                        print(f"🤖 [Hết hạn] Đã thu hồi quyền sử dụng lệnh Nude của UID {uid} do hết thời hạn.")
+                    except Exception as e:
+                        print(f"[ERROR] Không thể inbox báo hết hạn lệnh Nude cho {uid}: {e}")
+                
                 if modified:
                     settings["approved_users"] = approved_users
                     settings["approved_users_expiry"] = approved_expiry
                     settings["image_approved_users"] = image_approved
                     settings["image_approved_users_expiry"] = image_expiry
+                    settings["nude_approved_users"] = nude_approved
+                    settings["nude_approved_users_expiry"] = nude_expiry
                     write_settings(self.uid, settings)
                     
             except Exception as e:
@@ -2177,19 +2375,49 @@ class bot(ZaloAPI):
                             print(f"[ERROR] deleteGroupMsg mention error: {e}")
             
             else:
-                history = self.message_history.get(thread_id, [])
+                recent_messages = []
+                if thread_type == ThreadType.GROUP:
+                    try:
+                        group_data = self.getRecentGroup(thread_id)
+                        if hasattr(group_data, "groupMsgs"):
+                            recent_messages = group_data.groupMsgs or []
+                        elif isinstance(group_data, dict):
+                            recent_messages = group_data.get("groupMsgs", []) or []
+                    except Exception as e:
+                        print(f"[ERROR] getRecentGroup error in last message deletion: {e}")
+                
                 found_msg = None
-                for m in reversed(history):
-                    if m['msgId'] == message_object.msgId:
+                for m in reversed(recent_messages):
+                    msg_id = str(m.get('msgId', ''))
+                    if msg_id == str(message_object.msgId):
                         continue
-                    found_msg = m
+                    found_msg = {
+                        "msgId": m.get('msgId'),
+                        "cliMsgId": m.get('cliMsgId'),
+                        "author_id": str(m.get('uidFrom', ''))
+                    }
                     break
+                
+                if not found_msg:
+                    history = self.message_history.get(thread_id, [])
+                    for m in reversed(history):
+                        if str(m['msgId']) == str(message_object.msgId):
+                            continue
+                        found_msg = m
+                        break
                 
                 if found_msg:
                     try:
                         self.deleteGroupMsg(found_msg['msgId'], found_msg['author_id'], found_msg['cliMsgId'], thread_id)
                         deleted_any = True
-                        history.remove(found_msg)
+                        try:
+                            history = self.message_history.get(thread_id, [])
+                            for m in history:
+                                if str(m.get('msgId')) == str(found_msg['msgId']):
+                                    history.remove(m)
+                                    break
+                        except:
+                            pass
                     except Exception as e:
                         print(f"[ERROR] deleteGroupMsg last message error: {e}")
 
@@ -2220,27 +2448,28 @@ class bot(ZaloAPI):
                     r_author_name = get_user_name_by_id(self, author_id)
                     r_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
                     r_colors = random.sample(colors, 8)
-                    
-                    print(f"\n{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+
+                    r_lines = []
+                    r_lines.append(f"\n{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
                     if thread_type == ThreadType.USER:
-                        print(f"{hex_to_ansi(r_colors[1])}{Style.BRIGHT}🎭 PHẢN ỨNG TIN NHẮN RIÊNG TƯ (PRIVATE REACTION){Style.RESET_ALL}")
+                        r_lines.append(f"{hex_to_ansi(r_colors[1])}{Style.BRIGHT}🎭 PHẢN ỨNG TIN NHẮN RIÊNG TƯ (PRIVATE REACTION){Style.RESET_ALL}")
                     else:
-                        print(f"{hex_to_ansi(r_colors[1])}{Style.BRIGHT}🎭 PHẢN ỨNG TIN NHẮN NHÓM (GROUP REACTION){Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(r_colors[2])}{Style.BRIGHT}│- Biểu tượng: {r_icon}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(r_colors[3])}{Style.BRIGHT}│- ID người phản ứng: {author_id}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(r_colors[6])}{Style.BRIGHT}│- Tên người phản ứng: {r_author_name}{Style.RESET_ALL}")
-                    
+                        r_lines.append(f"{hex_to_ansi(r_colors[1])}{Style.BRIGHT}🎭 PHẢN ỨNG TIN NHẮN NHÓM (GROUP REACTION){Style.RESET_ALL}")
+                    r_lines.append(f"{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    r_lines.append(f"{hex_to_ansi(r_colors[2])}{Style.BRIGHT}│- Biểu tượng: {r_icon}{Style.RESET_ALL}")
+                    r_lines.append(f"{hex_to_ansi(r_colors[3])}{Style.BRIGHT}│- ID người phản ứng: {author_id}{Style.RESET_ALL}")
+                    r_lines.append(f"{hex_to_ansi(r_colors[6])}{Style.BRIGHT}│- Tên người phản ứng: {r_author_name}{Style.RESET_ALL}")
                     if thread_type == ThreadType.GROUP:
                         try:
                             g_info = self.fetchGroupInfo(thread_id)
                             g_name = g_info.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
                         except:
                             g_name = 'N/A'
-                        print(f"{hex_to_ansi(r_colors[4])}{Style.BRIGHT}│- Tên nhóm: {g_name} ({thread_id}){Style.RESET_ALL}")
-                    
-                    print(f"{hex_to_ansi(r_colors[5])}{Style.BRIGHT}│- Thời gian: {r_time}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}\n")
+                        r_lines.append(f"{hex_to_ansi(r_colors[4])}{Style.BRIGHT}│- Tên nhóm: {g_name} ({thread_id}){Style.RESET_ALL}")
+                    r_lines.append(f"{hex_to_ansi(r_colors[5])}{Style.BRIGHT}│- Thời gian: {r_time}{Style.RESET_ALL}")
+                    r_lines.append(f"{hex_to_ansi(r_colors[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    with _console_lock:
+                        print("\n".join(r_lines))
                 except Exception as log_err:
                     print(f"[ERROR] Lỗi khi in log phản ứng: {log_err}")
                 return
@@ -2271,14 +2500,10 @@ class bot(ZaloAPI):
             except Exception as debug_err:
                 print(f"[DEBUG] Error writing debug_tiktok.txt: {debug_err}")
 
-            if isinstance(message, Message):
-                message_text = message.text
-            elif isinstance(message, MessageObject):
-                message_text = message.title if getattr(message, 'title', None) else str(message)
-            else:
-                message_text = str(message)
-            
-            # Clean leading mentions (like @Tbot) and whitespace
+            # Use get_content_message from core.bot_sys to get proper text content
+            message_text = get_content_message(message_object)
+
+            # Clean leading mentions (like @name) and whitespace
             message_text = re.sub(r'^@[\S]+[\s]*', '', message_text).lstrip()
             message_lower = message_text.lower()
 
@@ -2298,44 +2523,7 @@ class bot(ZaloAPI):
                 return
 
             if author_id == self.uid:
-                try:
-                    author_name = "TXA Bot"
-                    try:
-                        author_info = self.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
-                        author_name = author_info.get('zaloName', 'TXA Bot')
-                    except:
-                        pass
-                    current_time = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
-                    colors_selected = random.sample(colors, 8)
-                    
-                    if thread_type == ThreadType.USER:
-                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}🔒 TIN NHẮN TỪ BOT (PRIVATE MESSAGE){Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (BOT){Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    else:
-                        try:
-                            group_info_log = self.fetchGroupInfo(thread_id)
-                            group_name = group_info_log.gridInfoMap.get(thread_id, {}).get('name', 'N/A')
-                        except Exception:
-                            group_name = 'N/A'
-                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN TỪ BOT (GROUP MESSAGE){Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (BOT){Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
-                        print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                except Exception as log_err:
-                    print(f"[ERROR] Lỗi khi in log tin nhắn bot: {log_err}")
-
+                # log_bot_message trong sendMessage/replyMessage/send đã in rồi → bỏ qua
                 if not message_text.startswith(prefix):
                     return
 
@@ -2347,7 +2535,8 @@ class bot(ZaloAPI):
                 "msgId": message_object.msgId,
                 "cliMsgId": message_object.cliMsgId,
                 "author_id": author_id,
-                "text": message_text
+                "text": message_text,
+                "msgType": getattr(message_object, "msgType", "webchat")
             })
             if len(self.message_history[thread_id]) > 100:
                 self.message_history[thread_id].pop(0)
@@ -2375,6 +2564,9 @@ class bot(ZaloAPI):
             if is_muted:
                 safe_delete_message(self, message_object, author_id, thread_id)
                 return
+
+            if thread_type == ThreadType.GROUP and not is_admin(self, author_id):
+                handle_check_profanity(self, author_id, thread_id, message_object, thread_type, message)
 
             is_bot_on_cmd = (
                 message_lower.startswith(f"{prefix}bot on") or 
@@ -2487,17 +2679,62 @@ class bot(ZaloAPI):
                                     except:
                                         context = "nhóm chat"
                                 
-                                notify_text = (
-                                    f"🔔 [YÊU CẦU DUYỆT BOT]\n"
-                                    f"➜ Người dùng: {req_name}\n"
-                                    f"➜ UID: {author_id}\n"
-                                    f"➜ Muốn sử dụng BOT tại: {context}\n"
-                                    f"➜ Lệnh đã gõ: {message_text}\n"
-                                    f"💡 Gõ `{prefix}bot approved add {author_id}` để duyệt quyền."
-                                )
-                                for admin_id in admin_bot:
-                                    if admin_id != self.uid:
-                                        self.send(Message(text=notify_text), thread_id=admin_id, thread_type=ThreadType.USER)
+                                if not os.path.exists("cache"):
+                                    os.makedirs("cache")
+                                pending_file = "cache/pending_bot_approvals.txt"
+                                pending_uids = []
+                                if os.path.exists(pending_file):
+                                    with open(pending_file, "r", encoding="utf-8") as f:
+                                        pending_uids = [line.strip() for line in f if line.strip()]
+                                
+                                if str(author_id) not in pending_uids:
+                                    pending_uids.append(str(author_id))
+                                    with open(pending_file, "w", encoding="utf-8") as f:
+                                        for p_uid in pending_uids:
+                                            f.write(f"{p_uid}\n")
+                                
+                                for p_uid in pending_uids:
+                                    if p_uid not in PENDING_BOT_STATE:
+                                        PENDING_BOT_STATE.append(p_uid)
+                                if str(author_id) not in PENDING_BOT_STATE:
+                                    PENDING_BOT_STATE.append(str(author_id))
+                                
+                                if len(PENDING_BOT_STATE) >= 2:
+                                    img_path = generate_pending_approvals_image("⏳ DANH SÁCH CHỜ DUYỆT BOT", PENDING_BOT_STATE, self)
+                                    if img_path and os.path.exists(img_path):
+                                        with Image.open(img_path) as img:
+                                            w, h = img.size
+                                        for admin_id in admin_bot:
+                                            if admin_id != self.uid:
+                                                self.sendLocalImage(
+                                                    imagePath=img_path,
+                                                    thread_id=admin_id,
+                                                    thread_type=ThreadType.USER,
+                                                    width=w,
+                                                    height=h,
+                                                    message=Message(text=f"🔔 Có {len(pending_uids)} yêu cầu duyệt dùng bot đang chờ!\n💡 Gõ `{prefix}bot approved add yes` để duyệt tất cả.")
+                                                )
+                                        os.remove(img_path)
+                                    else:
+                                        notify_text = f"🔔 [DANH SÁCH DUYỆT BOT ĐANG CHỜ]\n"
+                                        for p_uid in pending_uids:
+                                            notify_text += f"➜ {get_user_name_by_id(self, p_uid)} ({p_uid})\n"
+                                        notify_text += f"💡 Gõ `{prefix}bot approved add yes` để duyệt tất cả."
+                                        for admin_id in admin_bot:
+                                            if admin_id != self.uid:
+                                                self.send(Message(text=notify_text), thread_id=admin_id, thread_type=ThreadType.USER)
+                                else:
+                                    notify_text = (
+                                        f"🔔 [YÊU CẦU DUYỆT BOT]\n"
+                                        f"➜ Người dùng: {req_name}\n"
+                                        f"➜ UID: {author_id}\n"
+                                        f"➜ Muốn sử dụng BOT tại: {context}\n"
+                                        f"➜ Lệnh đã gõ: {message_text}\n"
+                                        f"💡 Gõ `{prefix}bot approved add {author_id}` để duyệt quyền."
+                                    )
+                                    for admin_id in admin_bot:
+                                        if admin_id != self.uid:
+                                            self.send(Message(text=notify_text), thread_id=admin_id, thread_type=ThreadType.USER)
                                 self.last_admin_notify[(author_id, 'bot')] = current_time_sec
                             except Exception as e:
                                 print(f"[ERROR] Không thể gửi thông báo yêu cầu duyệt bot cho Admin: {e}")
@@ -2518,23 +2755,26 @@ class bot(ZaloAPI):
                         pass
                     _t = time.strftime("%H:%M:%S - %d/%m/%Y", time.localtime())
                     _c = random.sample(colors, 8)
-                    print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE) - ADMIN BOT / NHÓM CHƯA KÍCH HOẠT{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (ADMIN BOT){Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {_author_name}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[4])}{Style.BRIGHT}│- TÊN NHÓM: {_group_name}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: ❌ CHƯA KÍCH HOẠT (vẫn log vì người gửi là Admin BOT){Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {_t}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    lines = [
+                        f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE) - ADMIN BOT / NHÓM CHƯA KÍCH HOẠT{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id} (ADMIN BOT){Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {_author_name}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[4])}{Style.BRIGHT}│- TÊN NHÓM: {_group_name}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: ❌ CHƯA KÍCH HOẠT (vẫn log vì người gửi là Admin BOT){Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {_t}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(_c[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}"
+                    ]
+                    with _console_lock:
+                        print("\n".join(lines))
                 except Exception:
                     pass
                 return
 
-            if thread_id in allowed_thread_ids and thread_type == ThreadType.GROUP and not is_admin(self, author_id):
-                handle_check_profanity(self, author_id, thread_id, message_object, thread_type, message)
+            # handle_check_profanity đã được di chuyển lên trước để chạy độc lập với bot on/off
             
             author_info = self.fetchUserInfo(author_id).changed_profiles.get(author_id, {})
             author_name = author_info.get('zaloName', 'đéo xác định')
@@ -2544,15 +2784,19 @@ class bot(ZaloAPI):
             # Beautiful logging for private messages
             if author_id != self.uid:
                 if thread_type == ThreadType.USER:
-                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}🔒 TIN NHẮN RIÊNG TƯ (PRIVATE MESSAGE){Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TRẠNG THÁI: {'✅ ĐƯỢC PHÉP' if (author_id in admin_bot or author_id in approved_users) else '❌ KHÔNG ĐƯỢC PHÉP'}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    lines = [
+                        f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}🔒 TIN NHẮN RIÊNG TƯ (PRIVATE MESSAGE){Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TRẠNG THÁI: {'✅ ĐƯỢC PHÉP' if (author_id in admin_bot or author_id in approved_users) else '❌ KHÔNG ĐƯỢC PHÉP'}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN: {current_time}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}"
+                    ]
+                    with _console_lock:
+                        print("\n".join(lines))
                 else:
                     try:
                         group_info_log = self.fetchGroupInfo(thread_id)
@@ -2560,17 +2804,21 @@ class bot(ZaloAPI):
                     except Exception:
                         group_name = 'N/A'
                     is_allowed_status = thread_id in allowed_thread_ids
-                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: {'✅ ĐƯỢC PHÉP' if is_allowed_status else '❌ CHƯA KÍCH HOẠT'}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {current_time}{Style.RESET_ALL}")
-                    print(f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}")
+                    lines = [
+                        f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}💬 TIN NHẮN NHÓM (GROUP MESSAGE){Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[1])}{Style.BRIGHT}│- Message: {message_text}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[2])}{Style.BRIGHT}│- ID NGƯỜI DÙNG: {author_id}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[6])}{Style.BRIGHT}│- TÊN NGƯỜI DÙNG: {author_name}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[3])}{Style.BRIGHT}│- ID NHÓM: {thread_id}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[4])}{Style.BRIGHT}│- TÊN NHÓM: {group_name}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[5])}{Style.BRIGHT}│- TRẠNG THÁI NHÓM: {'✅ ĐƯỢC PHÉP' if is_allowed_status else '❌ CHƯA KÍCH HOẠT'}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[7])}{Style.BRIGHT}│- THỜI GIAN NHẬN ĐƯỢC: {current_time}{Style.RESET_ALL}",
+                        f"{hex_to_ansi(colors_selected[0])}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}"
+                    ]
+                    with _console_lock:
+                        print("\n".join(lines))
             
             # Admin control of music features for groups (private chat only)
             if thread_type == ThreadType.USER and author_id in admin_bot and (
@@ -2722,10 +2970,51 @@ class bot(ZaloAPI):
                     print(f"[ERROR] Error sending unapproved PM warning: {e}")
                 return
 
+            # Kiểm tra nếu tin nhắn là số và người dùng có state nhạc
+            if message_text.strip().isdigit() and author_id in USER_MUSIC_STATES:
+                state = USER_MUSIC_STATES[author_id]
+                source = state.get('source')
+                if source:
+                    # Gọi execute với command name tương ứng
+                    cmd_name = None
+                    if source == 'scl':
+                        cmd_name = 'scl'
+                    elif source == 'zingmp3':
+                        cmd_name = 'mp3'
+                    elif source == 'nct':
+                        cmd_name = 'nct'
+                        
+                    if cmd_name:
+                        # Gọi execute, nó sẽ handle tất cả tham số
+                        executed = self.command_handler.execute(cmd_name, message_text, message_object, thread_id, thread_type, author_id)
+                        if executed:
+                            return
+
             # Parse commands starting with prefix
             if message_text.startswith(prefix):
                 cmd_parts = message_text[len(prefix):].split(" ")
                 cmd_name = cmd_parts[0].lower()
+                
+                # Hàng đợi lệnh nhạc (Music Command Queue)
+                if cmd_name in ["mp3", "zingmp3", "scl", "nhac", "nct", "nhaccuatui"]:
+                    is_selection = len(cmd_parts) == 2 and cmd_parts[1].isdigit()
+                    if not is_selection:
+                        if author_id in USER_MUSIC_STATES:
+                            state = USER_MUSIC_STATES[author_id]
+                            if time.time() - state.get('time_of_search', 0) <= 120:
+                                try:
+                                    self.sendReaction(message_object, "⏳", thread_id, thread_type)
+                                except Exception as rx_err:
+                                    print(f"Lỗi thả reaction ⏳: {rx_err}")
+                                
+                                queue_list = USER_MUSIC_QUEUES.setdefault(author_id, [])
+                                queue_list.append({
+                                    "message_text": message_text,
+                                    "message_object": message_object,
+                                    "thread_id": thread_id,
+                                    "thread_type": thread_type
+                                })
+                                return
                 
                 # Check custom inline command overrides (group on / off)
                 if cmd_name == "group" and len(cmd_parts) > 1:
@@ -2734,14 +3023,14 @@ class bot(ZaloAPI):
                         response = bot_on_group(self, thread_id)
                         if random.random() > 0.3:
                             self.sendReaction(message_object, "❤️", thread_id, thread_type)
-                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
                     elif sub_action == "off":
                         response = bot_off_group(self, thread_id)
                         if random.random() > 0.3:
                             self.sendReaction(message_object, "❤️", thread_id, thread_type)
-                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
 
@@ -2796,11 +3085,11 @@ class bot(ZaloAPI):
                     try:
                         if random.random() > 0.3:
                             self.sendReaction(message_object, "👍", thread_id, thread_type)
-                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                         self.updateAutoDeleteChat(ttl=ttl_ms, threadId=thread_id, isGroup=True)
                         if random.random() > 0.3:
                             self.sendReaction(message_object, "❤️", thread_id, thread_type)
-                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=f"✅ Đã thiết lập tin nhắn tự xóa của nhóm thành: {time_str}."), message_object, thread_id, thread_type)
                     except Exception as e:
                         if random.random() > 0.3:
@@ -2899,26 +3188,129 @@ class bot(ZaloAPI):
                                         except:
                                             context = "nhóm chat"
                                     
-                                    notify_text = (
-                                        f"🔔 [YÊU CẦU DUYỆT KHO ẢNH]\n"
-                                        f"➜ Người dùng: {req_name}\n"
-                                        f"➜ UID: {author_id}\n"
-                                        f"➜ Muốn dùng lệnh kho ảnh `{cmd_name}` tại: {context}\n"
-                                        f"💡 Gõ `{prefix}duyet {author_id}` để duyệt quyền kho ảnh."
-                                    )
-                                    for admin_id in admin_bot:
-                                        if admin_id != self.uid:
-                                            self.send(Message(text=notify_text), thread_id=admin_id, thread_type=ThreadType.USER)
+                                    if not os.path.exists("cache"):
+                                        os.makedirs("cache")
+                                    pending_file = "cache/pending_image_approvals.txt"
+                                    pending_uids = []
+                                    if os.path.exists(pending_file):
+                                        with open(pending_file, "r", encoding="utf-8") as f:
+                                            pending_uids = [line.strip() for line in f if line.strip()]
+                                    
+                                    if str(author_id) not in pending_uids:
+                                        pending_uids.append(str(author_id))
+                                        with open(pending_file, "w", encoding="utf-8") as f:
+                                            for p_uid in pending_uids:
+                                                f.write(f"{p_uid}\n")
+                                    
+                                    for p_uid in pending_uids:
+                                        if p_uid not in PENDING_IMAGE_STATE:
+                                            PENDING_IMAGE_STATE.append(p_uid)
+                                    if str(author_id) not in PENDING_IMAGE_STATE:
+                                        PENDING_IMAGE_STATE.append(str(author_id))
+                                    
+                                    if len(PENDING_IMAGE_STATE) >= 2:
+                                        img_path = generate_pending_approvals_image("🌸 DANH SÁCH CHỜ DUYỆT KHO ẢNH", PENDING_IMAGE_STATE, self)
+                                        if img_path and os.path.exists(img_path):
+                                            with Image.open(img_path) as img:
+                                                w, h = img.size
+                                            for admin_id in admin_bot:
+                                                if admin_id != self.uid:
+                                                    self.sendLocalImage(
+                                                        imagePath=img_path,
+                                                        thread_id=admin_id,
+                                                        thread_type=ThreadType.USER,
+                                                        width=w,
+                                                        height=h,
+                                                        message=Message(text=f"🔔 Có {len(pending_uids)} yêu cầu duyệt kho ảnh đang chờ!\n💡 Gõ `!duyet yes` để duyệt tất cả.")
+                                                    )
+                                            os.remove(img_path)
+                                        else:
+                                            notify_text = f"🔔 [DANH SÁCH DUYỆT KHO ẢNH ĐANG CHỜ]\n"
+                                            for p_uid in pending_uids:
+                                                notify_text += f"➜ {get_user_name_by_id(self, p_uid)} ({p_uid})\n"
+                                            notify_text += f"💡 Gõ `!duyet yes` để duyệt tất cả."
+                                            for admin_id in admin_bot:
+                                                if admin_id != self.uid:
+                                                    self.send(Message(text=notify_text), thread_id=admin_id, thread_type=ThreadType.USER)
+                                    else:
+                                        notify_text = (
+                                            f"🔔 [YÊU CẦU DUYỆT KHO ẢNH]\n"
+                                            f"➜ Người dùng: {req_name}\n"
+                                            f"➜ UID: {author_id}\n"
+                                            f"➜ Muốn dùng lệnh kho ảnh `{cmd_name}` tại: {context}\n"
+                                            f"💡 Gõ `{prefix}duyet {author_id}` để duyệt quyền kho ảnh."
+                                        )
+                                        for admin_id in admin_bot:
+                                            if admin_id != self.uid:
+                                                self.send(Message(text=notify_text), thread_id=admin_id, thread_type=ThreadType.USER)
                                     self.last_admin_notify[(author_id, 'image')] = current_time_sec
                                 except Exception as e:
                                     print(f"[ERROR] Không thể gửi thông báo yêu cầu duyệt ảnh cho Admin: {e}")
                         return
 
+                    # Kiểm tra quyền cho các lệnh nude (girlnude, girllon)
+                    if cmd_name in ["girlnude", "girllon"] and not is_user_admin:
+                        nude_approved = settings.get("nude_approved_users", [])
+                        if author_id not in nude_approved:
+                            bank_info = settings.get("bank_info", {})
+                            bank = bank_info.get("bank", "Techcombank")
+                            stk = bank_info.get("stk", "2923252311")
+                            name = bank_info.get("name", "TANG XUAN ANH")
+                            
+                            description = f"Duyet nude {author_id}"
+                            
+                            import urllib.parse
+                            encoded_name = urllib.parse.quote(name)
+                            encoded_desc = urllib.parse.quote(description)
+                            
+                            qr_url = f"https://img.vietqr.io/image/{bank}-{stk}-compact2.png?accountName={encoded_name}&amount=50000&addInfo={encoded_desc}"
+                            
+                            temp_dir = "modules/cache"
+                            os.makedirs(temp_dir, exist_ok=True)
+                            temp_path = os.path.join(temp_dir, f"nude_qr_{author_id}.png")
+                            
+                            try:
+                                import requests
+                                res = requests.get(qr_url, timeout=15)
+                                res.raise_for_status()
+                                with open(temp_path, "wb") as f:
+                                    f.write(res.content)
+                                    
+                                caption_text = (
+                                    "⚠️ Quyền sử dụng các lệnh ảnh nude/nhạy cảm (girlnude, girllon) yêu cầu trả phí (50k/ngày).\n"
+                                    "🏦 Bạn vui lòng chuyển khoản theo mã QR bên dưới, sau đó liên hệ Admin kèm theo ảnh chụp giao dịch (bill chuyển khoản) để kích hoạt quyền nhé! 🌸"
+                                )
+                                
+                                # Gửi ảnh QR qua tin nhắn riêng (inbox)
+                                self.sendLocalImage(
+                                    imagePath=temp_path,
+                                    thread_id=author_id,
+                                    thread_type=ThreadType.USER,
+                                    message=Message(text=caption_text),
+                                    ttl=0
+                                )
+                                
+                                # Phản hồi trong nhóm
+                                self.replyMessage(
+                                    Message(text="⚠️ Bé đã gửi thông tin chuyển khoản 50k/ngày vào tin nhắn riêng (inbox) của bạn. Hãy kiểm tra inbox, sau đó liên hệ Admin kèm theo ảnh giao dịch để kích hoạt nhé! 🌸"),
+                                    message_object, thread_id, thread_type
+                                )
+                            except Exception as private_err:
+                                print(f"[ERROR] Failing to send private QR to {author_id}: {private_err}")
+                                self.replyMessage(
+                                    Message(text="⚠️ Không thể gửi tin nhắn riêng cho bạn. Vui lòng nhắn tin/kết bạn trước với bot để nhận thông tin chuyển khoản! 🌸"),
+                                    message_object, thread_id, thread_type
+                                )
+                            finally:
+                                if os.path.exists(temp_path):
+                                    os.remove(temp_path)
+                            return
+
                 # Check dynamic commands logic
                 executed = self.command_handler.execute(cmd_name, message_text, message_object, thread_id, thread_type, author_id)
                 if executed:
                     # Let auto sticker run as a post-hook
-                    auto_stk(self, message_object, author_id, thread_id, thread_type)
+                    auto_stk(self, message_object, author_id, thread_id, thread_type, message_text)
                     return
                 
                 # Check custom checks for music options disabled checks
@@ -2955,7 +3347,7 @@ class bot(ZaloAPI):
                     try:
                         if random.random() > 0.3:
                             self.sendReaction(message_object, "⏳", thread_id, thread_type)
-                        self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                     except Exception as react_err:
                         print(f"[Main] Lỗi gửi waiting reaction cho donghua: {react_err}")
                     
@@ -2965,7 +3357,7 @@ class bot(ZaloAPI):
                             success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
                             if random.random() > 0.3:
                                 self.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
-                            self.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                            self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                         except Exception as react_err:
                             print(f"[Main] Lỗi gửi success reaction cho donghua: {react_err}")
                     except Exception as e:
@@ -2983,7 +3375,7 @@ class bot(ZaloAPI):
                     return
 
             # Check general auto hooks
-            auto_stk(self, message_object, author_id, thread_id, thread_type)
+            auto_stk(self, message_object, author_id, thread_id, thread_type, message_text)
             
         except Exception as e:
             print(f"[MAIN] Lỗi trong main: {e}")
@@ -3114,6 +3506,10 @@ def signal_handler(sig, frame):
     os._exit(0)
 
 def main():
+    # Kiểm tra và tự động cài đặt FFmpeg nếu thiếu
+    from core.ffmpeg_installer import check_and_install_ffmpeg
+    check_and_install_ffmpeg()
+    
     signal.signal(signal.SIGINT, signal_handler)
     
     try:

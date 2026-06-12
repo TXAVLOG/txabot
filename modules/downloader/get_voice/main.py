@@ -1,6 +1,8 @@
 import json
 import os
 import requests
+from core.bot_sys import convert_to_m4a
+
 
 
 def handle_getvoice_command(message, message_object, thread_id, thread_type, author_id, client):
@@ -34,7 +36,9 @@ def send_voice_from_video(uguu_url, download_path, thread_id, thread_type, clien
             send_error_message(thread_id, thread_type, client, "Không thể tải video từ Uguu.")
             return
 
-        uploaded_url = upload_to_uguu(audio_file)
+
+        m4a_file = convert_to_m4a(audio_file)
+        uploaded_url = upload_to_uguu(m4a_file)
         if uploaded_url:
             print(f"Đã upload tệp lên Uguu: {uploaded_url}")
             if hasattr(client, 'sendRemoteVoice'):
@@ -44,8 +48,16 @@ def send_voice_from_video(uguu_url, download_path, thread_id, thread_type, clien
         else:
             send_error_message(thread_id, thread_type, client, "Không thể upload tệp âm thanh lên Uguu.")
 
-        os.remove(audio_file)
-        print(f"Đã xóa tệp: {audio_file}")
+        if m4a_file != audio_file:
+            try:
+                os.remove(m4a_file)
+            except:
+                pass
+        try:
+            os.remove(audio_file)
+        except:
+            pass
+        print(f"Đã xóa các tệp tạm.")
 
     except Exception as e:
         print(f"Lỗi khi gửi voice từ video: {str(e)}")

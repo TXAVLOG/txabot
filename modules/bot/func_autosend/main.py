@@ -10,7 +10,7 @@ import requests
 import json
 from urllib.parse import urlparse
 from PIL import Image
-from core.bot_sys import get_user_name_by_id, read_settings, write_settings, is_admin
+from core.bot_sys import get_user_name_by_id, read_settings, write_settings, is_admin, convert_to_m4a
 from modules.utils.image_sender import ImageSender
 
 # Danh sách thể loại nội dung
@@ -18,11 +18,10 @@ CONTENT_TYPES = {
     "image": {"type": "random_image", "desc": "Random ảnh"},
     "video": {"type": "random_video", "desc": "Random video"},
     "music": {"type": "music", "desc": "Random nhạc ZingMP3 BXH"},
-    "remotevd": {"type": "remote_video", "desc": "Video autosend giống bản 3/"},
+    "remotevd": {"type": "remote_video", "desc": "Video Local"},
     "vdgirl": {"type": "video", "desc": "Video gái"},
     "vdcos": {"type": "video", "desc": "Video cosplay"},
     "vdanime": {"type": "video", "desc": "Video anime"},
-    "vdsexy": {"type": "video", "desc": "Video sexy"},
     "girl": {"type": "image", "desc": "Ảnh gái"},
     "cosplay": {"type": "image", "desc": "Ảnh cosplay"},
     "anime": {"type": "image", "desc": "Ảnh anime"},
@@ -241,7 +240,7 @@ def get_content_type_setting(bot, thread_id):
     settings = read_settings(bot.uid)
     if "autosend_content" not in settings:
         settings["autosend_content"] = {}
-    return settings["autosend_content"].get(thread_id, "vdsexy")
+    return settings["autosend_content"].get(thread_id, "vdgirl")
 
 def set_content_type_setting(bot, thread_id, content_type):
     settings = read_settings(bot.uid)
@@ -453,7 +452,12 @@ def send_chart_music_content(bot, thread_id, message):
             with open(temp_file, "wb") as f:
                 f.write(audio.content)
 
-            upload_url = upload_to_uguu(temp_file)
+
+            m4a_file = convert_to_m4a(temp_file)
+            upload_url = upload_to_uguu(m4a_file)
+            if m4a_file != temp_file:
+                delete_file(m4a_file)
+
             if not upload_url:
                 continue
 
@@ -525,8 +529,8 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
             except Exception as e:
                 print(f"❌ Không tải được video remote ({type(e).__name__}): {e}")
                 if allow_fallback:
-                    set_content_type_setting(bot, thread_id, "vdsexy")
-                    print("⏩ Nguồn remotevd lỗi, đã chuyển cấu hình autosend của nhóm sang 'vdsexy'.")
+                    set_content_type_setting(bot, thread_id, "vdgirl")
+                    print("⏩ Nguồn remotevd lỗi, đã chuyển cấu hình autosend của nhóm sang 'vdgirl'.")
                 return send_fallback_video_content(bot, thread_id, message) if allow_fallback else False
 
         if config["type"] == "video":

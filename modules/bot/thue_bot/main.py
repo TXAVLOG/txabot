@@ -1,4 +1,4 @@
-import colorsys
+﻿import colorsys
 from datetime import datetime, timedelta
 import glob
 from io import BytesIO
@@ -87,9 +87,11 @@ def get_user_name_by_id(client, author_id):
     """Lấy tên người dùng từ client dựa trên author_id."""
     try:
         user_info = client.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
+        name = user_info.zaloName or user_info.displayName or ""
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
     except Exception:
-        return "Người dùng không tồn tại"
+        return "Unknown User"
 
 def extract_uids_from_mentions(message_object):
     """Trích xuất UID từ các mentions trong tin nhắn."""
@@ -850,7 +852,7 @@ def handle_thuebot_command(message, message_object, thread_id, thread_type, auth
             
             if random.random() > 0.3:
                 client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-            client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+            client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
             client.sendLocalImage(
                 imagePath=image_path,
                 message=Message(text=msg, mention=Mention(author_id, length=len(user_name), offset=1)),
@@ -1253,6 +1255,48 @@ txa = {
     "command": ['create', 'lock', 'unlock', 'list_bots', 'reset', 'change_prefix', 'active', 'bot_info', 'share', 'update', 'setbox', 'thuebot']
 }
 
+def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
+    prefix = getattr(bot, 'prefix', '.')
+    cmd = message_text[len(prefix):].split()[0].lower()
+    
+    dispatch_map = {
+        'create': handle_create_command,
+        'lock': handle_lock_command,
+        'unlock': handle_unlock_command,
+        'list_bots': handle_list_bots_command,
+        'del': handle_del_command,
+        'reset': handle_reset_command,
+        'change_prefix': handle_change_prefix_command,
+        'active': handle_active_command,
+        'bot_info': handle_bot_info_command,
+        'share': handle_share_command,
+        'update': handle_update_command,
+        'setbox': handle_setbox_command,
+        'thuebot': handle_thuebot_command
+    }
+    
+    func = dispatch_map.get(cmd)
+    if func:
+        import inspect
+        sig = inspect.signature(func)
+        args_map = {
+            'bot': bot,
+            'client': bot,
+            'message_object': message_object,
+            'thread_id': thread_id,
+            'thread_type': thread_type,
+            'author_id': author_id,
+            'message': message_text,
+            'message_text': message_text,
+            'message_lower': message_text.lower()
+        }
+        args = []
+        for param_name in sig.parameters:
+            if param_name in args_map:
+                args.append(args_map[param_name])
+            else:
+                args.append(None)
+        func(*args)
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()

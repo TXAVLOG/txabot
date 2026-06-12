@@ -435,7 +435,7 @@ def handle_hoan_doi_command(bot, message_object, author_id, thread_id, thread_ty
         ]
         if random.random() > 0.3:
             bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
         bot.sendLocalImage(
             imagePath=image_path,
             message=Message(text=response, mention=Mention(author_id, length=len(user_name), offset=0)),

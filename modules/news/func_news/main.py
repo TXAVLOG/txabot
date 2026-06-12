@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import pytz
 import requests
 from io import BytesIO
-from core.bot_sys import get_user_name_by_id, is_admin, read_settings, write_settings
+from core.bot_sys import get_user_name_by_id, is_admin, read_settings, write_settings, convert_to_m4a
 from zlapi.models import *
 
 BACKGROUND_PATH = "background/"
@@ -132,7 +132,7 @@ def news(bot, message_object, author_id, thread_id, thread_type, command):
                 
                 if random.random() > 0.3:
                     bot.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
-                bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                 bot.sendLocalImage(
                     imagePath=image_path,
                     message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -267,16 +267,26 @@ def news(bot, message_object, author_id, thread_id, thread_type, command):
                     print("Bắt đầu tạo voice clip...")
                     mp3_file_path = create_voice_clip(summary_text)
                     if mp3_file_path and os.path.exists(mp3_file_path):
-                        uploaded_url = upload_to_uguu(mp3_file_path)
+
+                        m4a_file = convert_to_m4a(mp3_file_path)
+                        uploaded_url = upload_to_uguu(m4a_file)
                         if uploaded_url:
                             bot.sendRemoteVoice(
                                 uploaded_url,
                                 thread_id,
                                 thread_type,
-                                fileSize=os.path.getsize(mp3_file_path),
+                                fileSize=os.path.getsize(m4a_file),
                                 ttl=100000
                             )
-                        os.remove(mp3_file_path)
+                        if m4a_file != mp3_file_path:
+                            try:
+                                os.remove(m4a_file)
+                            except:
+                                pass
+                        try:
+                            os.remove(mp3_file_path)
+                        except:
+                            pass
                 except Exception as e:
                     print(f"Lỗi khi xử lý voice: {e}")
                     bot.replyMessage(Message(text="➜ ❌ Không thể tạo hoặc gửi voice clip."), message_object, thread_id=thread_id, thread_type=thread_type)

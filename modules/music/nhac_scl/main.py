@@ -1,5 +1,8 @@
+from colorsys import hsv_to_rgb
+from colorsys import rgb_to_hsv
 import subprocess
-from core.bot_sys import is_admin, _music_styled_msg
+import inspect
+from core.bot_sys import is_admin, _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, create_rotating_webp, process_next_music_queue, upload_file
 from zlapi.models import *
 import requests
 from bs4 import BeautifulSoup
@@ -17,9 +20,8 @@ import requests
 import io
 import tempfile
 import os
-from colorsys import hsv_to_rgb, rgb_to_hsv
 
-user_states = {}
+user_states = USER_MUSIC_STATES
 client_id_cache = None
 SEARCH_TIMEOUT = 120
 
@@ -564,12 +566,24 @@ def save_file_to_cache(url, filename):
         return None
         
 def upload_to_uguu(file_path):
+    if file_path.endswith('.mp3') or file_path.endswith('.m4a'):
+        return upload_file(file_path, "audio/mp4")
+    elif file_path.endswith('.webp'):
+        return upload_file(file_path, "image/webp")
+    else:
+        return upload_file(file_path, "image/png")
+
+def convert_mp3_to_m4a(mp3_path):
+    """Convert MP3 to M4A (AAC) để tương thích iPhone/iOS"""
+    m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
-        with open(file_path, 'rb') as file:
-            response = requests.post("https://uguu.se/upload", files={'files[]': file})
-            return response.json().get('files')[0].get('url')
-    except:
-        return None
+        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        if os.path.exists(m4a_path):
+            return m4a_path
+    except Exception as e:
+        print(f"[SCL] Lỗi convert m4a: {e} - dùng mp3 thay thế")
+    return mp3_path
 
 def delete_file(file_path):
     try:
@@ -693,6 +707,8 @@ def create_song_list_image(songs):
             result = ''
             total_width = 0
             for char in text:
+                if char == '\ufe0f':
+                    continue
                 font_used = font_emoji if emoji.is_emoji(char) else font_text
                 char_width = get_text_width(char, font_used)
                 if total_width + char_width > max_width:
@@ -756,6 +772,8 @@ def create_song_list_image(songs):
             truncated_title = truncate_text(title, max_text_width, font, emoji_font)
 
             for char in truncated_title:
+                if char == '\ufe0f':
+                    continue
                 font_used = emoji_font if emoji.is_emoji(char) else font
                 draw_text_with_shadow(draw, (x_text, y_text), char, font_used, title_color)
                 x_text += get_text_width(char, font_used)
@@ -764,6 +782,8 @@ def create_song_list_image(songs):
             y_artist = y_text + int(35 * scale)
             truncated_artist = truncate_text(username, max_text_width, artist_font, artist_emoji_font)
             for char in truncated_artist:
+                if char == '\ufe0f':
+                    continue
                 font_used = artist_emoji_font if emoji.is_emoji(char) else artist_font
                 draw_text_with_shadow(draw, (x_artist, y_artist), char, font_used, artist_color, shadow_offset=(1, 1))
                 x_artist += get_text_width(char, font_used)
@@ -773,6 +793,8 @@ def create_song_list_image(songs):
             info_height = info_font.size
             y_info = top + card_height - card_padding - info_height
             for char in info_text:
+                if char == '\ufe0f':
+                    continue
                 font_used = info_emoji_font if emoji.is_emoji(char) else info_font
                 fill_color = icon_colors.get(char, info_color) 
                 draw_text_with_shadow(draw, (x_info, y_info), char, font_used, fill_color, shadow_offset=(1, 1))
@@ -904,6 +926,8 @@ def create_single_song_image(song):
             current_width = 0
             result = ""
             for char in text:
+                if char == '\ufe0f':
+                    continue
                 f = emoji_font if emoji.emoji_count(char) else font
                 char_width = f.getlength(char)
                 if current_width + char_width > max_text_width:
@@ -915,10 +939,12 @@ def create_single_song_image(song):
 
         def draw_gradient_text_line(draw, text, x, y, font, emoji_font):
             shortened = shorten_text(text, font, emoji_font)
-            total_width = sum((emoji_font if emoji.emoji_count(c) else font).getlength(c) for c in shortened)
+            total_width = sum((emoji_font if emoji.emoji_count(c) else font).getlength(c) for c in shortened if c != '\ufe0f')
 
             current_x = x
             for char in shortened:
+                if char == '\ufe0f':
+                    continue
                 f = emoji_font if emoji.emoji_count(char) else font
                 char_width = f.getlength(char)
                 color = get_gradient_color(current_x - x, total_width)
@@ -946,28 +972,7 @@ def create_single_song_image(song):
         print("Error in create_single_song_image:", e)
         return None
 
-def create_rotating_webp(image_url, num_frames=200, rotation_speed=2):
-    try:
-        response = requests.get(image_url, timeout=10)
-        response.raise_for_status()
-        image = Image.open(io.BytesIO(response.content)).convert('RGBA')
-        
-        frames = []
-        for i in range(num_frames):
-            angle = (i * 360) / num_frames
-            rotated_image = image.rotate(angle)
-            frame = create_rounded_corners(rotated_image, radius=200)
-            frames.append(frame)
 
-        with tempfile.NamedTemporaryFile(suffix='.webp', delete=False) as temp_file:
-            frames[0].save(temp_file.name, format="WEBP", save_all=True, 
-                         append_images=frames[1:], duration=20, loop=0)
-            webp_url = upload_to_uguu(temp_file.name)
-            delete_file(temp_file.name)
-            return webp_url
-    except Exception as e:
-        print(f"Lỗi khi tạo WebP: {e}")
-        return None
 
 def create_rounded_corners(image, radius):
     width, height = image.size
@@ -1012,9 +1017,14 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         username = f"ID_{author_id}"
 
     content = message.strip().split()
-
-    if len(content) == 2 and content[0].lower() in [f"{client.prefix}scl", f"{client.prefix}nhac"] and content[1].isdigit():
-        print(f"[DEBUG] Người dùng chọn bài với số: {content[1]}")
+    
+    # Check if it's just a digit and we have a state for this user
+    is_direct_selection = message.strip().isdigit() and author_id in user_states and user_states[author_id].get('source') == 'scl'
+    is_command_selection = len(content) == 2 and content[0].lower() in [f"{client.prefix}scl", f"{client.prefix}nhac"] and content[1].isdigit()
+    
+    if is_direct_selection or is_command_selection:
+        selected_number = message.strip() if is_direct_selection else content[1]
+        print(f"[DEBUG] Người dùng chọn bài với số: {selected_number}")
 
         if author_id not in user_states:
             print(f"[DEBUG] Không có user_states cho author_id: {author_id}")
@@ -1024,19 +1034,23 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         if time.time() - state['time_of_search'] > SEARCH_TIMEOUT:
             print(f"[DEBUG] Hết hạn SEARCH_TIMEOUT cho author_id: {author_id}")
             del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
             text = f"🚦{username} Thời Gian Phản Hồi Hết Ròi Vui Lòng Chọn Scl <Tên bài hát> Khác Để Nghe Nhạc Nhé..!"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             return
 
         songs = state['songs']
-        selector_index = int(content[1]) - 1 
+        selector_index = int(selected_number) - 1 
 
         if selector_index < 0 or selector_index >= len(songs):
-            print(f"[DEBUG] Số thứ tự không hợp lệ: {content[1]}")
-            text = f"🚦{username}, số thứ tự không hợp lệ: {content[1]}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            print(f"[DEBUG] Số thứ tự không hợp lệ: {selected_number}")
+            text = f"🚦{username}, số thứ tự không hợp lệ: {selected_number}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
@@ -1086,13 +1100,13 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 print(f"[ERROR] Lỗi xử lý ảnh thumbnail: {e}")
 
         selected_number = content[1]
-        text = f"""
-🚦{username} chọn : {selected_number}
+        text = f"""🚦{username}  chọn : {selected_number}
 📩 Tên Bài Hát  : {title}
 ☁️ Nguồn: SoundCloud
 🔗 Link : {link}
 ⏳Chờ Lấy Nhạc Nhé...🎧"""
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         msg = _music_styled_msg(text=text, mention=mention)
 
         if temp_cover_path and os.path.exists(temp_cover_path):
@@ -1112,17 +1126,20 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         if not song_image_path:
             print(f"[DEBUG] bug rồi sếp ơi: {title}")
             text = f"🚦{username}, không thể tạo ảnh cho bài: {title}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
+        static_disc_path = None
+        animated_disc_path = None
         if is_valid_image_url(cover_url):
-            rotating_disc_url = create_rotating_webp(cover_url)
-            if not rotating_disc_url:
+            res = create_rotating_webp(cover_url)
+            if res:
+                static_disc_path, animated_disc_path = res
+            else:
                 print(f"[DEBUG] bug rồi sếp ơi: {title}")
-                rotating_disc_url = None
         else:
-            rotating_disc_url = None
             print(f"[DEBUG] URL thumbnail không hợp lệ cho bài: {title}")
 
         cover_main = get_track_cover(link)
@@ -1132,7 +1149,8 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         if not audio_url:
             print(f"[DEBUG] Không tải được âm thanh cho bài: {title}")
             text = f"🚦{username}, không thể tải: {title}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
@@ -1141,17 +1159,23 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         if not file_path:
             print(f"[DEBUG] Lỗi lưu tệp âm thanh cho bài: {title}")
             text = f"🚦{username}, lỗi lưu tệp âm thanh cho bài: {title}. Vui lòng thử lại."
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
-        upload_response = upload_to_uguu(file_path)
+        # Convert sang M4A (AAC) để tương thích iPhone/iOS
+        m4a_file = convert_mp3_to_m4a(file_path)
+        upload_response = upload_to_uguu(m4a_file)
         delete_file(file_path)
+        if m4a_file != file_path:
+            delete_file(m4a_file)
 
         if not upload_response:
             print(f"[DEBUG] Lỗi tải lên tệp âm thanh cho bài: {title}")
             text = f"🚦{username}, lỗi tải lên tệp âm thanh cho bài: {title}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
@@ -1159,27 +1183,40 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             with Image.open(song_image_path) as img:
                 width, height = img.size
             text = f"🚦{username}, cùng chill theo nhạc nào"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             time.sleep(0)
             client.sendLocalImage(song_image_path, thread_id, thread_type, width=width, height=height, ttl=600000)
             time.sleep(0)
 
-            if rotating_disc_url and cover_url:
-                client.send_custom_sticker(staticImgUrl=cover_url, animationImgUrl=rotating_disc_url, 
-                                        thread_id=thread_id, thread_type=thread_type, ttl=600000)
-                time.sleep(0)
+            if animated_disc_path and cover_url:
+                delete_file(static_disc_path)
+                try:
+                    upload_res = client._uploadImage(animated_disc_path, thread_id, thread_type)
+                    if upload_res:
+                        webp_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
+                        if webp_url:
+                            client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, 
+                                                    thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                            time.sleep(0)
+                finally:
+                    delete_file(animated_disc_path)
 
             client.sendRemoteVoice(voiceUrl=upload_response, thread_id=thread_id, thread_type=thread_type, ttl=600000)
         except Exception as e:
             print(f"[ERROR] Lỗi khi gửi bài hát: {e}")
             text = f"🚦{username}, lỗi khi gửi bài hát: {str(e)}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
-        del user_states[author_id]
+        if author_id in user_states:
+            del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
         print(f"[DEBUG] Đã xóa user_states cho author_id: {author_id}")
         return
 
@@ -1191,7 +1228,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         action = random.choice(reactions)
         if random.random() > 0.3:
             client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
-        client.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+        client.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
 
         try:
             image_path = generate_menu_image(client, author_id, thread_id, thread_type)
@@ -1205,10 +1242,10 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
    ➜🚦 Vui lòng nhập tên bài hát để tìm kiếm sau lệnh {client.prefix}scl 🎵
    ➜ Ví dụ: 💞 {client.prefix}scl dừng thương
 """
-
+        offset = caption.find(username)
         msg = Message(
             text=caption,
-            mention=Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         )
 
         if image_path and os.path.exists(image_path):
@@ -1258,7 +1295,8 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             except Exception as e:
                 print(f"[ERROR] Không thể thu hồi tin nhắn chờ: {e}")
         text = f"🚦{username}, không tìm thấy bài hát."
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
         return
 
@@ -1266,7 +1304,8 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         'songs': songs,
         'time_of_search': time.time(),
         'query_msg_id': message_object.msgId if message_object else None,
-        'query_cli_msg_id': message_object.cliMsgId if message_object else None
+        'query_cli_msg_id': message_object.cliMsgId if message_object else None,
+        'source': 'scl'
     }
 
     image_path = create_song_list_image(songs)
@@ -1275,7 +1314,8 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
             with Image.open(image_path) as img:
                 width, height = img.size
                 text = f"🚦{username}, Nhập {client.prefix}Scl <số> để chọn bài 🎯\n 💞Ví Dụ: {client.prefix}scl 3 ✅"
-                mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+                offset = zalo_offset(text, username)
+                mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
                 msg = _music_styled_msg(text=text, mention=mention)
             sent_msg = client.sendLocalImage(image_path, message=msg, thread_id=thread_id, thread_type=thread_type, width=width, height=height, ttl=600000)
             if sent_msg:
@@ -1283,11 +1323,13 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         except Exception as e:
             print(f"[ERROR] Lỗi gửi ảnh danh sách: {e}")
             text = f"🚦{username}, không thể gửi ảnh danh sách: {str(e)}"
-            mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
     else:
         text = f"🚦{username}, không thể tạo ảnh danh sách bài hát."
-        mention = Mention(author_id, offset=2, length=len(username)) if thread_type != ThreadType.USER else None
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
 
     if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
@@ -1318,7 +1360,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     
     func = dispatch_map.get(cmd)
     if func:
-        import inspect
+
         sig = inspect.signature(func)
         args_map = {
             'bot': bot,

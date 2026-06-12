@@ -1,17 +1,22 @@
 import json
 import threading
+import re
 from zlapi.models import *
+from core.bot_sys import zalo_len, zalo_offset
 
 def get_user_name_by_id(bot, author_id):
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
+        name = user_info.zaloName or user_info.displayName or ""
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
     except Exception:
-        return "Người Dùng Ẩn Danh"
+        return "Unknown User"
 
 def src(bot, message_object, author_id, thread_id, thread_type, command):
     def src():
         try:
+            mention = None
             if message_object.quote:
                 quoted_message = message_object.quote
                 data = {
@@ -24,11 +29,17 @@ def src(bot, message_object, author_id, thread_id, thread_type, command):
                     "attach": json.loads(quoted_message.attach) if quoted_message.attach else {},
                     "fromD": quoted_message.fromD
                 }
-                response = f"🚦 @{get_user_name_by_id(bot, author_id)} source của bạn đây ✅\n{json.dumps(data, ensure_ascii=False, indent=4)}\n"
+                username = get_user_name_by_id(bot, author_id)
+                response = f"🚦 @{username} source của bạn đây ✅\n{json.dumps(data, ensure_ascii=False, indent=4)}\n"
+                
+                if thread_type != ThreadType.USER:
+                    offset = zalo_offset(response, f"@{username}")
+                    if offset != -1:
+                        mention = Mention(uid=author_id, offset=offset + 1, length=zalo_len(username))
             else:
                 response = "❌ Vui lòng reply vào một tin nhắn để lấy dữ liệu."
 
-            bot.replyMessage(Message(text=response), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
+            bot.replyMessage(Message(text=response, mention=mention), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
         except Exception as e:
             print(f"Error: {e}")
             bot.replyMessage(Message(text="🐞 Đã xảy ra lỗi gì đó 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)

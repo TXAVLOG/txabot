@@ -10,6 +10,7 @@ import platform
 import random
 import re
 import string
+import subprocess
 import sys
 from threading import Thread
 import threading
@@ -438,11 +439,28 @@ def get_allow_link_status(bot, thread_id):
 def get_user_name_by_id(bot, author_id):
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
+        name = user_info.zaloName or user_info.displayName or ""
+        # Xóa suffix trong ngoặc đơn ở cuối tên: "Nguyễn A (Biệt danh)" → "Nguyễn A"
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
     except Exception:
         return "Unknown User"
 
+def zalo_len(s):
+    """Tính độ dài chuỗi theo UTF-16 code units (Zalo API dùng cách đếm này cho Mention offset/length).
+    Emoji ngoài BMP (U+10000+) như 🚦🎵🔥 = 2 UTF-16 units thay vì 1."""
+    return sum(2 if ord(c) > 0xFFFF else 1 for c in (s or ""))
+
+def zalo_offset(full_text, substring):
+    """Tính offset của substring trong full_text theo UTF-16 code units.
+    Trả về -1 nếu không tìm thấy."""
+    idx = full_text.find(substring)
+    if idx == -1:
+        return -1
+    return zalo_len(full_text[:idx])
+
 polls_created = {}
+
 
 def is_spamming(bot, author_id, thread_id):
     max_messages = 4 
@@ -1919,8 +1937,11 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
 def get_user_name_by_id(bot, author_id):
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
-    except Exception as e:
+        name = user_info.zaloName or user_info.displayName or ""
+        # Xóa suffix trong ngoặc đơn ở cuối tên: "Nguyễn A (Biệt danh)" → "Nguyễn A"
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
+    except Exception:
         return "Unknown User"
 
 def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, command):
@@ -2857,11 +2878,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
 
                             
                             if link_action == 'on':
-                                settings['allow_link'][thread_id] = True
-                                response = f"{status_icon(allow_link)} Anti-Link 🔗\n"
+                                settings['allow_link'][thread_id] = True  # Anti-link ON → block links
+                                new_allow_link = True
+                                response = f"{status_icon(new_allow_link)} Anti-Link 🔗 (chặn gửi link) đã được bật 🟢 cho nhóm này ✅\n"
                             elif link_action == 'off':
-                                settings['allow_link'][thread_id] = False
-                                response = f"{status_icon(allow_link)} Anti-Link 🔗\n"
+                                settings['allow_link'][thread_id] = False  # Anti-link OFF → allow links
+                                new_allow_link = False
+                                response = f"{status_icon(new_allow_link)} Anti-Link 🔗 (chặn gửi link) đã được tắt 🔴 cho nhóm này ✅\n"
                             else:
                                 response = f"➜ Lệnh {bot.prefix}bot link {link_action} không được hỗ trợ 🤧"
                         write_settings(bot.uid, settings)
@@ -3140,7 +3163,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     for emoji in selected_reactions:
                         if random.random() > 0.3:
                             bot.sendReaction(message_object, emoji, thread_id, thread_type)
-                        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                     bot.sendLocalImage(
                         imagePath=image_path,
                         message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -3189,7 +3212,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     for emoji in selected_reactions:
                         if random.random() > 0.3:
                             bot.sendReaction(message_object, emoji, thread_id, thread_type)
-                        bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+                        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                     bot.replyMessage(Message(text=response),message_object, thread_id=thread_id, thread_type=thread_type,ttl=9000)
         
         except Exception as e:
@@ -3752,6 +3775,25 @@ def handle_event(client, event_data, event_type):
         if event_type in auto_lock_events:
             def lock_then_unlock():
                 try:
+                    # Check if bot itself is admin/creator in this group
+                    is_bot_admin = False
+                    try:
+                        group_info = client.fetchGroupInfo(thread_id)
+                        if group_info and hasattr(group_info, 'gridInfoMap'):
+                            grid_info = group_info.gridInfoMap.get(thread_id, {})
+                            if not grid_info:
+                                grid_info = group_info.gridInfoMap.get(str(thread_id), {})
+                            admins = [str(x) for x in grid_info.get('adminIds', [])]
+                            creator = str(grid_info.get('creatorId', ''))
+                            bot_uid = str(client.uid)
+                            if bot_uid in admins or bot_uid == creator:
+                                is_bot_admin = True
+                    except Exception as ex:
+                        print(f"Lỗi kiểm tra quyền admin của bot: {ex}")
+                        
+                    if not is_bot_admin:
+                        return
+                        
                     # Lock the group with Zalo API
                     client.changeGroupSetting(thread_id, lockSendMsg=1)
                     # Announce lock
@@ -3959,4 +4001,364 @@ def start_member_check_thread(bot, allowed_thread_ids: List[str]):
 
     thread = threading.Thread(target=check_members_loop, daemon=True)
     thread.start()
+
+def generate_pending_approvals_image(title, uids, bot):
+    try:
+        n_uids = len(uids)
+        row_height = 120
+        header_height = 200
+        footer_height = 150
+        
+        img_w = 1000
+        img_h = header_height + n_uids * row_height + footer_height
+        if img_h < 500:
+            img_h = 500
+            
+        image = Image.new("RGBA", (img_w, img_h), (20, 15, 35, 255))
+        draw = ImageDraw.Draw(image)
+        
+        for y in range(img_h):
+            r = int(26 + (13 - 26) * (y / img_h))
+            g = int(15 + (27 - 15) * (y / img_h))
+            b = int(46 + (42 - 46) * (y / img_h))
+            draw.line([(0, y), (img_w, y)], fill=(r, g, b, 255))
+            
+        try:
+            title_font = ImageFont.truetype("font/arial unicode ms bold.otf", 42)
+            name_font = ImageFont.truetype("font/arial unicode ms bold.otf", 28)
+            uid_font = ImageFont.truetype("font/arial unicode ms.otf", 22)
+            badge_font = ImageFont.truetype("font/arial unicode ms bold.otf", 20)
+            footer_font = ImageFont.truetype("font/arial unicode ms.otf", 22)
+        except:
+            try:
+                title_font = ImageFont.truetype("arial.ttf", 42)
+                name_font = ImageFont.truetype("arial.ttf", 28)
+                uid_font = ImageFont.truetype("arial.ttf", 22)
+                badge_font = ImageFont.truetype("arial.ttf", 20)
+                footer_font = ImageFont.truetype("arial.ttf", 22)
+            except:
+                title_font = ImageFont.load_default()
+                name_font = ImageFont.load_default()
+                uid_font = ImageFont.load_default()
+                badge_font = ImageFont.load_default()
+                footer_font = ImageFont.load_default()
+                
+        draw.text((50, 60), title, fill=(255, 215, 0, 255), font=title_font)
+        
+        stats_text = f"Đang chờ xử lý: {n_uids} thành viên ⏳"
+        draw.text((50, 120), stats_text, fill=(200, 200, 200, 255), font=uid_font)
+        
+        start_y = header_height
+        for idx, uid in enumerate(uids):
+            name = get_user_name_by_id(bot, uid)
+            
+            x1, y1 = 50, start_y + idx * row_height + 10
+            x2, y2 = img_w - 50, y1 + row_height - 20
+            
+            draw.rounded_rectangle([x1, y1, x2, y2], radius=20, fill=(255, 255, 255, 20), outline=(255, 255, 255, 40), width=1)
+            
+            av_x, av_y, av_r = x1 + 50, y1 + 50, 35
+            av_colors = [
+                (128, 90, 213, 255),
+                (49, 151, 149, 255),
+                (221, 107, 32, 255),
+                (43, 108, 176, 255),
+                (155, 44, 44, 255)
+            ]
+            av_color = av_colors[hash(uid) % len(av_colors)]
+            draw.ellipse([av_x - av_r, av_y - av_r, av_x + av_r, av_y + av_r], fill=av_color)
+            
+            initial = name[0].upper() if name else "U"
+            try:
+                av_font = ImageFont.truetype("font/arial unicode ms bold.otf", 34)
+            except:
+                av_font = ImageFont.load_default()
+            av_w = draw.textlength(initial, font=av_font)
+            draw.text((av_x - av_w / 2, av_y - 22), initial, fill=(255, 255, 255, 255), font=av_font)
+            
+            draw.text((av_x + av_r + 20, y1 + 20), name, fill=(255, 255, 255, 255), font=name_font)
+            
+            uid_str = f"UID: {uid}"
+            draw.text((av_x + av_r + 20, y1 + 58), uid_str, fill=(180, 180, 180, 255), font=uid_font)
+            
+            badge_text = "ĐANG CHỜ ⏳"
+            badge_w = draw.textlength(badge_text, font=badge_font)
+            bx1, by1 = x2 - badge_w - 40, y1 + 32
+            bx2, by2 = x2 - 20, y1 + row_height - 52
+            draw.rounded_rectangle([bx1, by1, bx2, by2], radius=12, fill=(237, 137, 54, 40), outline=(237, 137, 54, 255), width=1)
+            draw.text((bx1 + 10, by1 + 5), badge_text, fill=(255, 165, 0, 255), font=badge_font)
+            
+        current_time_str = f"Cập nhật lúc: {time.strftime('%H:%M:%S %d/%m/%Y')}"
+        footer_w = draw.textlength(current_time_str, font=footer_font)
+        draw.text(((img_w - footer_w) // 2, img_h - 100), current_time_str, fill=(150, 150, 150, 255), font=footer_font)
+        
+        if "KHO ẢNH" in title.upper():
+            guide_text = f"💡 Admin gõ: `!duyet yes` để tự động duyệt tất cả danh sách trên."
+        else:
+            prefix = getattr(bot, 'prefix', '!')
+            guide_text = f"💡 Admin gõ: `{prefix}bot approved add yes` để tự động duyệt tất cả danh sách trên."
+        guide_w = draw.textlength(guide_text, font=footer_font)
+        draw.text(((img_w - guide_w) // 2, img_h - 60), guide_text, fill=(100, 200, 255, 255), font=footer_font)
+        
+        out_dir = CACHE_PATH
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        out_path = os.path.join(out_dir, f"pending_approvals_{int(time.time())}.png")
+        image.save(out_path, "PNG")
+        return out_path
+    except Exception as e:
+        print(f"[ERROR] generate_pending_approvals_image: {e}")
+        return None
+
+
+def upload_file(file_path, mime_type="image/webp"):
+    try:
+        with open(file_path, "rb") as f:
+            files = {'fileToUpload': (os.path.basename(file_path), f, mime_type)}
+            upload_response = requests.post("https://catbox.moe/user/api.php", files=files, data={"reqtype": "fileupload"}, timeout=15)
+        if upload_response.status_code == 200:
+            url = upload_response.text.strip()
+            if url and not url.startswith("http"):
+                url = "https://files.catbox.moe/" + url
+            return url
+    except Exception as e:
+        print(f"[bot_sys] Catbox upload error: {e}")
+        
+    try:
+        with open(file_path, 'rb') as f:
+            response = requests.post("https://uguu.se/upload", files={'files[]': f}, timeout=15)
+        if response.status_code == 200:
+            return response.json().get('files')[0].get('url')
+    except Exception as e:
+        print(f"[bot_sys] Uguu upload error: {e}")
+        
+    return None
+
+
+def create_rotating_webp(image_url, cache_path=None):
+    import requests
+    from PIL import Image, ImageDraw, ImageOps
+    import io
+    import os
+    import tempfile
+    
+    if not cache_path:
+        cache_path = "modules/cache/"
+        
+    try:
+        if os.path.exists(image_url):
+            avatar = Image.open(image_url).convert('RGBA')
+        else:
+            response = requests.get(image_url, timeout=10)
+            response.raise_for_status()
+            avatar = Image.open(io.BytesIO(response.content)).convert('RGBA')
+            
+        # Get dominant color of cover image to make dynamic border
+        try:
+            small_img = avatar.resize((50, 50), Image.Resampling.NEAREST)
+            pixels = list(small_img.getdata())
+            r_sum, g_sum, b_sum = 0, 0, 0
+            count = 0
+            for pix in pixels:
+                if len(pix) >= 4 and pix[3] < 50:
+                    continue
+                r_sum += pix[0]
+                g_sum += pix[1]
+                b_sum += pix[2]
+                count += 1
+            if count > 0:
+                dom_color = (r_sum // count, g_sum // count, b_sum // count, 255)
+            else:
+                dom_color = (79, 183, 155, 255)
+        except Exception:
+            dom_color = (79, 183, 155, 255)
+            
+        canvas_size = (510, 510)
+        card_pos = (20, 85)
+        card_size = (340, 340)
+        card_radius = 40
+        card_border_width = 8
+        card_border_color = dom_color
+        
+        disc_center = (433, 255)
+        disc_radius = 73
+        disc_border_color = (196, 46, 158, 255) # Magenta
+        disc_body_color = (20, 20, 20, 255)
+        
+        # 1. Create the Vinyl Disc Image (146x146)
+        disc_img = Image.new("RGBA", (disc_radius * 2, disc_radius * 2), (0, 0, 0, 0))
+        draw_disc = ImageDraw.Draw(disc_img)
+        
+        # Outer colored ring (magenta)
+        draw_disc.ellipse([0, 0, disc_radius * 2, disc_radius * 2], fill=disc_border_color)
+        
+        # Black disc body (slightly smaller than border)
+        border_inset = 4
+        draw_disc.ellipse([border_inset, border_inset, disc_radius * 2 - border_inset, disc_radius * 2 - border_inset], fill=disc_body_color)
+        
+        # Vinyl grooves (concentric circles)
+        for r in [65, 57, 49, 41]:
+            draw_disc.ellipse(
+                [disc_radius - r, disc_radius - r, disc_radius + r, disc_radius + r],
+                outline=(60, 60, 60, 255),
+                width=1
+            )
+            
+        # Center crop of the cover image
+        crop_radius = 38
+        center_crop_size = crop_radius * 2
+        cropped_cover = ImageOps.fit(avatar, (center_crop_size, center_crop_size), centering=(0.5, 0.5))
+        mask = Image.new("L", (center_crop_size, center_crop_size), 0)
+        draw_mask = ImageDraw.Draw(mask)
+        draw_mask.ellipse((0, 0, center_crop_size, center_crop_size), fill=255)
+        cropped_cover.putalpha(mask)
+        
+        # Paste center crop onto disc
+        disc_img.paste(cropped_cover, (disc_radius - crop_radius, disc_radius - crop_radius), cropped_cover)
+        
+        # Center spindle hole
+        hole_radius = 4
+        draw_disc.ellipse(
+            [disc_radius - hole_radius, disc_radius - hole_radius, disc_radius + hole_radius, disc_radius + hole_radius],
+            fill=(150, 150, 150, 255),
+            outline=(100, 100, 100, 255),
+            width=1
+        )
+        
+        # 2. Create the Cover Card Image (340x340)
+        card_img = Image.new("RGBA", card_size, (0, 0, 0, 0))
+        draw_card = ImageDraw.Draw(card_img)
+        
+        # Resize cover to fit inside card with border inset
+        inner_card_size = (card_size[0] - card_border_width * 2, card_size[1] - card_border_width * 2)
+        resized_cover = ImageOps.fit(avatar, inner_card_size, centering=(0.5, 0.5))
+        
+        # Create rounded mask for cover
+        mask_card = Image.new("L", inner_card_size, 0)
+        draw_mask_card = ImageDraw.Draw(mask_card)
+        draw_mask_card.rounded_rectangle(
+            [0, 0, inner_card_size[0], inner_card_size[1]],
+            radius=card_radius - card_border_width,
+            fill=255
+        )
+        resized_cover.putalpha(mask_card)
+        
+        # Paste cover with border offset
+        card_img.paste(resized_cover, (card_border_width, card_border_width), resized_cover)
+        
+        # Draw rounded card border
+        draw_card.rounded_rectangle(
+            [card_border_width//2, card_border_width//2, card_size[0] - card_border_width//2, card_size[1] - card_border_width//2],
+            radius=card_radius,
+            outline=card_border_color,
+            width=card_border_width
+        )
+        
+        # Save static image (first frame)
+        os.makedirs(cache_path, exist_ok=True)
+        static_temp = tempfile.NamedTemporaryFile(suffix='_static.png', delete=False, dir=cache_path)
+        static_file_name = static_temp.name
+        static_temp.close()
+        
+        static_canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+        disc_offset = (disc_center[0] - disc_radius, disc_center[1] - disc_radius)
+        static_canvas.paste(disc_img, disc_offset, disc_img)
+        static_canvas.paste(card_img, card_pos, card_img)
+        static_canvas.save(static_file_name, format="PNG")
+        
+        # Generate frames for the animated WEBP
+        frames = []
+        num_frames = 30
+        for i in range(num_frames):
+            angle = i * (360 / num_frames)
+            # Only the vinyl disc rotates!
+            rotated_disc = disc_img.rotate(-angle, resample=Image.Resampling.BICUBIC)
+            
+            frame_canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+            frame_canvas.paste(rotated_disc, disc_offset, rotated_disc)
+            frame_canvas.paste(card_img, card_pos, card_img)
+            frames.append(frame_canvas)
+            
+        temp_file = tempfile.NamedTemporaryFile(suffix='.webp', delete=False, dir=cache_path)
+        temp_file_name = temp_file.name
+        temp_file.close()
+        
+        frames[0].save(
+            temp_file_name,
+            save_all=True,
+            append_images=frames[1:],
+            duration=50,
+            loop=0,
+            format="WEBP"
+        )
+        return static_file_name, temp_file_name
+    except Exception as e:
+        print(f"Lỗi khi tạo WebP đĩa xoay: {e}")
+        return None
+
+def convert_to_m4a(input_path):
+    m4a_path = input_path.rsplit('.', 1)[0] + '.m4a'
+    try:
+        cmd = ['ffmpeg', '-y', '-i', input_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        if os.path.exists(m4a_path):
+            return m4a_path
+    except Exception as e:
+        print(f"Error converting to m4a: {e}")
+    return input_path
+
+
+# Trạng thái duyệt quyền toàn cục
+PENDING_BOT_STATE = []
+PENDING_IMAGE_STATE = []
+
+# Trạng thái và hàng đợi nhạc toàn cục
+USER_MUSIC_STATES = {}
+USER_MUSIC_QUEUES = {}
+
+def load_pending_states(bot):
+    global PENDING_BOT_STATE, PENDING_IMAGE_STATE
+    # Load pending bot state
+    pending_bot_file = "cache/pending_bot_approvals.txt"
+    if os.path.exists(pending_bot_file):
+        try:
+            with open(pending_bot_file, "r", encoding="utf-8") as f:
+                PENDING_BOT_STATE = list(set([line.strip() for line in f if line.strip()]))
+        except Exception as e:
+            print(f"Error loading pending bot state: {e}")
+    
+    # Load pending image state
+    pending_img_file = "cache/pending_image_approvals.txt"
+    if os.path.exists(pending_img_file):
+        try:
+            with open(pending_img_file, "r", encoding="utf-8") as f:
+                PENDING_IMAGE_STATE = list(set([line.strip() for line in f if line.strip()]))
+        except Exception as e:
+            print(f"Error loading pending image state: {e}")
+
+def process_next_music_queue(bot, author_id):
+    if author_id in USER_MUSIC_QUEUES and USER_MUSIC_QUEUES[author_id]:
+        next_msg = USER_MUSIC_QUEUES[author_id].pop(0)
+        msg_text = next_msg.get("message_text")
+        msg_obj = next_msg.get("message_object")
+        thread_id = next_msg.get("thread_id")
+        thread_type = next_msg.get("thread_type")
+        
+        # Thả reaction OK ✅
+        try:
+            bot.sendReaction(msg_obj, "TBOT ✅", thread_id, thread_type)
+        except Exception as ex:
+            print(f"Lỗi thả emoji ok trong queue: {ex}")
+            
+        # Log console cực kỳ đẹp
+        from colorama import Fore, Style
+        print(f"{Fore.GREEN}{Style.BRIGHT}[MUSIC QUEUE] ============================================================{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}│- GIẢI PHÓNG HÀNG ĐỢI NHẠC - Xử lý lệnh tiếp theo{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}│- UID: {author_id}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}│- Command: {msg_text}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{Style.BRIGHT}[MUSIC QUEUE] ============================================================{Style.RESET_ALL}")
+        
+        # Thực thi lệnh
+        bot.onMessage(msg_obj)
+
 

@@ -165,7 +165,7 @@ def download_tiktok(bot, message_object, thread_id, thread_type, url):
             _send_video(bot, video_url, thread_id, thread_type, "🎬 Video TikTok")
             # Gửi reaction thành công
             _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT OK ✅")
+            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
             return
 
         # 2) Trường hợp là bài đăng dạng ảnh
@@ -179,7 +179,7 @@ def download_tiktok(bot, message_object, thread_id, thread_type, url):
                             f"📸 Ảnh TikTok [{i+1}/{len(images)}]")
             # Gửi reaction thành công
             _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT OK ✅")
+            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
             return
 
         # 3) Một số API trả về play/hd_play/no_watermark
@@ -187,7 +187,7 @@ def download_tiktok(bot, message_object, thread_id, thread_type, url):
             if inner.get(key):
                 _send_video(bot, inner[key], thread_id, thread_type, "🎬 Video TikTok")
                 _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-                _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT OK ✅")
+                _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
                 return
 
         raise RuntimeError("Không tìm thấy tệp phương tiện nào để tải xuống.")

@@ -134,12 +134,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
         col_idx = column_mapping.get(parent_dir, 0)
         emoji_cat, title_cat = category_titles.get(parent_dir, ("❖", parent_dir.title()))
         
-        # Add category header
-        columns[col_idx].append({
-            "type": "title",
-            "text": f"{emoji_cat} {title_cat}".upper()
-        })
-        
+        cat_cmds = []
         if parent_cfg.get("group_by_parent", False):
             # Grouped (e.g. game)
             group_key = f"group.{parent_dir}"
@@ -152,7 +147,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 if cmds:
                     main_cmd = cmds[0]
                     title = parent_cfg.get("title", parent_dir.title())
-                    columns[col_idx].append({
+                    cat_cmds.append({
                         "type": "cmd",
                         "cmd": f"{prefix}{main_cmd}",
                         "desc": title
@@ -195,11 +190,18 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                             cmd_info = txacommand.loaded_commands.get(cmd, {})
                             cmd_desc = cmd_info.get('desc', display_title)
                             
-                            columns[col_idx].append({
+                            cat_cmds.append({
                                 "type": "cmd",
                                 "cmd": f"{prefix}{cmd}",
                                 "desc": cmd_desc
                             })
+                            
+        if cat_cmds:
+            columns[col_idx].append({
+                "type": "title",
+                "text": f"{emoji_cat} {title_cat} ({len(cat_cmds)} lệnh)".upper()
+            })
+            columns[col_idx].extend(cat_cmds)
                             
     user_name = get_user_name_by_id(bot, author_id)
     line1 = f"{user_name}\n"
@@ -240,7 +242,7 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
     ]
     if random.random() > 0.3:
         bot.sendReaction(message_object, random.choice(reactions), thread_id, thread_type)
-    bot.sendReaction(message_object, "TBOT OK ✅", thread_id, thread_type)
+    bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
     
     if image_path and os.path.exists(image_path):
         try:
@@ -517,13 +519,34 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
         text_w = draw.textbbox((0, 0), bot_info_text, font=font_info_small)[2]
         total_w = emoji_w + 3 + text_w
         start_info_x = box_x2 - 40 - total_w
-        info_y = time_y + 105
+        info_y = time_y + 92
         
         try:
             draw.text((start_info_x, info_y - 2), "🤖", font=font_icon, fill=bot_info_color)
             draw_text_with_shadow(draw, (start_info_x + emoji_w + 3, info_y), bot_info_text, font_info_small, bot_info_color)
         except:
             draw_text_with_shadow(draw, (start_info_x, info_y), f"🤖{bot_info_text}", font_info_small, bot_info_color)
+
+        # Draw total system commands count
+        total_commands = len(txacommand.loaded_commands)
+        total_commands_text = f" Tổng lệnh: {total_commands}"
+        total_commands_color = (255, 235, 59, 255) # Yellow Neon for high-visibility
+        
+        try:
+            cmd_emoji_w = draw.textbbox((0, 0), "⚡", font=font_icon)[2]
+        except:
+            cmd_emoji_w = 20
+            
+        cmd_text_w = draw.textbbox((0, 0), total_commands_text, font=font_info_small)[2]
+        cmd_total_w = cmd_emoji_w + 3 + cmd_text_w
+        start_cmd_x = box_x2 - 40 - cmd_total_w
+        cmd_y = info_y + 25
+        
+        try:
+            draw.text((start_cmd_x, cmd_y - 2), "⚡", font=font_icon, fill=total_commands_color)
+            draw_text_with_shadow(draw, (start_cmd_x + cmd_emoji_w + 3, cmd_y), total_commands_text, font_info_small, total_commands_color)
+        except:
+            draw_text_with_shadow(draw, (start_cmd_x, cmd_y), f"⚡{total_commands_text}", font_info_small, total_commands_color)
 
         # Body - Columns drawing
         if columns:

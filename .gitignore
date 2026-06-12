@@ -20,11 +20,13 @@ debug_tiktok.txt
 .vscode/
 .idea/
 *.swp
+.txamcp*
 *.swo
 *~
 
 # Sensitive / Config
 api-1.json
+*.db
 
 
 # Cache & Temp
