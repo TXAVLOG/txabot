@@ -23,6 +23,7 @@ debug_tiktok.txt
 .txamcp*
 *.swo
 *~
+.claude/
 
 # Sensitive / Config
 api-1.json

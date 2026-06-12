@@ -1432,7 +1432,32 @@ def clean_pycache():
                     deleted_files += 1
                 except:
                     pass
-    return deleted_dirs, deleted_files
+
+    deleted_cache_files = 0
+    try:
+        cache_paths = [
+            os.path.abspath("modules/cache"),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "modules", "cache")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "modules", "cache"))
+        ]
+        resolved_cache_path = None
+        for cp in cache_paths:
+            if os.path.exists(cp) and os.path.isdir(cp):
+                resolved_cache_path = cp
+                break
+        if resolved_cache_path:
+            for item in os.listdir(resolved_cache_path):
+                item_path = os.path.join(resolved_cache_path, item)
+                if os.path.isfile(item_path):
+                    try:
+                        os.remove(item_path)
+                        deleted_cache_files += 1
+                    except:
+                        pass
+    except Exception as e:
+        print(f"Error cleaning modules/cache: {e}")
+
+    return deleted_dirs, deleted_files, deleted_cache_files
 
 def add_skip(bot, author_id, mentioned_uids):
     if not is_admin(bot, author_id):
@@ -2801,8 +2826,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     if not is_admin(bot, author_id):
                         response = "❌Bạn không phải admin bot!"
                     else:
-                        deleted_dirs, deleted_files = clean_pycache()
-                        response = f"🧹 Đã dọn dẹp hệ thống thành công!\n➜ Xóa {deleted_dirs} thư mục __pycache__\n➜ Xóa {deleted_files} tệp .pyc/.pyo"
+                        deleted_dirs, deleted_files, deleted_cache_files = clean_pycache()
+                        response = (
+                            f"🧹 Đã dọn dẹp hệ thống thành công!\n"
+                            f"➜ Xóa {deleted_dirs} thư mục __pycache__\n"
+                            f"➜ Xóa {deleted_files} tệp .pyc/.pyo\n"
+                            f"➜ Xóa {deleted_cache_files} tệp rác trong thư mục cache"
+                        )
 
                 elif action == 'admin':
                     if len(parts) < 3:
