@@ -22,7 +22,7 @@ SECRET_KEY = "acOrvUS15XRW2o9JksiK1KgQ6Vbds8ZW"
 VERSION = "1.11.13"
 ZING_URL = "https://zingmp3.vn"
 p_list = ["id", "ctime", "version", "page", "count", "type"]
-SEARCH_TIMEOUT = 120
+SEARCH_TIMEOUT = 10560
 
 BACKGROUND_PATH = "background/"
 CACHE_PATH = "modules/cache/"
@@ -498,12 +498,17 @@ def convert_mp3_to_m4a(mp3_path):
         if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
             print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
             return mp3_path
-        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-        if os.path.exists(m4a_path):
+        if os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
             return m4a_path
     except Exception as e:
         print(f"Error converting to m4a: {e}")
+    if os.path.exists(m4a_path):
+        try:
+            os.remove(m4a_path)
+        except Exception:
+            pass
     return mp3_path
 
 def delete_file(file_path):
@@ -546,9 +551,6 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
 
         state = user_states[author_id]
         if time.time() - state['time_of_search'] > SEARCH_TIMEOUT:
-            del user_states[author_id]
-
-            process_next_music_queue(client, author_id)
             text = f"🚦{username} Thời gian chọn bài hát đã hết hạn! Vui lòng tìm kiếm lại nhé."
             offset = zalo_offset(text, username)
             mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
@@ -609,6 +611,11 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         offset = zalo_offset(text, username)
         mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+
+        # Xóa state sau khi chọn bài hợp lệ và bắt đầu tải nhạc
+        if author_id in user_states:
+            del user_states[author_id]
+            process_next_music_queue(client, author_id)
 
         # Get stream link
         stream_res = request_zing("/api/v2/song/get/streaming", {"id": encode_id})
@@ -695,10 +702,6 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             print("ZingMP3 play error:", e)
             client.replyMessage(_music_styled_msg(text=f"🚦{username}, đã xảy ra lỗi khi tải nhạc: {str(e)}"), message_object, thread_id, thread_type, ttl=60000)
 
-        if author_id in user_states:
-            del user_states[author_id]
-
-            process_next_music_queue(client, author_id)
         return
 
     # Help/No search keyword

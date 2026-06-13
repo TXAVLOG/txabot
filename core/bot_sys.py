@@ -4501,14 +4501,50 @@ def create_rotating_webp(image_url, cache_path=None):
         return None
 
 def convert_to_m4a(input_path):
+    """Convert MP3/WAV/OGG to M4A (AAC) for iOS compatibility"""
+    if not input_path or not os.path.exists(input_path):
+        print(f"Error converting to m4a: Input file does not exist: {input_path}")
+        return input_path
+    
+    # Check file size
+    file_size = os.path.getsize(input_path)
+    if file_size < 1024:
+        print(f"Error converting to m4a: Input file is too small ({file_size} bytes)")
+        return input_path
+    
     m4a_path = input_path.rsplit('.', 1)[0] + '.m4a'
+    
     try:
-        cmd = ['ffmpeg', '-y', '-i', input_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-        if os.path.exists(m4a_path):
+        # Try with -nostdin to prevent ffmpeg from waiting for input (common issue on Windows)
+        cmd = ['ffmpeg', '-y', '-nostdin', '-i', input_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0 and os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
+            print(f"Successfully converted to m4a: {m4a_path}")
             return m4a_path
+        
+        # If first attempt failed, try alternative method with more lenient settings
+        print(f"First conversion attempt failed (code {result.returncode}), trying alternative method...")
+        
+        # Try with different codec settings
+        cmd2 = ['ffmpeg', '-y', '-nostdin', '-i', input_path, '-vn', '-acodec', 'aac', '-ab', '128k', '-ar', '44100', m4a_path]
+        result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=60)
+        
+        if result2.returncode == 0 and os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
+            print(f"Successfully converted to m4a (alternative method): {m4a_path}")
+            return m4a_path
+        
+        # Log the error for debugging
+        print(f"FFmpeg error output: {result.stderr[:500] if result.stderr else 'No error output'}")
+        print(f"FFmpeg error output (attempt 2): {result2.stderr[:500] if result2.stderr else 'No error output'}")
+        
+    except subprocess.TimeoutExpired:
+        print("Error converting to m4a: FFmpeg timed out")
+    except FileNotFoundError:
+        print("Error converting to m4a: FFmpeg not found in PATH. Please install FFmpeg.")
     except Exception as e:
         print(f"Error converting to m4a: {e}")
+    
     return input_path
 
 

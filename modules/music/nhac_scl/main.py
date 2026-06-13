@@ -23,7 +23,7 @@ import os
 
 user_states = USER_MUSIC_STATES
 client_id_cache = None
-SEARCH_TIMEOUT = 120
+SEARCH_TIMEOUT = 10560
 
 BACKGROUND_PATH = "background/"
 CACHE_PATH = "modules/cache/"
@@ -636,12 +636,17 @@ def convert_mp3_to_m4a(mp3_path):
         if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
             print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
             return mp3_path
-        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-        if os.path.exists(m4a_path):
+        if os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
             return m4a_path
     except Exception as e:
         print(f"[SCL] Lỗi convert m4a: {e} - dùng mp3 thay thế")
+    if os.path.exists(m4a_path):
+        try:
+            os.remove(m4a_path)
+        except Exception:
+            pass
     return mp3_path
 
 def delete_file(file_path):
@@ -783,7 +788,7 @@ def create_song_list_image(songs):
             draw.text((x, y), text, font=font, fill=fill)
 
         for i, song in enumerate(songs_to_draw):
-            link, title, cover_url, plays, likes, comments, username = song  
+            link, title, cover_url, plays, likes, comments, username, duration = song  
 
             col = i // songs_per_col
             row = i % songs_per_col
@@ -1115,6 +1120,11 @@ def _play_and_send_song(song, username, author_id, thread_id, thread_type, messa
     else:
         client.replyMessage(msg.replace("[ảnh]", ""), message_object, thread_id, thread_type, ttl=60000)
 
+    # Xóa state sau khi chọn bài hợp lệ và bắt đầu tải nhạc
+    if author_id in user_states:
+        del user_states[author_id]
+        process_next_music_queue(client, author_id)
+
     downloading_msg = None
     try:
         downloading_msg = client.replyMessage(
@@ -1219,12 +1229,6 @@ def _play_and_send_song(song, username, author_id, thread_id, thread_type, messa
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
-        if author_id in user_states:
-            del user_states[author_id]
-
-            process_next_music_queue(client, author_id)
-        print(f"[DEBUG] Đã xóa user_states cho author_id: {author_id}")
-
     finally:
         if downloading_msg and hasattr(downloading_msg, 'msgId') and hasattr(downloading_msg, 'cliMsgId'):
             try:
@@ -1276,9 +1280,6 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         state = user_states[author_id]
         if time.time() - state['time_of_search'] > SEARCH_TIMEOUT:
             print(f"[DEBUG] Hết hạn SEARCH_TIMEOUT cho author_id: {author_id}")
-            del user_states[author_id]
-
-            process_next_music_queue(client, author_id)
             text = f"🚦{username} Thời Gian Phản Hồi Hết Ròi Vui Lòng Chọn Scl <Tên bài hát> Khác Để Nghe Nhạc Nhé..!"
             offset = zalo_offset(text, username)
             mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
