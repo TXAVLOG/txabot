@@ -263,6 +263,7 @@ class ImageSender:
             else:
                 caption = ""
         
+        msg_payload = caption if isinstance(caption, Message) else Message(text=caption)
         ttl = self.config[type_name].get("ttl", 300000)
         
         # Kiểm tra file local trước
@@ -279,7 +280,7 @@ class ImageSender:
                         selected_file,
                         thread_id=thread_id,
                         thread_type=thread_type,
-                        message=Message(text=caption),
+                        message=msg_payload,
                         ttl=ttl
                     )
                     return None
@@ -294,7 +295,7 @@ class ImageSender:
                             selected_file,
                             thread_id=thread_id,
                             thread_type=thread_type,
-                            message=Message(text=caption),
+                            message=msg_payload,
                             ttl=ttl
                         )
                     else:
@@ -302,7 +303,7 @@ class ImageSender:
                             selected_file,
                             thread_id=thread_id,
                             thread_type=thread_type,
-                            message=Message(text=caption),
+                            message=msg_payload,
                             ttl=ttl
                         )
                     return None
@@ -332,7 +333,7 @@ class ImageSender:
                     thread_type=thread_type,
                     width=1080,
                     height=1920,
-                    message=Message(text=caption),
+                    message=msg_payload,
                     ttl=ttl
                 )
                 return None
@@ -363,7 +364,7 @@ class ImageSender:
                     temp_file,
                     thread_id=thread_id,
                     thread_type=thread_type,
-                    message=Message(text=caption),
+                    message=msg_payload,
                     ttl=ttl
                 )
             else:
@@ -371,7 +372,7 @@ class ImageSender:
                     temp_file,
                     thread_id=thread_id,
                     thread_type=thread_type,
-                    message=Message(text=caption),
+                    message=msg_payload,
                     ttl=ttl
                 )
             

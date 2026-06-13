@@ -10,7 +10,7 @@ import requests
 import json
 from urllib.parse import urlparse
 from PIL import Image
-from core.bot_sys import get_user_name_by_id, read_settings, write_settings, is_admin, convert_to_m4a
+from core.bot_sys import get_user_name_by_id, read_settings, write_settings, is_admin, convert_to_m4a, zalo_len
 from modules.utils.image_sender import ImageSender
 
 # Danh sách thể loại nội dung
@@ -60,13 +60,6 @@ REQUEST_HEADERS = {
 # Greeting đa dạng hơn
 time_greetings = {
     "01:00": [
-        "🌙✨ Đêm khuya rồi, ngủ ngon nhé bạn!",
-        "🌌💤 Một đêm thật yên bình, chúc bạn ngủ sâu giấc mơ đẹp!",
-        "🌃❄️ Giờ này rồi, hãy nghỉ ngơi, chuẩn bị cho ngày mới!",
-        "🌜🌠 Trăng dịu dàng, giấc mơ bay, ngủ thật ngon!",
-        "✨🌙 Chúc bạn một đêm ngon giấc và mơ đẹp!",
-        "🌌💫 Sao lung linh, đêm yên bình, ngủ ngon nha!",
-        "🌃🌬️ Khuya tĩnh lặng, hãy thư giãn, nghỉ ngơi!",
         "🌙❄️ Đêm lạnh, chăn ấm, ngủ ngon bạn nhé!",
         "🌠✨ Một đêm thật đẹp, chúc bạn ngủ sâu giấc!",
         "🌜🌌 Đừng thức khuya quá, nghỉ ngơi thôi!"
@@ -446,22 +439,9 @@ def send_chart_music_content(bot, thread_id, message):
         song_image_path = create_single_song_image(song)
         temp_file = os.path.join(CACHE_PATH, f"autosend_{encode_id}.mp3")
 
+        # 1. Send the greeting message and song image FIRST
+        caption = message
         try:
-            audio = requests.get(stream_url, headers=REQUEST_HEADERS, timeout=20)
-            audio.raise_for_status()
-            with open(temp_file, "wb") as f:
-                f.write(audio.content)
-
-
-            m4a_file = convert_to_m4a(temp_file)
-            upload_url = upload_to_uguu(m4a_file)
-            if m4a_file != temp_file:
-                delete_file(m4a_file)
-
-            if not upload_url:
-                continue
-
-            caption = message
             if song_image_path and os.path.exists(song_image_path):
                 with Image.open(song_image_path) as img:
                     width, height = img.size
@@ -471,25 +451,47 @@ def send_chart_music_content(bot, thread_id, message):
                     thread_type=ThreadType.GROUP,
                     width=width,
                     height=height,
-                    message=Message(text=caption),
+                    message=caption,
                     ttl=600000,
                 )
             else:
-                bot.send(Message(text=caption), thread_id, ThreadType.GROUP, ttl=600000)
+                bot.send(caption if isinstance(caption, Message) else Message(text=caption), thread_id, ThreadType.GROUP, ttl=600000)
+        except Exception as msg_err:
+            print(f"❌ Lỗi gửi ảnh/lời chúc autosend music: {msg_err}")
+            if song_image_path and os.path.exists(song_image_path):
+                delete_file(song_image_path)
+            continue
 
-            bot.sendRemoteVoice(
-                voiceUrl=upload_url,
-                thread_id=thread_id,
-                thread_type=ThreadType.GROUP,
-                ttl=600000,
-            )
-            return True
+        # 2. Download, transcode and upload voice message in background/sequential steps
+        try:
+            audio = requests.get(stream_url, headers=REQUEST_HEADERS, timeout=20)
+            audio.raise_for_status()
+            with open(temp_file, "wb") as f:
+                f.write(audio.content)
+
+            m4a_file = convert_to_m4a(temp_file)
+            upload_url = upload_to_uguu(m4a_file)
+            if m4a_file != temp_file:
+                delete_file(m4a_file)
+
+            if upload_url:
+                bot.sendRemoteVoice(
+                    voiceUrl=upload_url,
+                    thread_id=thread_id,
+                    thread_type=ThreadType.GROUP,
+                    ttl=600000,
+                )
+            else:
+                print("❌ Không thể upload audio lên uguu cho autosend music.")
         except Exception as e:
-            print(f"❌ Gửi autosend music lỗi với {encode_id}: {e}")
+            print(f"❌ Gửi voice autosend music lỗi với {encode_id}: {e}")
         finally:
             delete_file(temp_file)
             if song_image_path:
                 delete_file(song_image_path)
+
+        # Commit to the selected song candidates since greeting was already sent
+        return True
 
     return False
 
@@ -514,11 +516,15 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
                 if not video_url:
                     raise ValueError("Không tìm thấy video URL hợp lệ")
 
+                # Send greeting message FIRST
+                if message:
+                    bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP, ttl=600000)
+
                 bot.sendRemoteVideo(
                     video_url,
                     thumbnail_url,
                     duration='1000',
-                    message=Message(text=message) if message else None,
+                    message=None,
                     thread_id=thread_id,
                     thread_type=ThreadType.GROUP,
                     width=1080,
@@ -543,11 +549,15 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
                     print(f"❌ Không tìm thấy URL video hợp lệ trong {video_file}")
                     return send_fallback_video_content(bot, thread_id, message, excluded_type=content_type) if allow_fallback else False
                     
+                # Send greeting message FIRST
+                if message:
+                    bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP, ttl=600000)
+
                 bot.sendRemoteVideo(
                     video_url,
                     DEFAULT_VIDEO_THUMB_URL,
                     duration='1000000',
-                    message=Message(text=message),
+                    message=None,
                     thread_id=thread_id,
                     thread_type=ThreadType.GROUP,
                     width=1080,
@@ -593,7 +603,7 @@ def autosend_task(client):
         try:
             settings = read_settings(client.uid)
             if not settings.get("autosend"):
-                time.sleep(30)
+                time.sleep(10)
                 continue
                 
             now = datetime.now(vn_tz)
@@ -608,10 +618,10 @@ def autosend_task(client):
                     active_schedules.update(group_sched)
             
             if current_time_str not in active_schedules:
-                time.sleep(30)
+                time.sleep(10)
                 continue
 
-            bot_name = get_user_name_by_id(client, client.uid)
+            bot_name = get_user_name_by_id(client, client.uid) or "TXA Bot"
 
             for thread_id, enabled in settings.get("autosend", {}).items():
                 if not enabled or thread_id not in allowed_groups:
@@ -633,7 +643,12 @@ def autosend_task(client):
                 greeting = random.choice(greeting_pool)
 
                 print(f"🕒 Autosend đến đúng khung giờ: {current_time_str} cho nhóm {thread_id}")
-                formatted_message = f"> Send task ({current_time_str}) <\n\n{greeting}\n\nSend by (@{bot_name} - TXA Bot ✨)"
+                
+                # New template & mention tag formatting:
+                text_part = f"SendTask ({current_time_str}) . -\n\n{greeting}\n\nSend by @"
+                full_text = text_part + bot_name
+                mention = Mention(uid=client.uid, length=zalo_len(bot_name), offset=zalo_len(text_part))
+                formatted_message = Message(text=full_text, mention=mention)
 
                 content_type = get_content_type_setting(client, thread_id)
                 success = send_content(client, thread_id, content_type, formatted_message)
@@ -645,7 +660,7 @@ def autosend_task(client):
         except Exception as e:
             print(f"❌ Lỗi trong autosend_task: {e}")
             
-        time.sleep(30)
+        time.sleep(10)
 
 def start_autosend_thread(client):
     if not hasattr(client, 'autosend_thread') or not client.autosend_thread.is_alive():
@@ -783,7 +798,7 @@ def start_autosend_handle(client, thread_type, message_object, message, thread_i
             client.replyMessage(Message(text="❌ Bạn không phải admin bot!"), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
             return
         content_type = get_content_type_setting(client, thread_id)
-        bot_name = get_user_name_by_id(client, client.uid)
+        bot_name = get_user_name_by_id(client, client.uid) or "TXA Bot"
         
         current_time_str = datetime.now(vn_tz).strftime("%H:%M")
         minutes = time_str_to_minutes(current_time_str)
@@ -792,7 +807,11 @@ def start_autosend_handle(client, thread_type, message_object, message, thread_i
             greeting_pool = ["Chúc bạn một ngày vui vẻ và tràn đầy năng lượng!"]
         greeting = random.choice(greeting_pool)
         
-        message_now = f"> Send task ({current_time_str}) <\n\n{greeting}\n\nSend by (@{bot_name} - TXA Bot ✨)"
+        text_part = f"SendTask ({current_time_str}) . -\n\n{greeting}\n\nSend by @"
+        full_text = text_part + bot_name
+        mention = Mention(uid=client.uid, length=zalo_len(bot_name), offset=zalo_len(text_part))
+        message_now = Message(text=full_text, mention=mention)
+        
         success = send_content(client, thread_id, content_type, message_now)
         response = "✅ Đã gửi thử autosend!" if success else "❌ Không gửi thử được autosend, kiểm tra nguồn media/type."
         client.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
