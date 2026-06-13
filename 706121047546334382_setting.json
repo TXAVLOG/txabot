@@ -1,8 +1,7 @@
 {
     "admin_bot": [
         "706121047546334382",
-        "1512279441003061662",
-        "1934642265051564731"
+        "1512279441003061662"
     ],
     "high_level_admins": [
         "706121047546334382",
@@ -54,7 +53,8 @@
         "6150866603217993790": true
     },
     "spam_enabled": {
-        "9050521661076614651": true
+        "9050521661076614651": true,
+        "6150866603217993790": true
     },
     "music_enabled_groups": [],
     "nct_enabled_groups": [
@@ -78,8 +78,8 @@
         "9050521661076614651": {
             "link": {
                 "enabled": true,
-                "threshold": 3,
-                "duration": 15,
+                "threshold": 6,
+                "duration": 30,
                 "action": "mute"
             },
             "image": {
@@ -87,6 +87,32 @@
                 "threshold": 30,
                 "duration": 10,
                 "action": "kick"
+            }
+        },
+        "6150866603217993790": {
+            "word": {
+                "threshold": 3,
+                "duration": 30,
+                "action": "mute",
+                "enabled": true
+            },
+            "image": {
+                "threshold": 3,
+                "duration": 30,
+                "action": "mute",
+                "enabled": true
+            },
+            "link": {
+                "threshold": 3,
+                "duration": 30,
+                "action": "mute",
+                "enabled": true
+            },
+            "sticker": {
+                "threshold": 3,
+                "duration": 30,
+                "action": "mute",
+                "enabled": true
             }
         }
     },
@@ -193,7 +219,8 @@
     },
     "disabled_by_admin": [],
     "auto_approve_members": {
-        "6757453907566220197": true
+        "6757453907566220197": true,
+        "9050521661076614651": true
     },
     "autosend_schedule": {
         "6150866603217993790": [
@@ -249,5 +276,16 @@
     },
     "stkck": {
         "6150866603217993790": true
+    },
+    "gpt": {
+        "6150866603217993790": true
+    },
+    "nude_approved_users": [],
+    "nude_approved_users_expiry": {},
+    "silver_users": [
+        "1299910007340159336"
+    ],
+    "silver_users_expiry": {
+        "1299910007340159336": null
     }
 }

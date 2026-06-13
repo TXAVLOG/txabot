@@ -1,5 +1,6 @@
-﻿import time
+import time
 import random
+import re
 from zlapi.models import *
 from core.bot_sys import is_admin
 from datetime import datetime
@@ -14,16 +15,6 @@ def get_user_name_by_id(bot, author_id):
         return "Unknown User"
 
 def handle_join1_command(message, message_object, thread_id, thread_type, author_id, client):
-    if not is_admin(client, author_id):
-        msg = "❌Bạn không phải admin bot!\n"
-        styles = MultiMsgStyle([ 
-            MessageStyle(offset=0, length=2, style="color", color="#f38ba8", auto_format=False),
-            MessageStyle(offset=2, length=len(msg)-2, style="color", color="#cdd6f4", auto_format=False),
-            MessageStyle(offset=0, length=len(msg), style="font", size="13", auto_format=False)
-        ])
-        client.replyMessage(Message(text=msg, style=styles), message_object, thread_id, thread_type, ttl=120000)
-        return
-
     parts = message.strip().split(" ")
     if len(parts) < 3:
         client.replyMessage(Message(text="😵‍💫 Sai cú pháp! Dùng: join <số lần> <nội dung>"), message_object, thread_id, thread_type)
@@ -94,7 +85,8 @@ txa = {
         "join": "Bot vào nhóm"
     },
     "author": "TXA",
-    "command": ['join1', 'join']
+    "command": ['join1', 'join'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

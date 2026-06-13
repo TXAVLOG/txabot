@@ -223,7 +223,14 @@ txa = {
         "kbgr": "Kết bạn cả nhóm"
     },
     "author": "TXA",
-    "command": ['block', 'unblock', 'kb', 'xkb', 'kbgr']
+    "command": ['block', 'unblock', 'kb', 'xkb', 'kbgr'],
+    "t-per": {
+        "block": "all",
+        "kb": "all",
+        "unblock": "all",
+        "kbgr": "s-admin",
+        "xkb": "s-admin"
+    }
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

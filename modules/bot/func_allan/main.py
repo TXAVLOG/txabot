@@ -111,7 +111,8 @@ txa = {
         "all": "Tương tác tag all"
     },
     "author": "TXA",
-    "command": ['lmao', 'all']
+    "command": ['lmao', 'all'],
+    "t-per": "s-admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

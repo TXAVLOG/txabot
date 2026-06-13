@@ -3030,15 +3030,20 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
+		fileSize = 0
 		try:
-			with self._state._session.get(videoUrl) as response:
+			headers = {
+				"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+			}
+			with requests.head(videoUrl, headers=headers, allow_redirects=True, timeout=5) as response:
 				if response.status_code == 200:
-					fileSize = int(response.headers.get("Content-Length", len(response.content)))
-				else:
-					fileSize = 0
-				
+					fileSize = int(response.headers.get("Content-Length", 0))
+			if not fileSize:
+				with requests.get(videoUrl, headers=headers, stream=True, allow_redirects=True, timeout=5) as response:
+					if response.status_code == 200:
+						fileSize = int(response.headers.get("Content-Length", 0))
 		except:
-			raise ZaloAPIException("Unable to get url content")
+			pass
 			
 		params = {
 			"zpw_ver": 685,
@@ -3131,11 +3136,21 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
-		with self._state._session.get(voiceUrl) as response:
-			if response.status_code == 200:
-				fileSize = fileSize if fileSize else int(response.headers.get("Content-Length", len(response.content)))
-			else:
-				fileSize = fileSize if fileSize else 0
+		if not fileSize:
+			try:
+				headers = {
+					"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+				}
+				with requests.head(voiceUrl, headers=headers, allow_redirects=True, timeout=5) as response:
+					if response.status_code == 200:
+						fileSize = int(response.headers.get("Content-Length", 0))
+				if not fileSize:
+					with requests.get(voiceUrl, headers=headers, stream=True, allow_redirects=True, timeout=5) as response:
+						if response.status_code == 200:
+							fileSize = int(response.headers.get("Content-Length", 0))
+			except:
+				pass
+		fileSize = fileSize if fileSize else 0
 		
 		params = {
 			"zpw_ver": 685,

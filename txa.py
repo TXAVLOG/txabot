@@ -42,8 +42,18 @@ logger = logging.getLogger("txabot")
 message_count = {}
 message_threshold = {}  # Lưu ngưỡng cho mỗi thread
 def send_random_sticker(bot, thread_id, thread_type):
-    with open('auto_sticker.json', 'r', encoding='utf-8') as file:
-        stickers = json.load(file)
+    if not os.path.exists('sticker.json'):
+        return
+    try:
+        with open('sticker.json', 'r', encoding='utf-8') as file:
+            stickers = json.load(file)
+    except Exception as e:
+        logger.error(f"Error reading sticker.json: {e}")
+        return
+            
+    if not stickers:
+        return
+        
     sticker = random.choice(stickers)
     bot.sendSticker(sticker['stickerType'], sticker['stickerId'], sticker['cateId'], thread_id, thread_type)
 
@@ -1574,9 +1584,62 @@ class DynamicCommandHandler:
             for cmd, cmd_info in txacommand.loaded_commands.items():
                 self.commands[cmd] = cmd_info['function']
                 
+            total_super = 0
+            total_admin = 0
+            total_silver = 0
+            total_all = 0
+            for cmd, cmd_info in txacommand.loaded_commands.items():
+                t_per = cmd_info.get('t-per', 'all')
+                if t_per in ['super-admin', 'super']:
+                    total_super += 1
+                elif t_per == 'admin':
+                    total_admin += 1
+                elif t_per in ['s-admin', 's-ad']:
+                    total_silver += 1
+                else:
+                    total_all += 1
+                    
+            def get_display_width(text):
+                import unicodedata
+                import emoji
+                normalized_text = unicodedata.normalize('NFC', text)
+                width = 0
+                for char in normalized_text:
+                    category = unicodedata.category(char)
+                    if category.startswith('M'):
+                        continue
+                    if char in emoji.EMOJI_DATA:
+                        width += 2
+                    elif unicodedata.east_asian_width(char) in ('W', 'F', 'A'):
+                        width += 2
+                    elif ord(char) > 0xFFFF:
+                        width += 2
+                    else:
+                        width += 1
+                return width
+
+            def pad_to_width(text, target_width):
+                curr_width = get_display_width(text)
+                padding = target_width - curr_width
+                if padding > 0:
+                    return text + " " * padding
+                return text
+
             print("="*50)
             print(f"🎉 TỔNG KẾT: Thành công: {txacommand.success_count} | Thất bại: {txacommand.fail_count}")
             print(f"👉 Đã nạp thành công {len(self.commands)} lệnh gọi!")
+            print("="*50)
+            print(f"📊 THỐNG KÊ PHÂN QUYỀN LỆNH (CHỈ TÍNH LỆNH LOAD THÀNH CÔNG):")
+            print(f"┌──────────────────────────────┬─────────────┐")
+            print(f"│ Phân loại quyền              │ Số lượng    │")
+            print(f"├──────────────────────────────┼─────────────┤")
+            print(f"│ {pad_to_width('👑 Super Admin (super)', 28)} │ {pad_to_width(str(total_super), 11)} │")
+            print(f"│ {pad_to_width('🛡 Admin Bot (admin)', 28)} │ {pad_to_width(str(total_admin), 11)} │")
+            print(f"│ {pad_to_width('🥈 Key Bạc (s-ad)', 28)} │ {pad_to_width(str(total_silver), 11)} │")
+            print(f"│ {pad_to_width('👥 Thành viên (all)', 28)} │ {pad_to_width(str(total_all), 11)} │")
+            print(f"├──────────────────────────────┼─────────────┤")
+            print(f"│ {pad_to_width('🌟 Tổng số lệnh', 28)} │ {pad_to_width(str(len(txacommand.loaded_commands)), 11)} │")
+            print(f"└──────────────────────────────┴─────────────┘")
             print("="*50 + "\n")
             
         except Exception as e:
@@ -1587,6 +1650,53 @@ class DynamicCommandHandler:
         if not handler:
             return False
             
+        cmd_info = txacommand.loaded_commands.get(command_name)
+        if cmd_info:
+            t_per = cmd_info.get('t-per', 'all')
+            if t_per != 'all':
+                settings = read_settings(self.client.uid)
+                admin_bot = settings.get("admin_bot", [])
+                high_level_admins = settings.get("high_level_admins", [])
+                silver_users = settings.get("silver_users", [])
+                
+                is_super_admin = (author_id == self.client.uid) or (author_id in high_level_admins)
+                is_admin_bot = is_super_admin or (author_id in admin_bot)
+                is_silver = is_admin_bot or (author_id in silver_users)
+                
+                if t_per in ['super-admin', 'super']:
+                    if not is_super_admin:
+                        try:
+                            self.client.sendReaction(message_object, "❌", thread_id, thread_type)
+                            self.client.replyMessage(
+                                Message(text="❌ Bạn không có quyền sử dụng lệnh này (Chỉ dành cho Super Admin Bot). 🤧"),
+                                message_object, thread_id, thread_type
+                            )
+                        except Exception as err:
+                            print(f"[DynamicCommandHandler] Lỗi gửi phản hồi quyền: {err}")
+                        return True
+                elif t_per == 'admin':
+                    if not is_admin_bot:
+                        try:
+                            self.client.sendReaction(message_object, "❌", thread_id, thread_type)
+                            self.client.replyMessage(
+                                Message(text="❌ Bạn không có quyền sử dụng lệnh này (Chỉ dành cho Admin Bot). 🤧"),
+                                message_object, thread_id, thread_type
+                            )
+                        except Exception as err:
+                            print(f"[DynamicCommandHandler] Lỗi gửi phản hồi quyền: {err}")
+                        return True
+                elif t_per in ['s-admin', 's-ad']:
+                    if not is_silver:
+                        try:
+                            self.client.sendReaction(message_object, "❌", thread_id, thread_type)
+                            self.client.replyMessage(
+                                Message(text="❌ Bạn không có quyền sử dụng lệnh này (Chỉ dành cho Key Bạc). 🤧"),
+                                message_object, thread_id, thread_type
+                            )
+                        except Exception as err:
+                            print(f"[DynamicCommandHandler] Lỗi gửi phản hồi quyền: {err}")
+                        return True
+
         try:
             if random.random() > 0.3:
                 self.client.sendReaction(message_object, "⏳", thread_id, thread_type)
@@ -2254,6 +2364,27 @@ class bot(ZaloAPI):
                     except Exception as e:
                         print(f"[ERROR] Không thể inbox báo hết hạn lệnh Nude cho {uid}: {e}")
                 
+                # 4. Quét hết hạn silver_users
+                silver_users = settings.get("silver_users", [])
+                silver_expiry = settings.get("silver_users_expiry", {})
+                
+                silver_uids_to_remove = []
+                for uid, expiry in list(silver_expiry.items()):
+                    if expiry is not None and current_time >= expiry:
+                        silver_uids_to_remove.append(uid)
+                        
+                for uid in silver_uids_to_remove:
+                    if uid in silver_users:
+                        silver_users.remove(uid)
+                    silver_expiry.pop(uid, None)
+                    modified = True
+                    try:
+                        inbox_text = "⚠️ Quyền Key Bạc của bạn trên TXA Bot đã hết hạn."
+                        self.send(Message(text=inbox_text), thread_id=uid, thread_type=ThreadType.USER)
+                        print(f"🤖 [Hết hạn] Đã thu hồi quyền Key Bạc của UID {uid} do hết thời hạn.")
+                    except Exception as e:
+                        print(f"[ERROR] Không thể inbox báo hết hạn Key Bạc cho {uid}: {e}")
+                
                 if modified:
                     settings["approved_users"] = approved_users
                     settings["approved_users_expiry"] = approved_expiry
@@ -2261,6 +2392,8 @@ class bot(ZaloAPI):
                     settings["image_approved_users_expiry"] = image_expiry
                     settings["nude_approved_users"] = nude_approved
                     settings["nude_approved_users_expiry"] = nude_expiry
+                    settings["silver_users"] = silver_users
+                    settings["silver_users_expiry"] = silver_expiry
                     write_settings(self.uid, settings)
                     
             except Exception as e:
@@ -2573,7 +2706,8 @@ class bot(ZaloAPI):
                 message_lower.startswith(f"{prefix}group on")
             )
             
-            is_user_approved = (author_id in admin_bot or author_id in approved_users)
+            silver_users = settings.get("silver_users", [])
+            is_user_approved = (author_id in admin_bot or author_id in approved_users or author_id in silver_users)
             
             if thread_type == ThreadType.GROUP:
                 is_allowed = (
@@ -2991,8 +3125,16 @@ class bot(ZaloAPI):
                             return
 
             # Parse commands starting with prefix
-            if message_text.startswith(prefix):
-                cmd_parts = message_text[len(prefix):].split(" ")
+            is_cmd = False
+            used_prefix = None
+            if prefix and message_text.startswith(prefix) and len(message_text) > len(prefix):
+                rem_text = message_text[len(prefix):].strip()
+                if rem_text:
+                    is_cmd = True
+                    used_prefix = prefix
+
+            if is_cmd:
+                cmd_parts = message_text[len(used_prefix):].split(" ")
                 cmd_name = cmd_parts[0].lower()
                 
                 # Hàng đợi lệnh nhạc (Music Command Queue)
@@ -3373,6 +3515,19 @@ class bot(ZaloAPI):
                         except Exception as send_err:
                             print(f"[ERROR] couldn't send error message: {send_err}")
                     return
+
+                # If none of the above hardcoded commands returned, and it wasn't a dynamic command
+                try:
+                    self.sendReaction(message_object, "❌", thread_id, thread_type)
+                    self.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+                except Exception as react_err:
+                    print(f"[Main] Lỗi gửi reaction cho lệnh không hợp lệ: {react_err}")
+                
+                self.replyMessage(
+                    Message(text=f"➜ Lệnh [{used_prefix}{cmd_name}] không được hỗ trợ hoặc gõ sai cú pháp 🤧\n➜ Gõ {used_prefix}bot hoặc {used_prefix}help để xem danh sách lệnh! ✅"),
+                    message_object, thread_id, thread_type, ttl=9000
+                )
+                return
 
             # Check general auto hooks
             auto_stk(self, message_object, author_id, thread_id, thread_type, message_text)

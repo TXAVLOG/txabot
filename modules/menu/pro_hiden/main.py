@@ -419,7 +419,8 @@ txa = {
     "name": "pro_hiden",
     "desc": "Menu ẩn hiển thị các lệnh đặc biệt với giao diện ảnh. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['hiden']
+    "command": ['hiden'],
+    "t-per": "s-admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

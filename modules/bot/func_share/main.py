@@ -659,7 +659,8 @@ txa = {
     "name": "pro_share",
     "desc": "Chia sẻ code và script với thông tin chi tiết. Hỗ trợ xem danh sách và chi tiết từng code. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['share']
+    "command": ['share'],
+    "t-per": "s-admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

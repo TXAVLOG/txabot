@@ -1,9 +1,9 @@
-from core.bot_sys import admin_cao
+from core.bot_sys import is_admin
 from zlapi.models import *
 
 def handle_disbox(bot, thread_id, author_id, thread_type, message_object):
     try:
-        if not admin_cao(bot, author_id):
+        if not is_admin(bot, author_id):
             bot.replyMessage(Message(text="❌ Bạn không phải admin bot!"), 
                             message_object, thread_id=thread_id, 
                             thread_type=thread_type, ttl=100000)
@@ -17,7 +17,8 @@ txa = {
     "name": "pro_disbox",
     "desc": "Giải tán nhóm (Chỉ admin cao). Bot sẽ rời và giải tán nhóm. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['disbox']
+    "command": ['disbox'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

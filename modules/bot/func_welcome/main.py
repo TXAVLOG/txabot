@@ -1,5 +1,5 @@
 from core.bot_sys import (
-    admin_cao,
+    is_admin,
     get_welcome_caption,
     set_welcome_caption,
     reset_welcome_caption,
@@ -57,7 +57,7 @@ def _send_styled_reply(client, message_object, text, thread_id, thread_type, col
 
 
 def handle_welcome_command(message_object, thread_id, thread_type, author_id, client):
-    if not admin_cao(client, author_id):
+    if not is_admin(client, author_id):
         _send_styled_reply(client, message_object, "❌ Bạn không phải admin bot!", thread_id, thread_type)
         return
 
@@ -134,7 +134,7 @@ def handle_welcome_command(message_object, thread_id, thread_type, author_id, cl
 
 
 def handle_bye_command(message_object, thread_id, thread_type, author_id, client):
-    if not admin_cao(client, author_id):
+    if not is_admin(client, author_id):
         _send_styled_reply(client, message_object, "❌ Bạn không phải admin bot!", thread_id, thread_type)
         return
 
@@ -217,7 +217,8 @@ txa = {
         "bye": "Quản lý caption tạm biệt (admin bot)"
     },
     "author": "TXA",
-    "command": ['welcome', 'bye']
+    "command": ['welcome', 'bye'],
+    "t-per": "admin"
 }
 
 

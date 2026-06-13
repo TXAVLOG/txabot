@@ -1,4 +1,4 @@
-from core.bot_sys import admin_cao
+from core.bot_sys import is_admin
 from zlapi.models import *
 
 def send_styled_message(bot, msg, message_object, thread_id, thread_type):
@@ -10,7 +10,7 @@ def send_styled_message(bot, msg, message_object, thread_id, thread_type):
     bot.replyMessage(Message(text=msg, style=styles), message_object, thread_id, thread_type, ttl=20000)
 
 def kick_member_group(message, message_object, thread_id, thread_type, author_id, bot):
-    if not admin_cao(bot, author_id):
+    if not is_admin(bot, author_id):
         bot.replyMessage(Message(text="❌ Bạn không phải admin bot!"), 
                         message_object, thread_id=thread_id, 
                         thread_type=thread_type, ttl=100000)
@@ -33,7 +33,8 @@ txa = {
     "name": "pro_kickall",
     "desc": "Kick tất cả thành viên không phải admin khỏi nhóm (Chỉ admin cao). Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['kickall']
+    "command": ['kickall'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

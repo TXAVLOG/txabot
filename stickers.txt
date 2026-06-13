@@ -14,5 +14,13 @@
         "type": "pixel",
         "authorId": "1512279441003061662",
         "timestamp": 1781273511
+    },
+    {
+        "name": "txa_3",
+        "staticImgUrl": "https://files.catbox.moe/bah5zg.webp",
+        "animationImgUrl": "https://files.catbox.moe/bah5zg.webp",
+        "type": "disc",
+        "authorId": "1934642265051564731",
+        "timestamp": 1781297650
     }
 ]

@@ -15,7 +15,7 @@ from io import BytesIO
 import emoji
 from colorsys import hsv_to_rgb, rgb_to_hsv
 from zlapi.models import *
-from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file
+from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file, get_random_user_agent
 user_states = USER_MUSIC_STATES
 API_KEY = "X5BM3w8N7MKozC0B85o4KMlzLZKhV00y"
 SECRET_KEY = "acOrvUS15XRW2o9JksiK1KgQ6Vbds8ZW"
@@ -495,6 +495,9 @@ def upload_to_uguu(file_path):
 def convert_mp3_to_m4a(mp3_path):
     m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
+        if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
+            print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
+            return mp3_path
         cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         if os.path.exists(m4a_path):
@@ -626,8 +629,17 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
         
         # Download and upload
         try:
-            headers = {"User-Agent": "Mozilla/5.0"}
+            random_ua = get_random_user_agent()
+            headers = {
+                "User-Agent": random_ua,
+                "Referer": "https://zingmp3.vn/",
+                "Origin": "https://zingmp3.vn"
+            }
             r_audio = requests.get(stream_url, headers=headers, timeout=20)
+            r_audio.raise_for_status()
+            if not r_audio.content or len(r_audio.content) < 1024:
+                raise Exception("Dữ liệu tải về trống hoặc quá nhỏ (link stream hết hạn hoặc bị chặn).")
+                
             temp_file = os.path.join(CACHE_PATH, f"{encode_id}.mp3")
             with open(temp_file, "wb") as f:
                 f.write(r_audio.content)
@@ -659,11 +671,9 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
                         static_path, animated_path = res
                         delete_file(static_path)
                         try:
-                            upload_res = client._uploadImage(animated_path, thread_id, thread_type)
-                            if upload_res:
-                                webp_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
-                                if webp_url:
-                                    client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                            webp_url = upload_to_uguu(animated_path)
+                            if webp_url:
+                                client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
                         finally:
                             delete_file(animated_path)
             except Exception as disc_err:
@@ -868,6 +878,8 @@ def handle_zingmp3_command(message, message_object, thread_id, thread_type, auth
             0,
             it.get("artistsNames", "Unknown Artist")
         ))
+
+    songs_list.sort(key=lambda x: (int(x[3]) if x[3] is not None else 0, int(x[4]) if x[4] is not None else 0), reverse=True)
 
     user_states[author_id] = {
         'songs': songs_list,

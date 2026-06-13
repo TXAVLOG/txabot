@@ -21,7 +21,8 @@ txa = {
     "name": "Details",
     "desc": "Xem thông tin hệ thống của máy chủ và cấu hình cài đặt nhóm hiện tại dưới dạng hình ảnh",
     "author": "TXA",
-    "command": "details"
+    "command": "details",
+    "t-per": "s-admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, client=None):

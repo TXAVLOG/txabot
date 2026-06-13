@@ -2987,16 +2987,21 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
+		fileSize = 0
 		try:
-			async with aiohttp.ClientSession() as session:
-				async with session.get(videoUrl) as response:
+			headers = {
+				"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+			}
+			async with aiohttp.ClientSession(headers=headers) as session:
+				async with session.head(videoUrl, allow_redirects=True, timeout=5) as response:
 					if response.status == 200:
-						fileSize = int(response.headers.get("Content-Length", len(await response.read())))
-					else:
-						fileSize = 0
-		
+						fileSize = int(response.headers.get("Content-Length", 0))
+				if not fileSize:
+					async with session.get(videoUrl, allow_redirects=True, timeout=5) as response:
+						if response.status == 200:
+							fileSize = int(response.headers.get("Content-Length", 0))
 		except:
-			raise ZaloAPIException("Unable to get url content")
+			pass
 		
 		params = {
 			"zpw_ver": 685,
@@ -3088,12 +3093,22 @@ class ZaloAPI(object):
 		Raises:
 			ZaloAPIException: If request failed
 		"""
-		async with aiohttp.ClientSession() as session:
-			async with session.get(voiceUrl) as response:
-				if response.status == 200:
-					fileSize = fileSize if fileSize else int(response.headers.get("Content-Length", len(await response.read())))
-				else:
-					fileSize = fileSize if fileSize else 0
+		if not fileSize:
+			try:
+				headers = {
+					"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+				}
+				async with aiohttp.ClientSession(headers=headers) as session:
+					async with session.head(voiceUrl, allow_redirects=True, timeout=5) as response:
+						if response.status == 200:
+							fileSize = int(response.headers.get("Content-Length", 0))
+					if not fileSize:
+						async with session.get(voiceUrl, allow_redirects=True, timeout=5) as response:
+							if response.status == 200:
+								fileSize = int(response.headers.get("Content-Length", 0))
+			except:
+				pass
+		fileSize = fileSize if fileSize else 0
 		
 		params = {
 			"zpw_ver": 685,

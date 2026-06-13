@@ -132,9 +132,20 @@ def load_modules():
                     # Clean up description dynamically
                     raw_desc = txa_config.get('desc', '')
                     
+                    # Parse permission level if available, default to 'all'
+                    t_per_config = txa_config.get('t-per', 'all')
+
                     # Register commands
                     for cmd in commands_to_register:
                         cmd_desc = raw_desc.get(cmd, '') if isinstance(raw_desc, dict) else raw_desc
+                        
+                        if isinstance(t_per_config, dict):
+                            t_per = t_per_config.get(cmd, 'all')
+                        else:
+                            t_per = t_per_config
+                        if not isinstance(t_per, str):
+                            t_per = 'all'
+                        t_per = t_per.lower().strip()
                         
                         clean_desc = cmd_desc
                         if clean_desc:
@@ -156,7 +167,8 @@ def load_modules():
                             'author': txa_config['author'],
                             'command': command_field,
                             'module_path': module_path,
-                            'help': txa_config.get('help', {})
+                            'help': txa_config.get('help', {}),
+                            't-per': t_per
                         }
                     
                     # Load listeners if available

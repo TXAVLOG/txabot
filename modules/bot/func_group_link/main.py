@@ -7,7 +7,8 @@ txa = {
         "link": "Bật/tắt hoặc đổi link nhóm (admin bot/phó nhóm)"
     },
     "author": "TXA",
-    "command": ["link"]
+    "command": ["link"],
+    "t-per": "s-admin"
 }
 
 def is_admin_or_mod(bot, author_id, thread_id, thread_type):

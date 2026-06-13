@@ -11,15 +11,12 @@ txa = {
     "name": "treo",
     "desc": "Gửi tin nhắn định kỳ để treo bot tránh offline/sleep",
     "author": "TXA",
-    "command": ["treo"]
+    "command": ["treo"],
+    "t-per": "admin"
 }
 
 def handle_treo_command(bot, message_object, author_id, thread_id, thread_type, message_text):
     global running_threads
-
-    if not is_admin(bot, author_id):
-        bot.replyMessage(Message(text="⚠️ Bạn không có quyền sử dụng lệnh này!"), message_object, thread_id, thread_type)
-        return
 
     parts = message_text.strip().split()
     if len(parts) < 2:

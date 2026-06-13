@@ -20,6 +20,7 @@ txa = {
     "desc": "Spam SMS đến số điện thoại (Chỉ dành cho admin). Hỗ trợ blacklist và cooldown. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
     "command": ['sms'],
+    "t-per": "admin",
     "help": {
         "sms": {
             "usage": [

@@ -18,6 +18,17 @@ txa = {
     },
     "author": "TXA",
     "command": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh", "duyetnude", "unduyetnude"],
+    "t-per": {
+        "duyetnude": "s-admin",
+        "unduyetnude": "s-admin",
+        "duyet": "admin",
+        "unduyet": "admin",
+        "capkey": "admin",
+        "huykey": "admin",
+        "listkey": "admin",
+        "duyetmedia": "admin",
+        "duyetanh": "admin"
+    },
     "help": {
         "duyet": {
             "usage": [

@@ -30,6 +30,50 @@ SETTING_FILE = 'setting.json'
 LOG_FILE = 'logs.json'
 MUTED_MESSAGES_FILE = 'muted_messages.json'
 
+def get_random_user_agent():
+    file_path = "user_agents.txt"
+    default_ua = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ]
+    
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+            if lines:
+                return random.choice(lines)
+        except Exception as e:
+            print(f"[ERROR] Error reading user_agents.txt: {e}")
+
+    # File empty or not found, fetch new list
+    ua_list = []
+    try:
+        url = "https://jnrbsn.github.io/user-agents/user-agents.json"
+        # Dùng User-Agent mặc định đầu tiên để fetch
+        temp_headers = {"User-Agent": default_ua[0]}
+        response = requests.get(url, headers=temp_headers, timeout=8)
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list) and len(data) > 0:
+                ua_list = [ua for ua in data if isinstance(ua, str) and ua.strip()]
+    except Exception as e:
+        print(f"[WARNING] Could not fetch user agents: {e}. Using fallback.")
+
+    if not ua_list:
+        ua_list = default_ua
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(ua_list))
+    except Exception as e:
+        print(f"[ERROR] Could not save user agents to file: {e}")
+
+    return random.choice(ua_list)
+
 def read_settings(uid):
     data_file_path = os.path.join(f"{uid}_{SETTING_FILE}")
     try:
@@ -2232,6 +2276,15 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         
                         if policy_type not in valid_policies:
                             response = f"➜ Loại policy không hợp lệ 🤧\n➜ Chọn: {', '.join(valid_policies)}"
+                        elif policy_type == 'word' and len(parts) >= 4 and parts[3].lower() == 'list':
+                            settings = read_settings(bot.uid)
+                            forbidden_words = settings.get('forbidden_words', [])
+                            if forbidden_words:
+                                response = "➜ 🚫 Danh sách từ cấm hiện tại:\n"
+                                for idx, w in enumerate(forbidden_words, start=1):
+                                    response += f"      ➜ {idx}. {w}\n"
+                            else:
+                                response = "➜ Không có từ cấm nào trong danh sách 🤧"
                         elif len(parts) == 4 and parts[3].lower() in ('on', 'off'):
                             # Toggle on/off
                             settings = read_settings(bot.uid)
@@ -2990,7 +3043,10 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             else:
                                 uids = extract_uids_from_mentions(message_object)
                                 if not uids:
-                                    response = f"➜ Vui lòng tag người cần ban sau lệnh: {bot.prefix}bot ban vv @username 🤧"
+                                    remaining = " ".join(parts[3:])
+                                    uids = re.findall(r'\b\d+\b', remaining)
+                                if not uids:
+                                    response = f"➜ Vui lòng tag người cần ban sau lệnh: {bot.prefix}bot ban vv @username hoặc {bot.prefix}bot ban vv [UID] 🤧"
                                 else:
                                     response = ban_users_permanently(bot, uids, thread_id)
                         else:
@@ -3002,7 +3058,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = "➜ Lệnh này không khả thi do 🤖BOT không có quyền quản trị nhóm 🤧"
                             else:
                                 uids = extract_uids_from_mentions(message_object)
-                                response = add_users_to_ban_list(bot, uids, thread_id, "Quản trị viên cấm")
+                                if not uids:
+                                    remaining = " ".join(parts[2:])
+                                    uids = re.findall(r'\b\d+\b', remaining)
+                                if not uids:
+                                    response = f"➜ Vui lòng tag người dùng hoặc nhập UID để cấm: {bot.prefix}bot ban @user hoặc {bot.prefix}bot ban [UID] ✅"
+                                else:
+                                    response = add_users_to_ban_list(bot, uids, thread_id, "Quản trị viên cấm")
 
 
                 elif action == 'unban':
@@ -3016,7 +3078,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         else:
                             
                             uids = extract_uids_from_mentions(message_object)
-                            response = remove_users_from_ban_list(bot, uids, thread_id)
+                            if not uids:
+                                remaining = " ".join(parts[2:])
+                                uids = re.findall(r'\b\d+\b', remaining)
+                            if not uids:
+                                response = f"➜ Vui lòng tag người dùng hoặc nhập UID để bỏ cấm: {bot.prefix}bot unban @user hoặc {bot.prefix}bot unban [UID] ✅"
+                            else:
+                                response = remove_users_from_ban_list(bot, uids, thread_id)
                 elif action == 'block':
                       
                     if len(parts) < 3:
@@ -3042,7 +3110,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             else:
                               
                                 uids = extract_uids_from_mentions(message_object)
-                                response = block_users_from_group(bot, uids, thread_id)
+                                if not uids:
+                                    remaining = " ".join(parts[2:])
+                                    uids = re.findall(r'\b\d+\b', remaining)
+                                if not uids:
+                                    response = f"➜ Vui lòng tag người dùng hoặc nhập UID để chặn: {bot.prefix}bot block @user hoặc {bot.prefix}bot block [UID] ✅"
+                                else:
+                                    response = block_users_from_group(bot, uids, thread_id)
                 elif action == 'sos':
                     if not is_admin(bot, author_id):
                         response = "❌Bạn không phải admin bot!"
@@ -3071,14 +3145,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
                         else:
                            
-                            ids_str = parts[2]  
+                            ids_str = " ".join(parts[2:])  
                             print(f"Chuỗi UIDs: {ids_str}")
 
-                            uids = [uid.strip() for uid in ids_str.split(',') if uid.strip()]
+                            uids = re.findall(r'\b\d+\b', ids_str)
                             print(f"Danh sách UIDs: {uids}")
 
                             if uids:
-                              
                                 response = unblock_users_from_group(bot, uids, thread_id)
                             else:
                                 response = "➜ Không có UID nào hợp lệ để bỏ chặn 🤧"
@@ -3095,7 +3168,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = "➜ Lệnh này không khả thi do 🤖BOT không có quyền cầm 🔑 key nhóm 🤧"
                         else:
                             uids = extract_uids_from_mentions(message_object)
-                            response = kick_users_from_group(bot, uids, thread_id)
+                            if not uids:
+                                remaining = " ".join(parts[2:])
+                                uids = re.findall(r'\b\d+\b', remaining)
+                            if not uids:
+                                response = f"➜ Vui lòng tag người dùng hoặc nhập UID để kick: {bot.prefix}bot kick @user hoặc {bot.prefix}bot kick [UID] ✅"
+                            else:
+                                response = kick_users_from_group(bot, uids, thread_id)
                 
                 elif action == 'rule':
                     if len(parts) < 5:
@@ -3161,39 +3240,16 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     if not image_path:
                         bot.sendMessage("❌ Không thể tạo ảnh menu!", thread_id, thread_type)
                         return
-                    reaction = [
-                        "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
-                        "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
-                        "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
-                        "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
-                        "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
-                        "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
-                        "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
-                        "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
-                        "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
-                        "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
-                        "🍓", "🍋", "🍑", "🥥", "🥪", "🍝", "🍣",
-                        "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
-                        "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
-                        "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
-                        "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
-                        "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
-                        "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
-                        "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
-                        "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
-                        "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
-                        "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
-                        "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
-                        "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
-                    ]
-
-                    num_reactions = random.randint(5, 15)
-                    selected_reactions = random.sample(reaction, num_reactions)
-
-                    for emoji in selected_reactions:
+                    
+                    # Success reaction for menu
+                    try:
+                        success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
                         if random.random() > 0.3:
-                            bot.sendReaction(message_object, emoji, thread_id, thread_type)
+                            bot.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
                         bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+                    except Exception as rx_err:
+                        print(f"Lỗi gửi reaction: {rx_err}")
+
                     bot.sendLocalImage(
                         imagePath=image_path,
                         message=Message(text=response, mention=Mention(author_id, length=len(f"{get_user_name_by_id(bot, author_id)}"), offset=0)),
@@ -3210,43 +3266,46 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                     except Exception as e:
                         print(f"❌ Lỗi khi xóa ảnh: {e}")
                 else:
-                    reaction = [
-                        "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
-                        "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
-                        "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
-                        "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
-                        "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
-                        "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
-                        "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
-                        "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
-                        "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
-                        "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
-                        "🍓", "🍋", "🍑", "🥥", "🥪", "🍝", "🍣",
-                        "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
-                        "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
-                        "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
-                        "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
-                        "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
-                        "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
-                        "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
-                        "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
-                        "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
-                        "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
-                        "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
-                        "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
-                    ]
-
-                    num_reactions = random.randint(5, 15)
-                    selected_reactions = random.sample(reaction, num_reactions)
-
-                    for emoji in selected_reactions:
-                        if random.random() > 0.3:
-                            bot.sendReaction(message_object, emoji, thread_id, thread_type)
-                        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                     bot.replyMessage(Message(text=response),message_object, thread_id=thread_id, thread_type=thread_type,ttl=9000)
+                    
+                    # Check if response indicates an error/warning
+                    response_lower = response.lower()
+                    is_error = (
+                        response.startswith("❌") or 
+                        response.startswith("⚠️") or 
+                        response_lower.startswith("vui lòng") or
+                        "không được hỗ trợ" in response_lower or 
+                        "không hợp lệ" in response_lower or 
+                        "vui lòng nhập" in response_lower or 
+                        "không khả thi" in response_lower or
+                        "không có quyền" in response_lower or
+                        "thất bại" in response_lower or
+                        "chưa được phép" in response_lower or
+                        "lỗi" in response_lower
+                    )
+                    if is_error:
+                        try:
+                            bot.sendReaction(message_object, "❌", thread_id, thread_type)
+                            bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+                        except Exception as rx_err:
+                            print(f"Lỗi gửi reaction: {rx_err}")
+                    else:
+                        # Success reaction
+                        try:
+                            success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
+                            if random.random() > 0.3:
+                                bot.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
+                            bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+                        except Exception as rx_err:
+                            print(f"Lỗi gửi reaction: {rx_err}")
         
         except Exception as e:
             print(f"Error: {e}")
+            try:
+                bot.sendReaction(message_object, "❌", thread_id, thread_type)
+                bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+            except Exception as rx_err:
+                print(f"Lỗi gửi reaction: {rx_err}")
             bot.replyMessage(Message(text="➜ 🐞 Đã xảy ra lỗi gì đó 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
 
     thread = Thread(target=send_bot_response)
@@ -4034,6 +4093,74 @@ def start_member_check_thread(bot, allowed_thread_ids: List[str]):
 
 def generate_pending_approvals_image(title, uids, bot):
     try:
+        import emoji
+        import re
+        
+        def get_text_with_emoji_width(draw, text, font_text, font_emoji):
+            try:
+                emoji_list = emoji.emoji_list(text)
+            except:
+                emoji_list = []
+                
+            if not emoji_list:
+                return draw.textlength(text, font=font_text)
+                
+            total_w = 0
+            last_idx = 0
+            for match in emoji_list:
+                start = match['match_start']
+                end = match['match_end']
+                em = match['emoji']
+                
+                if start > last_idx:
+                    total_w += draw.textlength(text[last_idx:start], font=font_text)
+                total_w += draw.textlength(em, font=font_emoji)
+                last_idx = end
+                
+            if last_idx < len(text):
+                total_w += draw.textlength(text[last_idx:], font=font_text)
+                
+            return total_w
+
+        def draw_text_with_emoji(draw, position, text, fill, font_text, font_emoji):
+            x, y = position
+            try:
+                emoji_list = emoji.emoji_list(text)
+            except:
+                emoji_list = []
+                
+            if not emoji_list:
+                draw.text((x, y), text, fill=fill, font=font_text)
+                return
+                
+            last_idx = 0
+            for match in emoji_list:
+                start = match['match_start']
+                end = match['match_end']
+                em = match['emoji']
+                
+                if start > last_idx:
+                    txt_part = text[last_idx:start]
+                    draw.text((x, y), txt_part, fill=fill, font=font_text)
+                    x += draw.textlength(txt_part, font=font_text)
+                    
+                draw.text((x, y), em, fill=fill, font=font_emoji)
+                x += draw.textlength(em, font=font_emoji)
+                
+                last_idx = end
+                
+            if last_idx < len(text):
+                txt_part = text[last_idx:]
+                draw.text((x, y), txt_part, fill=fill, font=font_text)
+
+        def clean_emoji(text):
+            try:
+                import emoji
+                return emoji.replace_emoji(text, replace='')
+            except:
+                pass
+            return re.sub(r'[^\w\s,\.\!\?\-\:\(\)\[\]\/áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]', '', text)
+
         n_uids = len(uids)
         row_height = 120
         header_height = 200
@@ -4054,38 +4181,79 @@ def generate_pending_approvals_image(title, uids, bot):
             draw.line([(0, y), (img_w, y)], fill=(r, g, b, 255))
             
         try:
-            title_font = ImageFont.truetype("font/arial unicode ms bold.otf", 42)
-            name_font = ImageFont.truetype("font/arial unicode ms bold.otf", 28)
-            uid_font = ImageFont.truetype("font/arial unicode ms.otf", 22)
-            badge_font = ImageFont.truetype("font/arial unicode ms bold.otf", 20)
-            footer_font = ImageFont.truetype("font/arial unicode ms.otf", 22)
+            title_font = ImageFont.truetype("font/UTM AvoBold.ttf", 42)
+            title_font_emoji = ImageFont.truetype("font/emoji.ttf", 42)
+            
+            name_font = ImageFont.truetype("font/UTM AvoBold.ttf", 28)
+            name_font_emoji = ImageFont.truetype("font/emoji.ttf", 28)
+            
+            uid_font = ImageFont.truetype("font/UTM Avo.ttf", 22)
+            uid_font_emoji = ImageFont.truetype("font/emoji.ttf", 22)
+            
+            badge_font = ImageFont.truetype("font/UTM AvoBold.ttf", 20)
+            badge_font_emoji = ImageFont.truetype("font/emoji.ttf", 20)
+            
+            footer_font = ImageFont.truetype("font/UTM Avo.ttf", 22)
+            footer_font_emoji = ImageFont.truetype("font/emoji.ttf", 22)
         except:
             try:
                 title_font = ImageFont.truetype("arial.ttf", 42)
+                title_font_emoji = title_font
                 name_font = ImageFont.truetype("arial.ttf", 28)
+                name_font_emoji = name_font
                 uid_font = ImageFont.truetype("arial.ttf", 22)
+                uid_font_emoji = uid_font
                 badge_font = ImageFont.truetype("arial.ttf", 20)
+                badge_font_emoji = badge_font
                 footer_font = ImageFont.truetype("arial.ttf", 22)
+                footer_font_emoji = footer_font
             except:
                 title_font = ImageFont.load_default()
+                title_font_emoji = title_font
                 name_font = ImageFont.load_default()
+                name_font_emoji = name_font
                 uid_font = ImageFont.load_default()
+                uid_font_emoji = uid_font
                 badge_font = ImageFont.load_default()
+                badge_font_emoji = badge_font
                 footer_font = ImageFont.load_default()
+                footer_font_emoji = footer_font
                 
-        draw.text((50, 60), title, fill=(255, 215, 0, 255), font=title_font)
-        
-        stats_text = f"Đang chờ xử lý: {n_uids} thành viên ⏳"
-        draw.text((50, 120), stats_text, fill=(200, 200, 200, 255), font=uid_font)
+        # Tạo overlay layer để hỗ trợ vẽ card/badge trong suốt chuẩn xác (alpha blending)
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
         
         start_y = header_height
+        for idx, uid in enumerate(uids):
+            x1, y1 = 50, start_y + idx * row_height + 10
+            x2, y2 = img_w - 50, y1 + row_height - 20
+            
+            # Vẽ card nền màu trắng trong suốt 10%
+            overlay_draw.rounded_rectangle([x1, y1, x2, y2], radius=20, fill=(255, 255, 255, 25), outline=(255, 255, 255, 70), width=2)
+            
+            # Vẽ badge nền màu cam trong suốt 15%
+            badge_text = "ĐANG CHỜ ⏳"
+            badge_w = get_text_with_emoji_width(draw, badge_text, badge_font, badge_font_emoji)
+            bx1, by1 = int(x2 - badge_w - 40), int(y1 + 32)
+            bx2, by2 = int(x2 - 20), int(y1 + row_height - 52)
+            overlay_draw.rounded_rectangle([bx1, by1, bx2, by2], radius=12, fill=(237, 137, 54, 40), outline=(237, 137, 54, 255), width=1)
+
+        # Composite overlay lên image gốc
+        image = Image.alpha_composite(image, overlay)
+        draw = ImageDraw.Draw(image)
+        
+        # Vẽ Title
+        draw_text_with_emoji(draw, (50, 60), title, (255, 215, 0, 255), title_font, title_font_emoji)
+        
+        # Vẽ Stats text
+        stats_text = f"Đang chờ xử lý: {n_uids} thành viên ⏳"
+        draw_text_with_emoji(draw, (50, 120), stats_text, (210, 210, 210, 255), uid_font, uid_font_emoji)
+        
         for idx, uid in enumerate(uids):
             name = get_user_name_by_id(bot, uid)
             
             x1, y1 = 50, start_y + idx * row_height + 10
             x2, y2 = img_w - 50, y1 + row_height - 20
-            
-            draw.rounded_rectangle([x1, y1, x2, y2], radius=20, fill=(255, 255, 255, 20), outline=(255, 255, 255, 40), width=1)
             
             av_x, av_y, av_r = x1 + 50, y1 + 50, 35
             av_colors = [
@@ -4098,37 +4266,41 @@ def generate_pending_approvals_image(title, uids, bot):
             av_color = av_colors[hash(uid) % len(av_colors)]
             draw.ellipse([av_x - av_r, av_y - av_r, av_x + av_r, av_y + av_r], fill=av_color)
             
-            initial = name[0].upper() if name else "U"
+            # Lọc sạch emoji và ký tự đặc biệt ở đầu để lấy chữ cái đầu hợp lệ cho avatar
+            cleaned_initial_name = clean_emoji(name).strip()
+            cleaned_initial_name = re.sub(r'^[^\wáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]+', '', cleaned_initial_name)
+            initial = cleaned_initial_name[0].upper() if cleaned_initial_name else "U"
+            
             try:
-                av_font = ImageFont.truetype("font/arial unicode ms bold.otf", 34)
+                av_font = ImageFont.truetype("font/UTM AvoBold.ttf", 34)
             except:
                 av_font = ImageFont.load_default()
             av_w = draw.textlength(initial, font=av_font)
-            draw.text((av_x - av_w / 2, av_y - 22), initial, fill=(255, 255, 255, 255), font=av_font)
+            draw.text((int(av_x - av_w / 2), int(av_y - 22)), initial, fill=(255, 255, 255, 255), font=av_font)
             
-            draw.text((av_x + av_r + 20, y1 + 20), name, fill=(255, 255, 255, 255), font=name_font)
+            # Vẽ Tên người dùng (màu trắng tương phản hoàn hảo trên card trong suốt)
+            draw_text_with_emoji(draw, (av_x + av_r + 20, y1 + 20), name, (255, 255, 255, 255), name_font, name_font_emoji)
             
+            # Vẽ UID
             uid_str = f"UID: {uid}"
-            draw.text((av_x + av_r + 20, y1 + 58), uid_str, fill=(180, 180, 180, 255), font=uid_font)
+            draw.text((av_x + av_r + 20, y1 + 58), uid_str, fill=(200, 200, 200, 255), font=uid_font)
             
+            # Vẽ text Badge
             badge_text = "ĐANG CHỜ ⏳"
-            badge_w = draw.textlength(badge_text, font=badge_font)
-            bx1, by1 = x2 - badge_w - 40, y1 + 32
-            bx2, by2 = x2 - 20, y1 + row_height - 52
-            draw.rounded_rectangle([bx1, by1, bx2, by2], radius=12, fill=(237, 137, 54, 40), outline=(237, 137, 54, 255), width=1)
-            draw.text((bx1 + 10, by1 + 5), badge_text, fill=(255, 165, 0, 255), font=badge_font)
+            bx1, by1 = int(x2 - badge_w - 40), int(y1 + 32)
+            draw_text_with_emoji(draw, (bx1 + 10, by1 + 5), badge_text, (255, 165, 0, 255), badge_font, badge_font_emoji)
             
-        current_time_str = f"Cập nhật lúc: {time.strftime('%H:%M:%S %d/%m/%Y')}"
-        footer_w = draw.textlength(current_time_str, font=footer_font)
-        draw.text(((img_w - footer_w) // 2, img_h - 100), current_time_str, fill=(150, 150, 150, 255), font=footer_font)
+        current_time_str = f"Cập nhật lúc: {time.strftime('%H:%M:%S %d/%m/%Y')} ⏳"
+        footer_w = get_text_with_emoji_width(draw, current_time_str, footer_font, footer_font_emoji)
+        draw_text_with_emoji(draw, (int((img_w - footer_w) / 2), img_h - 100), current_time_str, (180, 180, 180, 255), footer_font, footer_font_emoji)
         
+        prefix = getattr(bot, 'prefix', '!')
         if "KHO ẢNH" in title.upper():
-            guide_text = f"💡 Admin gõ: `!duyet yes` để tự động duyệt tất cả danh sách trên."
+            guide_text = "💡 Admin gõ: !duyet yes để tự động duyệt tất cả danh sách trên."
         else:
-            prefix = getattr(bot, 'prefix', '!')
-            guide_text = f"💡 Admin gõ: `{prefix}bot approved add yes` để tự động duyệt tất cả danh sách trên."
-        guide_w = draw.textlength(guide_text, font=footer_font)
-        draw.text(((img_w - guide_w) // 2, img_h - 60), guide_text, fill=(100, 200, 255, 255), font=footer_font)
+            guide_text = f"💡 Admin gõ: {prefix}bot approved add yes để tự động duyệt tất cả danh sách trên."
+        guide_w = get_text_with_emoji_width(draw, guide_text, footer_font, footer_font_emoji)
+        draw_text_with_emoji(draw, (int((img_w - guide_w) / 2), img_h - 60), guide_text, (100, 200, 255, 255), footer_font, footer_font_emoji)
         
         out_dir = CACHE_PATH
         if not os.path.exists(out_dir):
@@ -4145,7 +4317,7 @@ def upload_file(file_path, mime_type="image/webp"):
     try:
         with open(file_path, "rb") as f:
             files = {'fileToUpload': (os.path.basename(file_path), f, mime_type)}
-            upload_response = requests.post("https://catbox.moe/user/api.php", files=files, data={"reqtype": "fileupload"}, timeout=15)
+            upload_response = requests.post("https://catbox.moe/user/api.php", files=files, data={"reqtype": "fileupload"}, timeout=300)
         if upload_response.status_code == 200:
             url = upload_response.text.strip()
             if url and not url.startswith("http"):
@@ -4156,7 +4328,7 @@ def upload_file(file_path, mime_type="image/webp"):
         
     try:
         with open(file_path, 'rb') as f:
-            response = requests.post("https://uguu.se/upload", files={'files[]': f}, timeout=15)
+            response = requests.post("https://uguu.se/upload", files={'files[]': f}, timeout=300)
         if response.status_code == 200:
             return response.json().get('files')[0].get('url')
     except Exception as e:
@@ -4179,7 +4351,9 @@ def create_rotating_webp(image_url, cache_path=None):
         if os.path.exists(image_url):
             avatar = Image.open(image_url).convert('RGBA')
         else:
-            response = requests.get(image_url, timeout=10)
+            ua = get_random_user_agent()
+            headers = {"User-Agent": ua}
+            response = requests.get(image_url, headers=headers, timeout=10)
             response.raise_for_status()
             avatar = Image.open(io.BytesIO(response.content)).convert('RGBA')
             

@@ -1,4 +1,4 @@
-from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file
+from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file, get_random_user_agent
 from aiohttp import client_exceptions
 import requests
 import json
@@ -641,6 +641,9 @@ def upload_to_uguu(file_path):
 def convert_mp3_to_m4a(mp3_path):
     m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
+        if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
+            print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
+            return mp3_path
         cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         if os.path.exists(m4a_path):
@@ -886,8 +889,16 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
 
         # Download and upload
         try:
-            headers = {"User-Agent": "Mozilla/5.0"}
+            random_ua = get_random_user_agent()
+            headers = {
+                "User-Agent": random_ua,
+                "Referer": "https://www.nhaccuatui.com/"
+            }
             r_audio = requests.get(stream_url, headers=headers, timeout=20)
+            r_audio.raise_for_status()
+            if not r_audio.content or len(r_audio.content) < 1024:
+                raise Exception("Dữ liệu tải về trống hoặc quá nhỏ (link stream hết hạn hoặc bị chặn).")
+                
             temp_file = os.path.join(CACHE_PATH, f"nct_{song_id}.mp3")
             with open(temp_file, "wb") as f:
                 f.write(r_audio.content)
@@ -920,11 +931,9 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
                         static_path, animated_path = res
                         delete_file(static_path)
                         try:
-                            upload_res = client._uploadImage(animated_path, thread_id, thread_type)
-                            if upload_res:
-                                webp_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
-                                if webp_url:
-                                    client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                            webp_url = upload_to_uguu(animated_path)
+                            if webp_url:
+                                client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
                         finally:
                             delete_file(animated_path)
             except Exception as disc_err:
@@ -983,6 +992,10 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
         offset = zalo_offset(text, username)
         client.replyMessage(_music_styled_msg(text=text, mention=Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None), message_object, thread_id, thread_type)
         return
+
+    if not is_chart_query:
+        songs.sort(key=lambda x: (int(x.get("totalLiked", 0)) if x.get("totalLiked") is not None else 0, 
+                                  int(x.get("viewed", 0)) if x.get("viewed") is not None else 0), reverse=True)
 
     songs = songs[:20]
     user_states[author_id] = {

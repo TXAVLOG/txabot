@@ -51,7 +51,8 @@ txa = {
     "name": "pro_src",
     "desc": "Xem source code của bot. Hiển thị thông tin về code và repo. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['src']
+    "command": ['src'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

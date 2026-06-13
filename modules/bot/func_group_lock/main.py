@@ -9,7 +9,12 @@ txa = {
         "lock": "Cài đặt khóa"
     },
     "author": "TXA",
-    "command": ["lockgroup", "unlockgroup", "lock"]
+    "command": ["lockgroup", "unlockgroup", "lock"],
+    "t-per": {
+        "lock": "admin",
+        "lockgroup": "admin",
+        "unlockgroup": "admin"
+    }
 }
 
 def is_admin_or_mod(bot, author_id, thread_id, thread_type):

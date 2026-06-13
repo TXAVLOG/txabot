@@ -190,9 +190,16 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                             cmd_info = txacommand.loaded_commands.get(cmd, {})
                             cmd_desc = cmd_info.get('desc', display_title)
                             
+                            t_per = cmd_info.get('t-per', 'all')
+                            perm_suffix = ""
+                            if t_per == 'admin':
+                                perm_suffix = " (AD)"
+                            elif t_per in ['s-admin', 's-ad']:
+                                perm_suffix = " (S-AD)"
+                            
                             cat_cmds.append({
                                 "type": "cmd",
-                                "cmd": f"{prefix}{cmd}",
+                                "cmd": f"{prefix}{cmd}{perm_suffix}",
                                 "desc": cmd_desc
                             })
                             
@@ -443,7 +450,21 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
             user = user_info.changed_profiles[author_id]
             user_name = getattr(user, 'name', None) or getattr(user, 'displayName', None) or f"ID_{author_id}"
 
-        greeting_name = "Chủ Nhân" if is_admin(self, author_id) else user_name
+        from core.bot_sys import read_settings
+        settings = read_settings(self.uid)
+        high_level_admins = settings.get("high_level_admins", [])
+        admin_bot = settings.get("admin_bot", [])
+        silver_users = settings.get("silver_users", [])
+
+        role_tag = ""
+        if author_id in high_level_admins:
+            role_tag = " (Super Admin)"
+        elif author_id in admin_bot:
+            role_tag = " (Admin)"
+        elif author_id in silver_users:
+            role_tag = " (Key Bạc)"
+
+        greeting_name = f"{user_name}{role_tag}"
 
         # Header - Avatar & Welcome Greeting
         avatar_url = user_info.changed_profiles[author_id].avatar if user_info and author_id in user_info.changed_profiles else None

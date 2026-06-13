@@ -1,9 +1,9 @@
 import time
-from core.bot_sys import admin_cao
+from core.bot_sys import is_admin
 from zlapi.models import *
 
 def handle_leave_group_command(message, message_object, thread_id, thread_type, author_id, client):
-    if not admin_cao(client, author_id):
+    if not is_admin(client, author_id):
         client.replyMessage(Message(text="❌ Bạn không phải admin bot!"), 
                            message_object, thread_id=thread_id, 
                            thread_type=thread_type, ttl=100000)
@@ -32,7 +32,8 @@ txa = {
     "name": "pro_leave",
     "desc": "Bot rời khỏi nhóm (Chỉ admin cao). Gửi lời tạm biệt trước khi rời. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['leave_group']
+    "command": ['leave_group'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

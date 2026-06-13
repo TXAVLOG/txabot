@@ -38,9 +38,9 @@ thread_local = threading.local()
 BOT_SUB_COMMANDS = [
     {"name": "Thông tin BOT", "cmd": "{prefix}bot info [v1/v2]", "desc": "♨️ Xem thông tin chi tiết về BOT (v1: text box, v2: màu sắc)", "oa": False},
     {"name": "Bật/Tắt BOT", "cmd": "{prefix}bot on/off", "desc": "🚀 Bật / 🛑 Tắt BOT trong nhóm", "oa": True},
-    {"name": "Dọn dẹp hệ thống", "cmd": "{prefix}bot clean", "desc": "🧹 Dọn dẹp tệp tin rác hệ thống", "oa": False},
+    {"name": "Dọn dẹp hệ thống", "cmd": "{prefix}bot clean", "desc": "🧹 Dọn dẹp tệp tin rác hệ thống (Yêu cầu: Admin)", "oa": False},
     {"name": "Cấu hình quản trị", "cmd": "{prefix}bot setup on/off", "desc": "⚙️ Bật / 🛑 Tắt cấu hình quản trị nhóm", "oa": True},
-    {"name": "Nội quy nhóm", "cmd": "{prefix}bot noiquy", "desc": "💢 Xem nội quy nhóm hiện tại", "oa": False},
+    {"name": "Nội quy nhóm", "cmd": "{prefix}bot noiquy", "desc": "#️⃣ Xem nội quy nhóm hiện tại", "oa": False},
     {"name": "Lời chào thành viên", "cmd": "{prefix}bot welcome on/off", "desc": "🎊 Bật / 🛑 Tắt lời chào mừng thành viên mới", "oa": True},
     {"name": "Lời tạm biệt", "cmd": "{prefix}bot goodbye on/off", "desc": "👋 Bật / 🛑 Tắt lời chào tạm biệt khi mem rời nhóm", "oa": True},
     {"name": "Anti-Spam", "cmd": "{prefix}bot anti on/off", "desc": "🚦 Bật / 🛑 Tắt tính năng Anti-Spam", "oa": True},
@@ -59,9 +59,10 @@ BOT_SUB_COMMANDS = [
     {"name": "Xem Policy", "cmd": "{prefix}bot policy", "desc": "📋 Xem cấu hình policy và danh sách loại: word/link/sticker/image/flood", "oa": True},
     {"name": "Bật/Tắt Policy", "cmd": "{prefix}bot policy [loại] [on/off]", "desc": "⚙️ Bật / Tắt từng loại policy: word/link/sticker/image/flood", "oa": True},
     {"name": "Cấu hình Policy", "cmd": "{prefix}bot policy [loại] [lần] [phút] [mute/kick/warn]", "desc": "⚙️ Đặt số lần vi phạm, thời gian phạt và hành động cho từng loại", "oa": True},
-    {"name": "Quyền từ xa", "cmd": "{prefix}bot remote add/remove/list", "desc": "🌐 Cấp / thu hồi / xem quyền kích hoạt từ xa", "oa": False},
-    {"name": "Quản lý Admin", "cmd": "{prefix}bot admin add/remove/list", "desc": "👑 Thêm / xóa / xem danh sách Admin BOT", "oa": False},
-    {"name": "Duyệt dùng Bot", "cmd": "{prefix}bot approved add/remove/list", "desc": "👑 Duyệt / hủy duyệt / xem danh sách dùng Bot (Hỗ trợ hẹn giờ)", "oa": False},
+    {"name": "Quyền từ xa", "cmd": "{prefix}bot remote add/remove/list", "desc": "🌐 Cấp / thu hồi / xem quyền kích hoạt từ xa (Yêu cầu: Admin)", "oa": False},
+    {"name": "Quản lý Admin", "cmd": "{prefix}bot admin add/remove/list", "desc": "👑 Thêm / xóa / xem danh sách Admin BOT (Yêu cầu: S-Admin)", "oa": False},
+    {"name": "Quản lý Key Bạc", "cmd": "{prefix}bot silver add/remove/list", "desc": "🥈 Thêm / xóa / xem danh sách Key Bạc BOT (Hỗ trợ hẹn giờ) (Yêu cầu: Admin)", "oa": False},
+    {"name": "Duyệt dùng Bot", "cmd": "{prefix}bot approved add/remove/list", "desc": "👑 Duyệt / hủy duyệt / xem danh sách dùng Bot (Hỗ trợ hẹn giờ) (Yêu cầu: Admin)", "oa": False},
     {"name": "Duyệt Kho ảnh", "cmd": "{prefix}duyet <@tag/ID> [thời gian]", "desc": "🌸 Duyệt quyền Kho ảnh cho thành viên (Hỗ trợ hẹn giờ)", "oa": False},
     {"name": "Hủy Kho ảnh", "cmd": "{prefix}unduyet <@tag/ID>", "desc": "🌸 Hủy duyệt quyền Kho ảnh đối với thành viên", "oa": False},
     {"name": "Xóa tin nhắn", "cmd": "{prefix}del @user [count]", "desc": "🗑️ Xóa count tin gần nhất của user được tag; vẫn hỗ trợ reply hoặc xóa tin kề trước", "oa": False},
@@ -159,12 +160,19 @@ txa = {
         "delete": "Xóa tin nhắn"
     },
     "author": "TXA",
-    "command": ["bot", "del", "xoa", "delete"]
+    "command": ["bot", "del", "xoa", "delete"],
+    "t-per": {
+        "bot": "s-admin",
+        "del": "admin",
+        "xoa": "admin",
+        "delete": "admin"
+    }
 }
 
 def txa_command(bot, message_object, author_id, thread_id, thread_type, message_text):
     thread_local.bot_uid = bot.uid
     handle_bot_command(bot, message_object, author_id, thread_id, thread_type, message_text)
+    return "no_reaction"
 
 SETTING_FILE = 'setting.json'
 CONFIG_FILE = 'txa.json'
@@ -289,10 +297,8 @@ def load_config():
 def is_admin(author_id):
     settings = read_settings()
     admin_bot = settings.get("admin_bot", [])
-    if author_id in admin_bot:
-        return True
-    else:
-        return False
+    high_level_admins = settings.get("high_level_admins", [])
+    return author_id in admin_bot or author_id in high_level_admins
 
 def _get_msg_value(msg, key, default=None):
     if isinstance(msg, dict):
@@ -1013,6 +1019,46 @@ def add_users_to_ban_list(bot, author_ids, thread_id, reason):
     write_settings(settings)
     return response
 
+def ban_users_permanently(bot, author_ids, thread_id):
+    settings = read_settings()
+    muted_users = settings.get("muted_users", [])
+    violations = settings.get("violations", {})
+
+    response = ""
+    for author_id in author_ids:
+        user = bot.fetchUserInfo(author_id).changed_profiles[author_id].displayName
+        
+        # Thêm/cập nhật cấm vĩnh viễn
+        existing = next((e for e in muted_users if e["author_id"] == author_id and e["thread_id"] == thread_id), None)
+        if existing:
+            existing["muted_until"] = float('inf')
+            existing["reason"] = "Quản trị viên cấm Vĩnh Viễn"
+        else:
+            muted_users.append({
+                "author_id": author_id,
+                "thread_id": thread_id,
+                "reason": "Quản trị viên cấm Vĩnh Viễn",
+                "muted_until": float('inf')
+            })
+
+        if author_id not in violations:
+            violations[author_id] = {}
+        if thread_id not in violations[author_id]:
+            violations[author_id][thread_id] = {
+                "profanity_count": 0,
+                "spam_count": 0,
+                "penalty_level": 0
+            }
+        violations[author_id][thread_id]["profanity_count"] += 1
+        violations[author_id][thread_id]["penalty_level"] += 1
+
+        response += f"➜ 😷 Người dùng {user} đã bị cấm phát ngôn vĩnh viễn do quản trị viên!\n"
+
+    settings['muted_users'] = muted_users
+    settings['violations'] = violations
+    write_settings(settings)
+    return response
+
 
 def remove_users_from_ban_list(bot, author_ids, thread_id):
     settings = read_settings()
@@ -1157,7 +1203,7 @@ def add_approved(bot, author_id, mentioned_uids, settings, expiry_time=None, mes
     approved_users = settings.get("approved_users", [])
     response = ""
     for uid in mentioned_uids:
-        if author_id not in settings.get("admin_bot", []):
+        if not is_admin(author_id):
             response = "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
         elif uid not in approved_users:
             approved_users.append(uid)
@@ -1244,7 +1290,7 @@ def remove_approved(bot, author_id, mentioned_uids, settings):
     approved_users = settings.get("approved_users", [])
     response = ""
     for uid in mentioned_uids:
-        if author_id not in settings.get("admin_bot", []):
+        if not is_admin(author_id):
             response = "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
         elif uid in approved_users:
             approved_users.remove(uid)
@@ -1269,7 +1315,7 @@ def remove_approved(bot, author_id, mentioned_uids, settings):
     return response
 
 def list_approved(bot, author_id, settings):
-    if author_id not in settings.get("admin_bot", []):
+    if not is_admin(author_id):
         return "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
 
     approved_users = settings.get("approved_users", [])
@@ -1350,9 +1396,10 @@ def clean_pycache():
 
 def add_admin(bot, author_id, mentioned_uids, settings):
     admin_bot = settings.get("admin_bot", [])
+    high_level_admins = settings.get("high_level_admins", [])
     response = ""
     for uid in mentioned_uids:
-        if author_id not in admin_bot:
+        if author_id not in high_level_admins:
             response = "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
         elif uid not in admin_bot:
             admin_bot.append(uid)
@@ -1366,9 +1413,10 @@ def add_admin(bot, author_id, mentioned_uids, settings):
 
 def remove_admin(bot, author_id, mentioned_uids, settings):
     admin_bot = settings.get("admin_bot", [])
+    high_level_admins = settings.get("high_level_admins", [])
     response = ""
     for uid in mentioned_uids:
-        if author_id not in admin_bot:
+        if author_id not in high_level_admins:
             response = "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
         elif uid in admin_bot:
             admin_bot.remove(uid)
@@ -1380,9 +1428,118 @@ def remove_admin(bot, author_id, mentioned_uids, settings):
     write_settings(settings)
     return response
 
+def add_silver(bot, author_id, mentioned_uids, settings, expiry_time=None, message_object=None, thread_id=None, thread_type=None):
+    admin_bot = settings.get("admin_bot", [])
+    high_level_admins = settings.get("high_level_admins", [])
+    
+    if author_id not in admin_bot and author_id not in high_level_admins:
+        return "➜ Lệnh này chỉ khả thi với Admin/Super Admin BOT 🤧"
+        
+    silver_users = settings.setdefault("silver_users", [])
+    silver_expiry = settings.setdefault("silver_users_expiry", {})
+    response = ""
+    
+    for uid in mentioned_uids:
+        if uid in admin_bot or uid in high_level_admins:
+            response += f"➜ Người dùng 👑 {get_user_name_by_id(bot, uid)} đã là Admin/Super Admin, không cần cấp Key Bạc 🤧\n"
+            continue
+            
+        if uid not in silver_users:
+            silver_users.append(uid)
+            response += f"➜ Đã thêm người dùng 🥈 {get_user_name_by_id(bot, uid)} vào danh sách Key Bạc BOT"
+        else:
+            response += f"➜ Đã cập nhật hạn Key Bạc BOT cho người dùng 🥈 {get_user_name_by_id(bot, uid)}"
+            
+        silver_expiry[uid] = expiry_time
+        if expiry_time:
+            expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
+            response += f" đến {expiry_str} ✅\n💡 Bot sẽ tự động thu hồi và thông báo khi hết hạn.\n"
+            
+            # Tạo Zalo Todo nhắc hẹn nếu có thời hạn
+            if message_object and thread_id and thread_type:
+                try:
+                    todo_content = f"Hạn dùng Key Bạc BOT của {get_user_name_by_id(bot, uid)}"
+                    bot.sendTodo(
+                        target_id=uid,
+                        content=todo_content,
+                        mid=message_object.msgId,
+                        author_id=author_id,
+                        thread_type=thread_type,
+                        thread_id=thread_id if thread_type == ThreadType.GROUP else None,
+                        dueDate=int(expiry_time * 1000)
+                    )
+                except Exception as todo_err:
+                    print(f"[ERROR] Không thể tạo Zalo Todo nhắc hẹn: {todo_err}")
+        else:
+            response += " vô thời hạn ✅\n"
+            
+        # Gửi tin nhắn riêng (Inbox) báo cho người dùng biết
+        try:
+            if expiry_time:
+                expiry_str = datetime.fromtimestamp(expiry_time).strftime("%H:%M:%S %d/%m/%Y")
+                inbox_text = f"🎉 Chào bạn, bạn đã được Admin duyệt quyền Key Bạc BOT đến {expiry_str}! Hãy trải nghiệm nhé. 🌸"
+            else:
+                inbox_text = f"🎉 Chào bạn, bạn đã được Admin duyệt quyền Key Bạc BOT vô thời hạn! Hãy trải nghiệm nhé. 🌸"
+            bot.send(Message(text=inbox_text), thread_id=uid, thread_type=ThreadType.USER)
+        except Exception as e:
+            print(f"[ERROR] Không thể gửi tin nhắn riêng cho {uid}: {e}")
+            
+    settings['silver_users'] = silver_users
+    settings['silver_users_expiry'] = silver_expiry
+    write_settings(settings)
+    return response
+
+def remove_silver(bot, author_id, mentioned_uids, settings):
+    admin_bot = settings.get("admin_bot", [])
+    high_level_admins = settings.get("high_level_admins", [])
+    
+    if author_id not in admin_bot and author_id not in high_level_admins:
+        return "➜ Lệnh này chỉ khả thi với Admin/Super Admin BOT 🤧"
+        
+    silver_users = settings.get("silver_users", [])
+    silver_expiry = settings.get("silver_users_expiry", {})
+    response = ""
+    for uid in mentioned_uids:
+        if uid in silver_users:
+            silver_users.remove(uid)
+            silver_expiry.pop(uid, None)
+            response += f"➜ Đã xóa người dùng 🥈 {get_user_name_by_id(bot, uid)} khỏi danh sách Key Bạc BOT ✅\n"
+            
+            # Gửi tin nhắn riêng (Inbox) báo cho người dùng biết
+            try:
+                inbox_text = f"⚠️ Chào bạn, quyền Key Bạc BOT của bạn đã bị Admin thu hồi."
+                bot.send(Message(text=inbox_text), thread_id=uid, thread_type=ThreadType.USER)
+            except Exception as e:
+                print(f"[ERROR] Không thể gửi tin nhắn riêng cho {uid}: {e}")
+        else:
+            response += f"➜ Người dùng 🥈 {get_user_name_by_id(bot, uid)} không có trong danh sách Key Bạc BOT 🤧\n"
+            
+    settings['silver_users'] = silver_users
+    settings['silver_users_expiry'] = silver_expiry
+    write_settings(settings)
+    return response
+
+def list_silver(bot, author_id, settings):
+    admin_bot = settings.get("admin_bot", [])
+    high_level_admins = settings.get("high_level_admins", [])
+    
+    if author_id not in admin_bot and author_id not in high_level_admins:
+        return "➜ Lệnh này chỉ khả thi với Admin/Super Admin BOT 🤧"
+        
+    silver_users = settings.get("silver_users", [])
+    if not silver_users:
+        return "➜ 🥈 Danh sách Key Bạc BOT trống! 🌼"
+        
+    result = "➜ 🥈 Danh sách Key Bạc BOT: 🤖\n"
+    for idx, uid in enumerate(silver_users, start=1):
+        user_name = get_user_name_by_id(bot, uid)
+        result += f"{idx}. 🥈 {user_name} - {uid}\n"
+    return result
+
 def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, command):
     def send_bot_response():
         try:
+            thread_local.bot_uid = bot.uid
             parts = command.split()
             response = ""
             
@@ -2101,23 +2258,68 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = f"➜ Vui lòng @tag hoặc nhập UID sau lệnh: {prefix}bot approved add 🤧\n➜ Ví dụ: {prefix}bot approved add @username hoặc {prefix}bot approved add 123456 ✅"
                             else:
                                 uids = extract_uids_from_mentions(message_object)
+                                is_yes = False
+                                is_no = False
+                                
                                 if not uids and len(parts) >= 4:
                                     raw_uid = parts[3].strip()
-                                    if raw_uid.startswith('@'):
-                                        raw_uid = raw_uid[1:]
-                                    if raw_uid.isdigit():
-                                        uids = [raw_uid]
-                                if not uids:
+                                    if raw_uid.lower() in ['yes', 'y']:
+                                        is_yes = True
+                                    elif raw_uid.lower() in ['no', 'n']:
+                                        is_no = True
+                                    else:
+                                        if raw_uid.startswith('@'):
+                                            raw_uid = raw_uid[1:]
+                                        if raw_uid.isdigit():
+                                            uids = [raw_uid]
+                                            
+                                if is_yes or is_no:
+                                    pending_file = "cache/pending_bot_approvals.txt"
+                                    if not bot_sys.PENDING_BOT_STATE and os.path.exists(pending_file):
+                                        try:
+                                            with open(pending_file, "r", encoding="utf-8") as f:
+                                                bot_sys.PENDING_BOT_STATE = [line.strip() for line in f if line.strip()]
+                                        except Exception as e:
+                                            print(f"Error loading pending bot approvals: {e}")
+                                            
+                                    uids_to_approve = list(bot_sys.PENDING_BOT_STATE)
+                                    if not uids_to_approve:
+                                        response = "⚠️ Không có yêu cầu duyệt dùng bot nào đang chờ!"
+                                    else:
+                                        if is_yes:
+                                            time_arg = " ".join(parts[4:]) if len(parts) >= 5 else ""
+                                            from core.bot_sys import parse_expiration_time
+                                            expiry_time = None
+                                            if time_arg:
+                                                expiry_time = parse_expiration_time(time_arg)
+                                                if not expiry_time:
+                                                    response = "⚠️ Định dạng thời gian không hợp lệ! Vui lòng nhập số giây hoặc ngày giờ cụ thể."
+                                                    uids_to_approve = []
+                                            
+                                            if uids_to_approve:
+                                                response = add_approved(bot, author_id, uids_to_approve, settings, expiry_time, message_object, thread_id, thread_type)
+                                        else:
+                                            response = f"❌ Đã từ chối duyệt dùng bot cho {len(uids_to_approve)} yêu cầu trong danh sách chờ."
+                                            
+                                        bot_sys.PENDING_BOT_STATE = []
+                                        try:
+                                            if os.path.exists(pending_file):
+                                                os.remove(pending_file)
+                                        except Exception as e:
+                                            print("Error removing pending_bot_approvals file:", e)
+                                elif not uids:
                                     response = "⚠️ ID người dùng không hợp lệ! Vui lòng nhập UID dạng số hoặc tag người dùng."
                                 else:
                                     message_text = command
-                                    # Lấy time_arg
                                     time_arg = ""
                                     if message_object.mentions:
                                         mention = message_object.mentions[0]
-                                        offset = mention['offset']
-                                        length = mention['length']
-                                        time_arg = message_text[offset + length:].strip()
+                                        offset = mention.get('offset')
+                                        length = mention.get('length')
+                                        if offset is not None and length is not None:
+                                            time_arg = message_text[offset + length:].strip()
+                                        else:
+                                            time_arg = " ".join(parts[4:]) if len(parts) >= 5 else ""
                                     else:
                                         if len(parts) >= 5:
                                             time_arg = " ".join(parts[4:])
@@ -2128,7 +2330,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                         expiry_time = parse_expiration_time(time_arg)
                                         if not expiry_time:
                                             response = "⚠️ Định dạng thời gian không hợp lệ! Vui lòng nhập số giây (ví dụ: 60) hoặc ngày giờ (ví dụ: 10:30:00 06/06/2026)."
-                                            uids = [] # Huỷ thực thi duyệt
+                                            uids = []
                                             
                                     if uids:
                                         response = add_approved(bot, author_id, uids, settings, expiry_time, message_object, thread_id, thread_type)
@@ -2178,7 +2380,8 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             if len(parts) < 4:
                                 response = f"➜ Vui lòng @tag tên người dùng sau lệnh: {prefix}bot admin add 🤧\n➜ Ví dụ: {prefix}bot admin add @TXA ✅"
                             else:
-                                if author_id not in admin_bot:
+                                high_level_admins = settings.get("high_level_admins", [])
+                                if author_id not in high_level_admins:
                                     response = "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
                                 else:
                                     mentioned_uids = extract_uids_from_mentions(message_object)
@@ -2187,7 +2390,8 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             if len(parts) < 4:
                                 response = f"➜ Vui lòng @tag tên người dùng sau lệnh: {prefix}bot admin remove 🤧\n➜ Ví dụ: {prefix}bot admin remove @TXA ✅"
                             else:
-                                if author_id not in admin_bot:
+                                high_level_admins = settings.get("high_level_admins", [])
+                                if author_id not in high_level_admins:
                                     response = "➜ Lệnh này chỉ khả thi với chủ nhân 🤧"
                                 else:
                                     mentioned_uids = extract_uids_from_mentions(message_object)
@@ -2201,6 +2405,71 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = "➜ Không có Admin BOT nào trong danh sách 🤧"
                         else:
                             response = f"➜ Lệnh {prefix}bot admin {sub_action} không được hỗ trợ 🤧"
+                            
+                elif action in ['silver', 'keybac', 'key_bac', 'bac']:
+                    if len(parts) < 3:
+                        response = f"➜ Vui lòng nhập [list/add/remove] sau lệnh: {prefix}bot {action} 🤧\n➜ Ví dụ: {prefix}bot {action} list hoặc {prefix}bot {action} add @username hoặc {prefix}bot {action} remove @username ✅"
+                    else:
+                        settings = read_settings()
+                        sub_action = parts[2].lower()
+                        if sub_action == 'add':
+                            if len(parts) < 4:
+                                response = f"➜ Vui lòng @tag hoặc nhập UID sau lệnh: {prefix}bot {action} add 🤧\n➜ Ví dụ: {prefix}bot {action} add @username hoặc {prefix}bot {action} add 123456 ✅"
+                            else:
+                                uids = extract_uids_from_mentions(message_object)
+                                if not uids and len(parts) >= 4:
+                                    raw_uid = parts[3].strip()
+                                    if raw_uid.startswith('@'):
+                                        raw_uid = raw_uid[1:]
+                                    if raw_uid.isdigit():
+                                        uids = [raw_uid]
+                                if not uids:
+                                    response = "⚠️ ID người dùng không hợp lệ! Vui lòng nhập UID dạng số hoặc tag người dùng."
+                                else:
+                                    message_text = command
+                                    # Lấy time_arg
+                                    time_arg = ""
+                                    if message_object.mentions:
+                                        mention = message_object.mentions[0]
+                                        offset = mention.get('offset')
+                                        length = mention.get('length')
+                                        if offset is not None and length is not None:
+                                            time_arg = message_text[offset + length:].strip()
+                                        else:
+                                            time_arg = " ".join(parts[4:]) if len(parts) >= 5 else ""
+                                    else:
+                                        if len(parts) >= 5:
+                                            time_arg = " ".join(parts[4:])
+                                            
+                                    from core.bot_sys import parse_expiration_time
+                                    expiry_time = None
+                                    if time_arg:
+                                        expiry_time = parse_expiration_time(time_arg)
+                                        if not expiry_time:
+                                            response = "⚠️ Định dạng thời gian không hợp lệ! Vui lòng nhập số giây (ví dụ: 60) hoặc ngày giờ (ví dụ: 10:30:00 06/06/2026)."
+                                            uids = [] # Huỷ thực thi
+                                            
+                                    if uids:
+                                        response = add_silver(bot, author_id, uids, settings, expiry_time, message_object, thread_id, thread_type)
+                        elif sub_action == 'remove':
+                            if len(parts) < 4:
+                                response = f"➜ Vui lòng @tag hoặc nhập UID sau lệnh: {prefix}bot {action} remove 🤧\n➜ Ví dụ: {prefix}bot {action} remove @username hoặc {prefix}bot {action} remove 123456 ✅"
+                            else:
+                                uids = extract_uids_from_mentions(message_object)
+                                if not uids and len(parts) >= 4:
+                                    raw_uid = parts[3].strip()
+                                    if raw_uid.startswith('@'):
+                                        raw_uid = raw_uid[1:]
+                                    if raw_uid.isdigit():
+                                        uids = [raw_uid]
+                                if not uids:
+                                    response = "⚠️ ID người dùng không hợp lệ! Vui lòng nhập UID dạng số hoặc tag người dùng."
+                                else:
+                                    response = remove_silver(bot, author_id, uids, settings)
+                        elif sub_action == 'list':
+                            response = list_silver(bot, author_id, settings)
+                        else:
+                            response = f"➜ Lệnh {prefix}bot {action} {sub_action} không được hỗ trợ 🤧"
 
 
                 elif action == 'setup':
@@ -2320,11 +2589,22 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             elif check_admin_group(bot, thread_id) == False:
                                 response = "➜ Lệnh này không khả thi do 🤖BOT không có quyền cầm 🔑 key nhóm 🤧"
                             else:
+                                is_permanent = (s_action == 'vv')
                                 uids = extract_uids_from_mentions(message_object)
                                 if not uids:
-                                    response = f"➜ Vui lòng tag người dùng để cấm: {prefix}bot ban @user ✅"
+                                    start_idx = 3 if is_permanent else 2
+                                    remaining = " ".join(parts[start_idx:])
+                                    uids = re.findall(r'\b\d+\b', remaining)
+                                if not uids:
+                                    if is_permanent:
+                                        response = f"➜ Vui lòng tag người dùng hoặc nhập UID để cấm vĩnh viễn: {prefix}bot ban vv @user hoặc {prefix}bot ban vv [UID] ✅"
+                                    else:
+                                        response = f"➜ Vui lòng tag người dùng hoặc nhập UID để cấm: {prefix}bot ban @user hoặc {prefix}bot ban [UID] ✅"
                                 else:
-                                    response = add_users_to_ban_list(bot, uids, thread_id, "Quản trị viên cấm")
+                                    if is_permanent:
+                                        response = ban_users_permanently(bot, uids, thread_id)
+                                    else:
+                                        response = add_users_to_ban_list(bot, uids, thread_id, "Quản trị viên cấm")
 
                 elif action == 'unban':
                     if len(parts) < 3:
@@ -2337,7 +2617,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         else:
                             
                             uids = extract_uids_from_mentions(message_object)
-                            response = remove_users_from_ban_list(bot, uids, thread_id)
+                            if not uids:
+                                remaining = " ".join(parts[2:])
+                                uids = re.findall(r'\b\d+\b', remaining)
+                            if not uids:
+                                response = f"➜ Vui lòng tag người dùng hoặc nhập UID để bỏ cấm: {prefix}bot unban @user hoặc {prefix}bot unban [UID] ✅"
+                            else:
+                                response = remove_users_from_ban_list(bot, uids, thread_id)
 
                 elif action in ('spam', 'anti'):
                     if not is_admin(author_id):
@@ -2464,7 +2750,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             else:
                               
                                 uids = extract_uids_from_mentions(message_object)
-                                response = block_users_from_group(bot, uids, thread_id)
+                                if not uids:
+                                    remaining = " ".join(parts[2:])
+                                    uids = re.findall(r'\b\d+\b', remaining)
+                                if not uids:
+                                    response = f"➜ Vui lòng tag người dùng hoặc nhập UID để chặn: {prefix}bot block @user hoặc {prefix}bot block [UID] ✅"
+                                else:
+                                    response = block_users_from_group(bot, uids, thread_id)
 
                 elif action == 'unblock':
                     if len(parts) < 3:
@@ -2476,15 +2768,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
                         else:
                            
-                            ids_str = parts[2]  
+                            ids_str = " ".join(parts[2:])
                             print(f"Chuỗi UIDs: {ids_str}")
 
-                            uids = [uid.strip() for uid in ids_str.split(',') if uid.strip()]
+                            uids = re.findall(r'\b\d+\b', ids_str)
                             print(f"Danh sách UIDs: {uids}")
 
-                            
                             if uids:
-                              
                                 response = unblock_users_from_group(bot, uids, thread_id)
                             else:
                                 response = "➜ Không có UID nào hợp lệ để bỏ chặn 🤧"
@@ -2501,7 +2791,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = "➜ Lệnh này không khả thi do 🤖BOT không có quyền cầm 🔑 key nhóm 🤧"
                         else:
                             uids = extract_uids_from_mentions(message_object)
-                            response = kick_users_from_group(bot, uids, thread_id)
+                            if not uids:
+                                remaining = " ".join(parts[2:])
+                                uids = re.findall(r'\b\d+\b', remaining)
+                            if not uids:
+                                response = f"➜ Vui lòng tag người dùng hoặc nhập UID để kick: {prefix}bot kick @user hoặc {prefix}bot kick [UID] ✅"
+                            else:
+                                response = kick_users_from_group(bot, uids, thread_id)
 
                 elif action == 'rule':
                     if len(parts) < 5:
@@ -2588,6 +2884,15 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         
                         if policy_type not in valid_policies:
                             response = f"➜ Loại policy không hợp lệ 🤧\n➜ Chọn: {', '.join(valid_policies)}"
+                        elif policy_type == 'word' and len(parts) >= 4 and parts[3].lower() == 'list':
+                            settings = read_settings()
+                            forbidden_words = settings.get('forbidden_words', [])
+                            if forbidden_words:
+                                response = "➜ 🚫 Danh sách từ cấm hiện tại:\n"
+                                for idx, w in enumerate(forbidden_words, start=1):
+                                    response += f"      ➜ {idx}. {w}\n"
+                            else:
+                                response = "➜ Không có từ cấm nào trong danh sách 🤧"
                         elif len(parts) == 4 and parts[3].lower() in ('on', 'off'):
                             # Toggle on/off
                             settings = read_settings()
@@ -2738,11 +3043,65 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         message=Message(text=response), height=350, width=980, ttl=60000
                     )
                     os.remove(temp_image_path)
+                    
+                    # Success reaction for menu
+                    try:
+                        success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
+                        if random.random() > 0.3:
+                            bot.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
+                        bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+                    except Exception as rx_err:
+                        print(f"Lỗi gửi reaction: {rx_err}")
                 else:
                     bot.replyMessage(Message(text=response),message_object, thread_id=thread_id, thread_type=thread_type,ttl=9000)
+                    
+                    # If response is an error or warning message
+                    response_lower = response.lower()
+                    is_error = (
+                        response.startswith("❌") or 
+                        response.startswith("⚠️") or 
+                        response_lower.startswith("vui lòng") or
+                        "không được hỗ trợ" in response_lower or 
+                        "không hợp lệ" in response_lower or 
+                        "vui lòng nhập" in response_lower or 
+                        "không khả thi" in response_lower or
+                        "không có quyền" in response_lower or
+                        "thất bại" in response_lower or
+                        "chưa được phép" in response_lower or
+                        "lỗi" in response_lower
+                    )
+                    if is_error:
+                        try:
+                            bot.sendReaction(message_object, "❌", thread_id, thread_type)
+                            bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+                        except Exception as rx_err:
+                            print(f"Lỗi gửi reaction: {rx_err}")
+                    else:
+                        # Success reaction
+                        try:
+                            success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
+                            if random.random() > 0.3:
+                                bot.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
+                            bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+                        except Exception as rx_err:
+                            print(f"Lỗi gửi reaction: {rx_err}")
+            else:
+                # Success reaction when no text response is needed (e.g. image commands like mybot, or reset)
+                try:
+                    success_reactions = ["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]
+                    if random.random() > 0.3:
+                        bot.sendReaction(message_object, random.choice(success_reactions), thread_id, thread_type)
+                    bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+                except Exception as rx_err:
+                    print(f"Lỗi gửi reaction: {rx_err}")
         
         except Exception as e:
             print(f"Error: {e}")
+            try:
+                bot.sendReaction(message_object, "❌", thread_id, thread_type)
+                bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
+            except Exception as rx_err:
+                print(f"Lỗi gửi reaction: {rx_err}")
             bot.replyMessage(Message(text="➜ 🐞 Đã xảy ra lỗi gì đó 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
 
     thread = threading.Thread(target=send_bot_response)

@@ -847,7 +847,8 @@ txa = {
     "name": "pro_autosend",
     "desc": "Gửi tin nhắn tự động theo lịch trình. Hỗ trợ nhiều thể loại nội dung.",
     "author": "TXA",
-    "command": ['autosend']
+    "command": ['autosend'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):

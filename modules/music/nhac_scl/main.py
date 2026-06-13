@@ -2,7 +2,7 @@ from colorsys import hsv_to_rgb
 from colorsys import rgb_to_hsv
 import subprocess
 import inspect
-from core.bot_sys import is_admin, _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, create_rotating_webp, process_next_music_queue, upload_file
+from core.bot_sys import is_admin, _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, create_rotating_webp, process_next_music_queue, upload_file, get_random_user_agent
 from zlapi.models import *
 import requests
 from bs4 import BeautifulSoup
@@ -358,7 +358,7 @@ def generate_menu_image(self, author_id, thread_id, thread_type):
 
 def get_headers():
     return {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": get_random_user_agent(),
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": 'https://soundcloud.com/',
         "Upgrade-Insecure-Requests": "1"
@@ -388,10 +388,11 @@ def get_song_metadata(link):
         return {
             'play_count': data.get('playback_count', 0),
             'like_count': data.get('likes_count', 0),
-            'comment_count': data.get('comment_count', 0)
+            'comment_count': data.get('comment_count', 0),
+            'duration': data.get('duration', 0)
         }
     except:
-        return {'play_count': 0, 'like_count': 0, 'comment_count': 0}
+        return {'play_count': 0, 'like_count': 0, 'comment_count': 0, 'duration': 0}
 
 def wait_for_client_id():
     client_id = get_client_id()
@@ -413,6 +414,56 @@ def get_username(link):
 def search_songs(query):
     try:
         client_id = wait_for_client_id()
+        
+        # Check if the query is a SoundCloud URL (including shortened links)
+        url_match = re.search(r'(https?://(?:[a-zA-Z0-9-]+\.)?soundcloud\.com/[^\s?#]+)', query)
+        if url_match:
+            potential_url = url_match.group(1)
+            # If it's a shortened URL (like on.soundcloud.com), resolve redirect
+            if "on.soundcloud.com" in potential_url:
+                try:
+                    r = requests.head(potential_url, allow_redirects=True, headers=get_headers(), timeout=10)
+                    potential_url = r.url
+                except Exception as e:
+                    print("Error resolving short URL:", e)
+            
+            api_url = f'https://api-v2.soundcloud.com/resolve?url={requests.utils.quote(potential_url)}&client_id={client_id}'
+            response = requests.get(api_url, headers=get_headers(), timeout=15)
+            if response.status_code == 200:
+                data = response.json()
+                kind = data.get("kind")
+                if kind == "track":
+                    link = data.get("permalink_url") or potential_url
+                    title = data.get("title", "").strip()
+                    cover_url = data.get("artwork_url") or data.get("user", {}).get("avatar_url") or ""
+                    if cover_url:
+                        cover_url = cover_url.replace("-large", "-t500x500")
+                    plays = data.get("playback_count", 0)
+                    likes = data.get("likes_count", 0)
+                    comments = data.get("comment_count", 0)
+                    username = data.get("user", {}).get("username", "Unknown")
+                    duration = data.get("duration", 0)
+                    return [(link, title, cover_url, plays, likes, comments, username, duration)]
+                elif kind == "playlist":
+                    tracks = data.get("tracks", [])
+                    songs = []
+                    for track in tracks:
+                        link = track.get("permalink_url")
+                        title = track.get("title", "").strip()
+                        if not link or not title:
+                            continue
+                        cover_url = track.get("artwork_url") or track.get("user", {}).get("avatar_url") or ""
+                        if cover_url:
+                            cover_url = cover_url.replace("-large", "-t500x500")
+                        plays = track.get("playback_count", 0)
+                        likes = track.get("likes_count", 0)
+                        comments = track.get("comment_count", 0)
+                        username = track.get("user", {}).get("username", "Unknown")
+                        duration = track.get("duration", 0)
+                        songs.append((link, title, cover_url, plays, likes, comments, username, duration))
+                    if songs:
+                        return songs
+
         api_search_url = (
             "https://api-v2.soundcloud.com/search/tracks"
             f"?q={requests.utils.quote(query)}"
@@ -444,7 +495,8 @@ def search_songs(query):
                     track.get("playback_count", 0),
                     track.get("likes_count", 0),
                     track.get("comment_count", 0),
-                    track.get("user", {}).get("username", "Unknown")
+                    track.get("user", {}).get("username", "Unknown"),
+                    track.get("duration", 0)
                 ))
                 seen_links.add(link)
                 if len(songs) >= 20:
@@ -476,7 +528,8 @@ def search_songs(query):
                         metadata['play_count'],
                         metadata['like_count'],
                         metadata['comment_count'],
-                        username  
+                        username,
+                        metadata.get('duration', 0)
                     ))
             if len(songs) >= 20:
                 break
@@ -542,6 +595,9 @@ def save_file_to_cache(url, filename):
 
         response = requests.get(url, headers=get_headers(), timeout=10)
         response.raise_for_status()
+        if not response.content or len(response.content) < 1024:
+            print("Error in save_file_to_cache: Downloaded content is too small or empty")
+            return None
 
         cache_dir = os.path.join(os.path.dirname(__file__), 'cache')
         os.makedirs(cache_dir, exist_ok=True)
@@ -577,6 +633,9 @@ def convert_mp3_to_m4a(mp3_path):
     """Convert MP3 to M4A (AAC) để tương thích iPhone/iOS"""
     m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
+        if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
+            print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
+            return mp3_path
         cmd = ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'aac', '-b:a', '128k', m4a_path]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         if os.path.exists(m4a_path):
@@ -989,6 +1048,190 @@ def is_valid_image_url(url):
     valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
     return any(url.lower().endswith(ext) for ext in valid_extensions)
 
+def _play_and_send_song(song, username, author_id, thread_id, thread_type, message_object, client, selected_number=None):
+    global user_states
+    link, title, cover_url = song[:3]
+    plays = song[3] if len(song) > 3 else 0
+    likes = song[4] if len(song) > 4 else 0
+    comments = song[5] if len(song) > 5 else 0
+    duration = song[7] if len(song) > 7 else 0
+
+    # Limit to 60 minutes (3,600,000 ms) to prevent upload issues
+    MAX_DURATION_MS = 60 * 60 * 1000
+    if duration > MAX_DURATION_MS:
+        duration_min = int(duration / 1000 / 60)
+        text = f"🚦{username}, bài hát này quá dài ({duration_min} phút). Bot chỉ hỗ trợ các bài hát dưới 60 phút để đảm bảo tải lên ổn định 🤧"
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+        client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+        
+        if author_id in user_states:
+            del user_states[author_id]
+            process_next_music_queue(client, author_id)
+        return
+
+    song_full = (link, title, cover_url, plays, likes, comments)
+
+    print(f"Tải bài: {title} ({link})")
+
+    temp_cover_path = None
+    if is_valid_image_url(cover_url):
+        try:
+            response = requests.get(cover_url, timeout=10)
+            response.raise_for_status()
+            cover_img = Image.open(io.BytesIO(response.content)).convert("RGBA")
+            
+            temp_cover_path = os.path.join(CACHE_PATH, f"temp_cover_{author_id}.png")
+            cover_img.save(temp_cover_path, "PNG")
+        except Exception as e:
+            print(f"[ERROR] Lỗi xử lý ảnh thumbnail: {e}")
+
+    if selected_number is not None:
+        text = f"""🚦{username}  chọn : {selected_number}
+📩 Tên Bài Hát  : {title}
+☁️ Nguồn: SoundCloud
+🔗 Link : {link}
+⏳Chờ Lấy Nhạc Nhé...🎧"""
+    else:
+        text = f"""🚦{username}
+📩 Tên Bài Hát  : {title}
+☁️ Nguồn: SoundCloud
+🔗 Link : {link}
+⏳Chờ Lấy Nhạc Nhé...🎧"""
+    offset = zalo_offset(text, username)
+    mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+    msg = _music_styled_msg(text=text, mention=mention)
+
+    if temp_cover_path and os.path.exists(temp_cover_path):
+        try:
+            with Image.open(temp_cover_path) as img:
+                width, height = img.size
+            client.sendLocalImage(temp_cover_path, message=msg, thread_id=thread_id, thread_type=thread_type, width=width, height=height, ttl=600000)
+            os.remove(temp_cover_path)
+            print(f"[DEBUG] Đã gửi và xóa ảnh thumbnail tạm: {temp_cover_path}")
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi gửi ảnh thumbnail: {e}")
+            client.replyMessage(_music_styled_msg(text=text.replace("[ảnh]", ""), mention=mention), message_object, thread_id, thread_type, ttl=60000)
+    else:
+        client.replyMessage(msg.replace("[ảnh]", ""), message_object, thread_id, thread_type, ttl=60000)
+
+    downloading_msg = None
+    try:
+        downloading_msg = client.replyMessage(
+            _music_styled_msg(text="⏳ Bé đang tải nhạc, đợi tí nha... 🎧"),
+            message_object,
+            thread_id,
+            thread_type
+        )
+    except Exception as e:
+        print(f"[ERROR] Lỗi khi gửi tin nhắn tải nhạc: {e}")
+
+    try:
+        song_image_path = create_single_song_image(song_full)
+        if not song_image_path:
+            print(f"[DEBUG] bug rồi sếp ơi: {title}")
+            text = f"🚦{username}, không thể tạo ảnh cho bài: {title}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            return
+
+        static_disc_path = None
+        animated_disc_path = None
+        if is_valid_image_url(cover_url):
+            res = create_rotating_webp(cover_url)
+            if res:
+                static_disc_path, animated_disc_path = res
+            else:
+                print(f"[DEBUG] bug rồi sếp ơi: {title}")
+        else:
+            print(f"[DEBUG] URL thumbnail không hợp lệ cho bài: {title}")
+
+        cover_main = get_track_cover(link)
+        cover_path = save_file_to_cache(cover_main, f"{title}_cover.jpg") if cover_main else None
+
+        audio_url = get_music_stream_url(link)
+        if not audio_url:
+            print(f"[DEBUG] Không tải được âm thanh cho bài: {title}")
+            text = f"🚦{username}, không thể tải: {title}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            return
+
+        safe_title = re.sub(r'[<>:"/\\|?*]', '_', title).replace(' ', '_')
+        file_path = save_file_to_cache(audio_url, f"{safe_title}.mp3")
+        if not file_path:
+            print(f"[DEBUG] Lỗi lưu tệp âm thanh cho bài: {title}")
+            text = f"🚦{username}, lỗi lưu tệp âm thanh cho bài: {title}. Vui lòng thử lại."
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            return
+
+        # Convert sang M4A (AAC) để tương thích iPhone/iOS
+        m4a_file = convert_mp3_to_m4a(file_path)
+        upload_response = upload_to_uguu(m4a_file)
+        delete_file(file_path)
+        if m4a_file != file_path:
+            delete_file(m4a_file)
+
+        if not upload_response:
+            print(f"[DEBUG] Lỗi tải lên tệp âm thanh cho bài: {title}")
+            text = f"🚦{username}, lỗi tải lên tệp âm thanh cho bài: {title}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            return
+
+        try:
+            with Image.open(song_image_path) as img:
+                width, height = img.size
+            text = f"🚦{username}, cùng chill theo nhạc nào"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+            msg = _music_styled_msg(text=text, mention=mention)
+            client.send(msg, thread_id, thread_type, ttl=60000)
+            time.sleep(0)
+            client.sendLocalImage(song_image_path, thread_id, thread_type, width=width, height=height, ttl=600000)
+            time.sleep(0)
+
+            try:
+                if animated_disc_path and cover_url:
+                    delete_file(static_disc_path)
+                    try:
+                        webp_url = upload_to_uguu(animated_disc_path)
+                        if webp_url:
+                            client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, 
+                                                    thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                            time.sleep(0)
+                    finally:
+                        delete_file(animated_disc_path)
+            except Exception as disc_err:
+                print("Lỗi tạo/gửi sticker đĩa xoay SCL:", disc_err)
+
+            client.sendRemoteVoice(voiceUrl=upload_response, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi gửi bài hát: {e}")
+            text = f"🚦{username}, lỗi khi gửi bài hát: {str(e)}"
+            offset = zalo_offset(text, username)
+            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+            return
+
+        if author_id in user_states:
+            del user_states[author_id]
+
+            process_next_music_queue(client, author_id)
+        print(f"[DEBUG] Đã xóa user_states cho author_id: {author_id}")
+
+    finally:
+        if downloading_msg and hasattr(downloading_msg, 'msgId') and hasattr(downloading_msg, 'cliMsgId'):
+            try:
+                client.undoMessage(downloading_msg.msgId, downloading_msg.cliMsgId, thread_id, thread_type)
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi thu hồi tin nhắn tải nhạc: {e}")
+
 import random
 
 def handle_nhac_command(message, message_object, thread_id, thread_type, author_id, client):
@@ -1079,145 +1322,7 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
                 print(f"[ERROR] Delete selection msg error: {e}")
 
         song = songs[selector_index]
-        link, title, cover_url = song[:3]
-        plays = song[3] if len(song) > 3 else 0
-        likes = song[4] if len(song) > 4 else 0
-        comments = song[5] if len(song) > 5 else 0
-        song_full = (link, title, cover_url, plays, likes, comments)
-
-        print(f"Tải bài: {title} ({link})")
-
-        temp_cover_path = None
-        if is_valid_image_url(cover_url):
-            try:
-                response = requests.get(cover_url, timeout=10)
-                response.raise_for_status()
-                cover_img = Image.open(io.BytesIO(response.content)).convert("RGBA")
-                
-                temp_cover_path = os.path.join(CACHE_PATH, f"temp_cover_{author_id}.png")
-                cover_img.save(temp_cover_path, "PNG")
-            except Exception as e:
-                print(f"[ERROR] Lỗi xử lý ảnh thumbnail: {e}")
-
-        selected_number = content[1]
-        text = f"""🚦{username}  chọn : {selected_number}
-📩 Tên Bài Hát  : {title}
-☁️ Nguồn: SoundCloud
-🔗 Link : {link}
-⏳Chờ Lấy Nhạc Nhé...🎧"""
-        offset = zalo_offset(text, username)
-        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-        msg = _music_styled_msg(text=text, mention=mention)
-
-        if temp_cover_path and os.path.exists(temp_cover_path):
-            try:
-                with Image.open(temp_cover_path) as img:
-                    width, height = img.size
-                client.sendLocalImage(temp_cover_path, message=msg, thread_id=thread_id, thread_type=thread_type, width=width, height=height, ttl=600000)
-                os.remove(temp_cover_path)
-                print(f"[DEBUG] Đã gửi và xóa ảnh thumbnail tạm: {temp_cover_path}")
-            except Exception as e:
-                print(f"[ERROR] Lỗi khi gửi ảnh thumbnail: {e}")
-                client.replyMessage(_music_styled_msg(text=text.replace("[ảnh]", ""), mention=mention), message_object, thread_id, thread_type, ttl=60000)
-        else:
-            client.replyMessage(msg.replace("[ảnh]", ""), message_object, thread_id, thread_type, ttl=60000)
-
-        song_image_path = create_single_song_image(song_full)
-        if not song_image_path:
-            print(f"[DEBUG] bug rồi sếp ơi: {title}")
-            text = f"🚦{username}, không thể tạo ảnh cho bài: {title}"
-            offset = zalo_offset(text, username)
-            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
-            return
-
-        static_disc_path = None
-        animated_disc_path = None
-        if is_valid_image_url(cover_url):
-            res = create_rotating_webp(cover_url)
-            if res:
-                static_disc_path, animated_disc_path = res
-            else:
-                print(f"[DEBUG] bug rồi sếp ơi: {title}")
-        else:
-            print(f"[DEBUG] URL thumbnail không hợp lệ cho bài: {title}")
-
-        cover_main = get_track_cover(link)
-        cover_path = save_file_to_cache(cover_main, f"{title}_cover.jpg") if cover_main else None
-
-        audio_url = get_music_stream_url(link)
-        if not audio_url:
-            print(f"[DEBUG] Không tải được âm thanh cho bài: {title}")
-            text = f"🚦{username}, không thể tải: {title}"
-            offset = zalo_offset(text, username)
-            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
-            return
-
-        safe_title = re.sub(r'[<>:"/\\|?*]', '_', title).replace(' ', '_')
-        file_path = save_file_to_cache(audio_url, f"{safe_title}.mp3")
-        if not file_path:
-            print(f"[DEBUG] Lỗi lưu tệp âm thanh cho bài: {title}")
-            text = f"🚦{username}, lỗi lưu tệp âm thanh cho bài: {title}. Vui lòng thử lại."
-            offset = zalo_offset(text, username)
-            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
-            return
-
-        # Convert sang M4A (AAC) để tương thích iPhone/iOS
-        m4a_file = convert_mp3_to_m4a(file_path)
-        upload_response = upload_to_uguu(m4a_file)
-        delete_file(file_path)
-        if m4a_file != file_path:
-            delete_file(m4a_file)
-
-        if not upload_response:
-            print(f"[DEBUG] Lỗi tải lên tệp âm thanh cho bài: {title}")
-            text = f"🚦{username}, lỗi tải lên tệp âm thanh cho bài: {title}"
-            offset = zalo_offset(text, username)
-            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
-            return
-
-        try:
-            with Image.open(song_image_path) as img:
-                width, height = img.size
-            text = f"🚦{username}, cùng chill theo nhạc nào"
-            offset = zalo_offset(text, username)
-            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-            msg = _music_styled_msg(text=text, mention=mention)
-            client.send(msg, thread_id, thread_type, ttl=60000)
-            time.sleep(0)
-            client.sendLocalImage(song_image_path, thread_id, thread_type, width=width, height=height, ttl=600000)
-            time.sleep(0)
-
-            if animated_disc_path and cover_url:
-                delete_file(static_disc_path)
-                try:
-                    upload_res = client._uploadImage(animated_disc_path, thread_id, thread_type)
-                    if upload_res:
-                        webp_url = upload_res.get("oriUrl") or upload_res.get("normalUrl") or upload_res.get("hdUrl")
-                        if webp_url:
-                            client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, 
-                                                    thread_id=thread_id, thread_type=thread_type, ttl=600000)
-                            time.sleep(0)
-                finally:
-                    delete_file(animated_disc_path)
-
-            client.sendRemoteVoice(voiceUrl=upload_response, thread_id=thread_id, thread_type=thread_type, ttl=600000)
-        except Exception as e:
-            print(f"[ERROR] Lỗi khi gửi bài hát: {e}")
-            text = f"🚦{username}, lỗi khi gửi bài hát: {str(e)}"
-            offset = zalo_offset(text, username)
-            mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
-            client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
-            return
-
-        if author_id in user_states:
-            del user_states[author_id]
-
-            process_next_music_queue(client, author_id)
-        print(f"[DEBUG] Đã xóa user_states cho author_id: {author_id}")
+        _play_and_send_song(song, username, author_id, thread_id, thread_type, message_object, client, selected_number)
         return
 
     if len(content) < 2:
@@ -1276,9 +1381,8 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
     action = random.choice(reactions)
     if random.random() > 0.3:
         client.sendReaction(message_object, action, thread_id, thread_type, reactionType=75)
-    client.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
     
-    print(f"tìm từ bài hát: {query}")
+    print(f"Đang tìm từ bài hát: {query}")
     
     pending_msg = None
     try:
@@ -1299,6 +1403,19 @@ def handle_nhac_command(message, message_object, thread_id, thread_type, author_
         mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
         client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
         return
+
+    # Check if the query contains a SoundCloud URL
+    is_direct_url = "soundcloud.com/" in query or "on.soundcloud.com" in query
+    if is_direct_url:
+        if pending_msg and hasattr(pending_msg, 'msgId') and hasattr(pending_msg, 'cliMsgId'):
+            try:
+                client.undoMessage(pending_msg.msgId, pending_msg.cliMsgId, thread_id, thread_type)
+            except Exception as e:
+                print(f"[ERROR] Không thể thu hồi tin nhắn chờ: {e}")
+        _play_and_send_song(songs[0], username, author_id, thread_id, thread_type, message_object, client)
+        return
+
+    songs.sort(key=lambda x: (int(x[3]) if x[3] is not None else 0, int(x[4]) if x[4] is not None else 0), reverse=True)
 
     user_states[author_id] = {
         'songs': songs,

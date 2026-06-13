@@ -48,3 +48,7 @@ api-*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# User Agents
+user_agents.txt
+

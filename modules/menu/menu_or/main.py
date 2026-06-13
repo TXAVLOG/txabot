@@ -457,18 +457,29 @@ def build_hidden_columns(bot):
         if title.startswith("pro_"):
             title = title[4:]
         title = title.replace("_", " ").title()
-        hidden_by_parent.setdefault(parent_dir, []).append((cmds, title))
+        t_per = info.get('t-per', 'all')
+        hidden_by_parent.setdefault(parent_dir, []).append((cmds, title, t_per))
         seen_modules.add(module_path)
 
     for parent_dir, entries in hidden_by_parent.items():
         col_idx = column_mapping.get(parent_dir, 0)
         emoji_cat, title_cat = category_titles.get(parent_dir, ("🐳", f"{parent_dir.title()} ẩn"))
         columns[col_idx].append({"type": "title", "text": f"{emoji_cat} {title_cat}".upper()})
-        for cmds, title in entries:
+        for cmds, title, t_per in entries:
             for cmd_chunk in chunk_list(cmds, 4):
+                cmd_parts = []
+                for cmd in cmd_chunk:
+                    cmd_info = txacommand.loaded_commands.get(cmd, {})
+                    cmd_per = cmd_info.get('t-per', 'all')
+                    suffix = ""
+                    if cmd_per == 'admin':
+                        suffix = " (AD)"
+                    elif cmd_per in ['s-admin', 's-ad']:
+                        suffix = " (S-AD)"
+                    cmd_parts.append(f"{prefix}{cmd}{suffix}")
                 columns[col_idx].append({
                     "type": "cmd",
-                    "cmd": "/".join([f"{prefix}{cmd}" for cmd in cmd_chunk]),
+                    "cmd": "/".join(cmd_parts),
                     "desc": title
                 })
 

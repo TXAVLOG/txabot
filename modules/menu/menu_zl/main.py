@@ -348,272 +348,27 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         print(f"❌ Lỗi xử lý ảnh menu: {e}")
         return None
 
-def is_emoji(character: str) -> bool:
-    return character in emoji.EMOJI_DATA
-
-def interpolate_colors(colors: List[Tuple[int, int, int]], text_length: int, change_every: int = 1) -> List[Tuple[int, int, int]]:
-    result = []
-    for i in range(text_length):
-        color_idx = (i // change_every) % len(colors)
-        result.append(colors[color_idx])
-    return result
-
-def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, 
-                emoji_font: ImageFont.FreeTypeFont, text_position: Tuple[int, int], 
-                gradient_colors: List[Tuple[int, int, int]]):
-    gradient = interpolate_colors(gradient_colors, text_length=len(text), change_every=4)
-    current_x = text_position[0]
-
-    for i, char in enumerate(text):
-        color = tuple(gradient[i])
-        try:
-            is_emoji_char = is_emoji(char)
-            selected_font = emoji_font if is_emoji_char else font
-            draw.text((current_x, text_position[1]), char, fill=color, font=selected_font)
-            try:
-                text_width = selected_font.getlength(char)
-            except AttributeError:
-                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
-                text_width = text_bbox[2] - text_bbox[0]
-                if text_width == 0 and char == " ":
-                    text_width = selected_font.size // 3
-            current_x += text_width
-        except Exception as e:
-            print(f"Lỗi khi vẽ ký tự '{char}': {e}. Bỏ qua ký tự này.")
-            continue
-
-def qr(message, message_object, thread_id, thread_type, author_id, client):
-    try:
-        mentions = message_object.mentions
-        if mentions:
-            target_id = mentions[0]['uid']
-        else:
-            target_id = author_id
-        message_text = message.lower().strip()
-        command_prefix = f"{client.prefix}zl qr"
-        if message_text.startswith(command_prefix):
-            content = message_text[len(command_prefix):].strip()
-            if mentions:
-                for mention in mentions:
-                    mention_text = f"@{client.fetchUserInfo(mention['uid']).changed_profiles.get(mention['uid']).displayName}"
-                    content = content.replace(mention_text.lower(), "").strip()
-                content = re.sub(r'@[^\s]+', '', content).strip()
-                content = ''.join(c for c in content if c.isalnum() or c.isspace() or is_emoji(c))
-            if not content:
-                content = "😍Hãy kết bạn với tôi 😊"
-        else:
-            content = "😍Hãy kết bạn với tôi 😊"
-
-        user = client.fetchUserInfo(target_id).changed_profiles.get(target_id)
-        if not user:
-            client.send(
-                Message(text="Không thể lấy thông tin người dùng."),
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-            return
-        background_dir = "background"
-        background_files = [os.path.join(background_dir, f) for f in os.listdir(background_dir) if f.endswith(('.png', '.jpg'))]
-        if not background_files:
-            client.send(
-                Message(text="Không có ảnh nền nào trong thư mục 'background'."),
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-            return
-        background_path = random.choice(background_files)
-        background = Image.open(background_path).convert("RGBA")
-        background = background.resize((840, 1280), Image.LANCZOS)
-        background = background.filter(ImageFilter.GaussianBlur(radius=5))
-
-        qr_link = None
-        if hasattr(client, "getQRLink"):
-            try:
-                qr_data = client.getQRLink(target_id)
-                if qr_data and target_id in qr_data:
-                    qr_link = qr_data[target_id]
-            except Exception as e:
-                print(f"[menu_zl] Lỗi gọi client.getQRLink: {e}")
-
-        if not qr_link:
-            qr_link = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=https://zalo.me/{target_id}"
-
-        qr_response = requests.get(qr_link)
-        if qr_response.status_code != 200:
-            client.send(
-                Message(text="Không thể tải mã QR."),
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-            return
-
-        qr_image = Image.open(BytesIO(qr_response.content)).convert("RGBA")
-        qr_size = 400
-        qr_image = qr_image.resize((qr_size, qr_size), Image.LANCZOS)
-
-        avatar_url = client.fetchUserInfo(target_id).changed_profiles.get(target_id).avatar
-        if avatar_url:
-            avatar_response = requests.get(avatar_url)
-            if avatar_response.status_code == 200:
-                avatar_image = Image.open(BytesIO(avatar_response.content)).convert("RGBA")
-                avatar_size = min(qr_size // 2, 400)
-                avatar_image = ImageOps.fit(avatar_image, (avatar_size, avatar_size), Image.LANCZOS)
-                mask = Image.new("L", avatar_image.size, 0)
-                draw = ImageDraw.Draw(mask)
-                draw.ellipse((0, 0, avatar_size, avatar_size), fill=255)
-                avatar_image.putalpha(mask)
-
-        overlay = Image.new("RGBA", background.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-
-        random_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 200)
-
-        rect_x0 = (840 - 640) // 2
-        rect_y0 = (1280 - 1000) // 2
-        rect_x1 = rect_x0 + 640
-        rect_y1 = rect_y0 + 1000
-
-        radius = 50
-        draw.rounded_rectangle(
-            [rect_x0, rect_y0, rect_x1, rect_y1],
-            radius=radius,
-            fill=random_color
-        )
-
-        avatar_x = (840 - avatar_size) // 2
-        avatar_y = rect_y1 - 1100  
-
-        if avatar_url and avatar_response.status_code == 200:
-            overlay.paste(avatar_image, (avatar_x, avatar_y), avatar_image)
-
-        qr_x = (840 - qr_size) // 2
-        qr_y = (1280 - qr_size) // 2
-        overlay.paste(qr_image, (qr_x, qr_y), qr_image)
-
-        user_info = client.fetchUserInfo(target_id)
-        user_name = user_info.changed_profiles.get(target_id).displayName
-
-        font_path = "arialbd.ttf"
-        font_size = 60
-        font = ImageFont.truetype(font_path, font_size)
-        random_name_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 255)
-
-        textbox = ImageDraw.Draw(overlay)
-        text_size = textbox.textbbox((0, 0), user_name, font=font)
-        text_x = (840 - (text_size[2] - text_size[0])) // 2
-        text_y = rect_y1 - 900
-        textbox.text((text_x, text_y), user_name, fill=random_name_color, font=font)
-
-        qr_font_path = "font/arial unicode ms.otf"
-        qr_font_size = 30
-        qr_font = ImageFont.truetype(qr_font_path, qr_font_size)
-        qr_large_font_size = 50
-        qr_large_font = ImageFont.truetype(qr_font_path, qr_large_font_size)
-
-        emoji_font_path = "font/NotoEmoji-Bold.ttf"
-        emoji_font_size = 50
-        emoji_font = ImageFont.truetype(emoji_font_path, emoji_font_size)
-
-        qr_bottom_font_size = 28
-        qr_bottom_font = ImageFont.truetype(qr_font_path, qr_bottom_font_size)
-        text_color = random.choice([(255, 255, 255, 255), (0, 0, 0, 255)])
-
-        text_qr = "Liên hệ Zalo"
-        qr_text_size = textbox.textbbox((0, 0), text_qr, font=qr_font)
-        qr_text_x = (840 - (qr_text_size[2] - qr_text_size[0])) // 2
-        qr_text_y = rect_y1 - 800
-
-        textbox.text((qr_text_x, qr_text_y), text_qr, fill=text_color, font=qr_font)
-        text_qr_large = content
-        qr_text_large_size = textbox.textbbox((0, 0), text_qr_large, font=qr_large_font)
-        qr_text_large_x = (840 - (qr_text_large_size[2] - qr_text_large_size[0])) // 2
-        qr_text_large_y = rect_y1 - 250
-
-        gradient_colors = [
-            (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255)),
-            (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255)),
-            (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))
-        ]
-        create_text(textbox, text_qr_large, qr_large_font, emoji_font, (qr_text_large_x, qr_text_large_y), gradient_colors)
-
-        text_qr_bottom = "Mở Zalo bấm nút quét QR để kết bạn"
-        qr_text_bottom_size = textbox.textbbox((0, 0), text_qr_bottom, font=qr_bottom_font)
-        qr_text_bottom_x = (840 - (qr_text_bottom_size[2] - qr_text_bottom_size[0])) // 2
-        qr_text_bottom_y = rect_y1 - 80
-
-        textbox.text((qr_text_bottom_x, qr_text_bottom_y), text_qr_bottom, fill=text_color, font=qr_bottom_font)
-
-        combined = Image.alpha_composite(background, overlay)
-        image_path = "temp_qr_image.png"
-        combined.save(image_path)
-        message_text = f"🚦 {get_user_name_by_id(client, author_id)} QR code {user_name} của bạn đây ✅"
-        client.sendLocalImage(
-            imagePath=image_path,
-            thread_id=thread_id,
-            thread_type=thread_type,
-            height=1280,
-            width=840,
-            message=Message(text=message_text, mention=Mention(author_id, length=len(f"{get_user_name_by_id(client, author_id)}"), offset=3)),
-            ttl=6000000
-        )
-    except Exception as e:
-        client.send(
-            Message(text=f"Đã xảy ra lỗi: {str(e)}"),
-            thread_id=thread_id,
-            thread_type=thread_type
-        )
-
-def create_gradient_colors(num_colors):
-    colors = []
-    for _ in range(num_colors):
-        colors.append((random.randint(100, 175), random.randint(100, 180), random.randint(100, 170)))
-    return colors
-
-def interpolate_colors(colors, text_length, change_every):
-    gradient = []
-    num_segments = len(colors) - 1
-    steps_per_segment = (text_length // change_every) + 1
-
-    for i in range(num_segments):
-        for j in range(steps_per_segment):
-            if len(gradient) < text_length:
-                ratio = j / steps_per_segment
-                interpolated_color = (
-                    int(colors[i][0] * (1 - ratio) + colors[i + 1][0] * ratio),
-                    int(colors[i][1] * (1 - ratio) + colors[i + 1][1] * ratio),
-                    int(colors[i][2] * (1 - ratio) + colors[i + 1][2] * ratio)
-                )
-                gradient.append(interpolated_color)
-    
-    while len(gradient) < text_length:
-        gradient.append(colors[-1])
-
-    return gradient[:text_length]
-
 def zl_card(bot, message_object, author_id, thread_id, thread_type, command):
     def send_card():
         try:
-            # 1. Lấy nội dung tin nhắn AN TOÀN
             full_text = getattr(message_object, 'text', '') or ''
-            
-            # 2. Tách nội dung sau lệnh (cực kỳ chắc chắn)
-            content = "Ẩn danh"  # Giá trị mặc định
+            content = "Ẩn danh"
             
             if isinstance(full_text, str):
-                if full_text.startswith('/zl card '):
+                words = full_text.strip().split()
+                if len(words) >= 3 and words[1].lower() == 'card':
+                    content = " ".join(words[2:]).strip() or "Ẩn danh"
+                elif full_text.startswith('/zl card '):
                     content = full_text[9:].strip() or "Ẩn danh"
                 elif full_text.startswith('/zlcard '):
                     content = full_text[8:].strip() or "Ẩn danh"
             
-            # 3. Xác định người nhận (có mention hay không)
             mentions = getattr(message_object, 'mentions', [])
             target_id = mentions[0]['uid'] if mentions else author_id
             
-            # 4. Lấy thông tin người dùng
             user_info = bot.fetchUserInfo(target_id)
             user = user_info.changed_profiles.get(target_id)
             
-            # 5. Gửi danh thiếp
             bot.sendBusinessCard(
                 userId=target_id,
                 qrCodeUrl=user.avatar,
@@ -623,113 +378,6 @@ def zl_card(bot, message_object, author_id, thread_id, thread_type, command):
                 ttl=0
             )
             
-            # 6. Phản hồi
-            bot.replyMessage(
-                Message(text=f"Đã gửi danh thiếp cho {user.displayName}\nNội dung: {content}"),
-                message_object,
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-            
-        except Exception as e:
-            print(f"Lỗi hệ thống: {str(e)}")
-            bot.replyMessage(
-                Message(text="⚠️ Đã xảy ra lỗi khi gửi danh thiếp"),
-                message_object,
-                thread_id=thread_id,
-                thread_type=thread_type
-            )
-
-    thread = Thread(target=send_card)
-    thread.start()
-
-def create_gradient(width, height):
-    gradient = Image.new('RGB', (width, height), color=0)
-    draw = ImageDraw.Draw(gradient)
-    for y in range(height):
-        r = int((y / height) * 100)
-        g = int((y / height) * 255)
-        b = int((y / height) * 255)
-        draw.line((0, y, width, y), fill=(r, g, b))
-    return gradient
-
-def add_round_corners(image, radius):
-    mask = Image.new('L', image.size, 0)
-    draw = ImageDraw.Draw(mask)
-    width, height = image.size
-    draw.rounded_rectangle([(0, 0), (width, height)], radius, fill=255)
-    result = Image.new('RGBA', image.size)
-    result.paste(image, (0, 0), mask)
-    return result
-
-def is_emoji(character: str) -> bool:
-    return character in emoji.EMOJI_DATA
-
-def interpolate_colors(colors: List[Tuple[int, int, int]], text_length: int, change_every: int = 1) -> List[Tuple[int, int, int]]:
-    result = []
-    for i in range(text_length):
-        color_idx = (i // change_every) % len(colors)
-        result.append(colors[color_idx])
-    return result
-
-def create_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, 
-                emoji_font: ImageFont.FreeTypeFont, text_position: Tuple[int, int], 
-                gradient_colors: List[Tuple[int, int, int]]):
-    gradient = interpolate_colors(gradient_colors, text_length=len(text), change_every=4)
-    current_x = text_position[0]
-
-    for i, char in enumerate(text):
-        color = tuple(gradient[i])
-        try:
-            is_emoji_char = is_emoji(char)
-            selected_font = emoji_font if is_emoji_char else font
-            draw.text((current_x, text_position[1]), char, fill=color, font=selected_font)
-            try:
-                text_width = selected_font.getlength(char)
-            except AttributeError:
-                text_bbox = draw.textbbox((0, 0), char, font=selected_font)
-                text_width = text_bbox[2] - text_bbox[0]
-                if text_width == 0 and char == " ":
-                    text_width = selected_font.size // 3
-            current_x += text_width
-        except Exception as e:
-            print(f"Lỗi khi vẽ ký tự '{char}': {e}. Bỏ qua ký tự này.")
-            continue
-
-def zl_card(bot, message_object, author_id, thread_id, thread_type, command):
-    def send_card():
-        try:
-            # 1. Lấy nội dung tin nhắn AN TOÀN
-            full_text = getattr(message_object, 'text', '') or ''
-            
-            # 2. Tách nội dung sau lệnh (cực kỳ chắc chắn)
-            content = "Ẩn danh"  # Giá trị mặc định
-            
-            if isinstance(full_text, str):
-                if full_text.startswith('/zl card '):
-                    content = full_text[9:].strip() or "Ẩn danh"
-                elif full_text.startswith('/zlcard '):
-                    content = full_text[8:].strip() or "Ẩn danh"
-            
-            # 3. Xác định người nhận (có mention hay không)
-            mentions = getattr(message_object, 'mentions', [])
-            target_id = mentions[0]['uid'] if mentions else author_id
-            
-            # 4. Lấy thông tin người dùng
-            user_info = bot.fetchUserInfo(target_id)
-            user = user_info.changed_profiles.get(target_id)
-            
-            # 5. Gửi danh thiếp
-            bot.sendBusinessCard(
-                userId=target_id,
-                qrCodeUrl=user.avatar,
-                thread_id=thread_id,
-                thread_type=thread_type,
-                phone=content,
-                ttl=0
-            )
-            
-            # 6. Phản hồi
             bot.replyMessage(
                 Message(text=f"Đã gửi danh thiếp cho {user.displayName}\nNội dung: {content}"),
                 message_object,
@@ -794,16 +442,24 @@ def handle_zl_off(bot, thread_id):
 def handle_menu_zl_command(message, message_object, thread_id, thread_type, author_id, client):
     try:
         settings = read_settings(client.uid)
-    
-        user_message = message.replace(f"{client.prefix}zl ", "").strip().lower()
-        if user_message == "on":
+        prefix = getattr(client, 'prefix', '.')
+        
+        msg_parts = message.strip().split()
+        if not msg_parts:
+            return
+        
+        cmd_used = msg_parts[0][len(prefix):].lower().strip()
+        user_message = message[len(prefix) + len(cmd_used):].strip()
+        user_message_lower = user_message.lower()
+        
+        if user_message_lower == "on":
             if not is_admin(client, author_id):  
                 response = "❌Bạn không phải admin bot!"
             else:
                 response = handle_zl_on(client, thread_id)
             client.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
             return
-        elif user_message == "off":
+        elif user_message_lower == "off":
             if not is_admin(client, author_id):  
                 response = "❌Bạn không phải admin bot!"
             else:
@@ -812,15 +468,19 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
             return
         
         if not (settings.get("zl", {}).get(thread_id, False)):
+            try:
+                client.sendReaction(message_object, "❌", thread_id, thread_type)
+            except Exception as e:
+                print(f"Lỗi thả reaction ❌: {e}")
             return
-        content = message.strip().split()
-        commands = "zl"
-        if len(content) < 2:
+            
+        args = user_message.split()
+        if not args:
             msg = "".join([
                 f"{get_user_name_by_id(client, author_id)}\n",
-                f"🏷️ Xem QR code ({client.prefix}zl qr [or] {client.prefix}zl qr @tag)\n"
-                f"🆔 Xem UID Zalo ({client.prefix}zl id)\n"
-                f"🧑‍💻 Xem Profile Zalo ({client.prefix}zl info/@tag)\n"
+                f"🏷️ Xem QR code ({client.prefix}{cmd_used} qr [or] {client.prefix}{cmd_used} qr @tag)\n",
+                f"🆔 Xem UID Zalo ({client.prefix}{cmd_used} id)\n",
+                f"🧑‍💻 Xem Profile Zalo ({client.prefix}{cmd_used} info/@tag)\n"
             ])
             os.makedirs(CACHE_PATH, exist_ok=True)
     
@@ -831,27 +491,7 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
             reaction = [
                 "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
                 "😍", "😂", "😢", "😎", "🙌", "💪", "🌟", "🍀",
-                "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕",
-                "🏆", "📚", "🦋", "🌍", "⛄", "🎁", "💡", "🐾",
-                "😺", "🐶", "🐳", "🦄", "🌸", "🍉", "🍔", "🎄",
-                "🎃", "👻", "☃️", "🌴", "🏀", "⚽", "🎾", "🏈",
-                "🚗", "✈️", "🚢", "🌙", "☀️", "⭐", "⛅", "☔",
-                "⌛", "⏰", "💎", "💸", "📷", "🎥", "🎤", "🎧",
-                "🍫", "🍰", "🍩", "☕", "🍵", "🍷", "🍹", "🥐",
-                "🐘", "🦒", "🐍", "🦜", "🐢", "🦀", "🐙", "🦈",
-                "🍓", "🍋", "🍑", "🥥", "🥐", "🥪", "🍝", "🍣",
-                "🎲", "🎯", "🎱", "🎮", "🎰", "🧩", "🧸", "🎡",
-                "🏰", "🗽", "🗼", "🏔️", "🏝️", "🏜️", "🌋", "⛲",
-                "📱", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "📡", "🔋",
-                "🔍", "🔎", "🔑", "🔒", "🔓", "📩", "📬", "📮",
-                "💢", "💥", "💫", "💦", "💤", "🚬", "💣", "🔫",
-                "🩺", "💉", "🩹", "🧬", "🔬", "🔭", "🧪", "🧫",
-                "🧳", "🎒", "👓", "🕶️", "👔", "👗", "👠", "🧢",
-                "🦷", "🦴", "👀", "👅", "👄", "👶", "👩", "👨",
-                "🚶", "🏃", "💃", "🕺", "🧘", "🏄", "🏊", "🚴",
-                "🍄", "🌾", "🌻", "🌵", "🌿", "🍂", "🍁", "🌊",
-                "🛠️", "🔧", "🔨", "⚙️", "🪚", "🪓", "🧰", "⚖️",
-                "🧲", "🪞", "🪑", "🛋️", "🛏️", "🪟", "🚪", "🧹"
+                "🎉", "🦁", "🌈", "🍎", "⚡", "🔔", "🎸", "🍕"
             ]
             if random.random() > 0.3:
                 client.sendReaction(message_object, random.choice(reaction), thread_id, thread_type)
@@ -872,22 +512,21 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
             except Exception as e:
                 print(f"❌ Lỗi khi xóa ảnh: {e}")
 
-        if len(content) >= 2:
-            command = content[1].lower()
-
+        else:
+            command = args[0].lower()
             if command == 'qr':
                 from modules.menu.info_qr.main import qr as run_qr
                 run_qr(message, message_object, thread_id, thread_type, author_id, client)
             elif command == 'id':
-                info_user=get_id(client, message_object, thread_id, author_id)
-                client.replyMessage(Message(text=f"{info_user}"), message_object,thread_id,thread_type)
+                info_user = get_id(client, message_object, thread_id, author_id)
+                client.replyMessage(Message(text=f"{info_user}"), message_object, thread_id, thread_type)
             elif command == 'card':
                 zl_card(client, message_object, author_id, thread_id, thread_type, command)
             elif command == 'info':
                 from modules.menu.info.main import info as run_info
                 run_info(message, message_object, thread_id, thread_type, author_id, client)
             else:
-                client.replyMessage(Message(text=f"➜ Lệnh [{commands} {command}] không được hỗ trợ 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
+                client.replyMessage(Message(text=f"➜ Lệnh [{cmd_used} {command}] không được hỗ trợ 🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
 
     except Exception as e:
         client.replyMessage(Message(text=f"➜ 🐞 Đã xảy ra lỗi: {e}🤧"), message_object, thread_id=thread_id, thread_type=thread_type)
@@ -896,7 +535,7 @@ txa = {
     "name": "menu_zl",
     "desc": "Menu Zé Lào hiển thị danh sách lệnh nhóm ZL với giao diện ảnh. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['menu_zl']
+    "command": ['menu_zl', 'zl']
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
@@ -904,7 +543,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'menu_zl': handle_menu_zl_command
+        'menu_zl': handle_menu_zl_command,
+        'zl': handle_menu_zl_command
     }
     
     func = dispatch_map.get(cmd)

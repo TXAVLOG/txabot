@@ -133,7 +133,8 @@ txa = {
         "spam": "Spam tin nhắn"
     },
     "author": "TXA",
-    "command": ['join', 'spam']
+    "command": ['join', 'spam'],
+    "t-per": "admin"
 }
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
