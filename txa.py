@@ -1975,9 +1975,11 @@ class bot(ZaloAPI):
         try:
             cmd = [
                 "ffmpeg", "-y",
+                "-threads", "0",
                 "-i", filePath,
                 "-c:v", "copy",
                 "-c:a", "aac",
+                "-movflags", "+faststart",
                 temp_out_path
             ]
             res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -3175,6 +3177,34 @@ class bot(ZaloAPI):
                         self.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
                         self.replyMessage(Message(text=response), message_object, thread_id, thread_type)
                         return
+
+                # Configure user platform/device for voice message compatibility (M4A vs MP3)
+                if cmd_name in ["device", "platform"]:
+                    if len(cmd_parts) < 2:
+                        self.replyMessage(Message(text=(
+                            f"📱 Cấu hình thiết bị nhận nhạc (Giảm thời gian chờ convert):\n"
+                            f"👉 Cú pháp: {prefix}device <ios / android / pc>\n"
+                            f"💡 Mặc định: ios\n"
+                            f"💡 Android/PC: Không cần convert, nhận nhạc mp3 siêu nhanh!"
+                        )), message_object, thread_id, thread_type)
+                        return
+
+                    plat = cmd_parts[1].lower().strip()
+                    if plat not in ["ios", "android", "pc"]:
+                        self.replyMessage(Message(text="⚠️ Thiết bị không hợp lệ! Vui lòng chọn: ios, android, hoặc pc."), message_object, thread_id, thread_type)
+                        return
+
+                    settings = read_settings(self.uid)
+                    if "user_platforms" not in settings:
+                        settings["user_platforms"] = {}
+                    
+                    settings["user_platforms"][author_id] = plat
+                    write_settings(self.uid, settings)
+
+                    self.replyMessage(Message(text=f"✅ Đã cấu hình thiết bị của bạn là: {plat.upper()}.\n"
+                                                   f"{( '🎵 Bot sẽ gửi file MP3 trực tiếp (Không cần chờ convert!)' if plat != 'ios' else '🎵 Bot sẽ convert sang M4A cho bạn.' )}"), 
+                                      message_object, thread_id, thread_type)
+                    return
 
                 # Inline autodelete / ttl configuration
                 if cmd_name in ["autodelete", "ttl"]:

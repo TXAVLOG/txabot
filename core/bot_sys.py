@@ -4672,5 +4672,21 @@ def get_tech_icon(name: str, size: int = 64):
         
     return None
 
+def should_convert_to_m4a(client, author_id, thread_type):
+    """Kiểm tra xem có cần convert sang M4A cho iOS hay không.
+    Mặc định Group chat: True (để tương thích mọi thành viên).
+    User chat 1-1: Kiểm tra cấu hình user_platforms (nếu android/pc -> False, ngược lại True).
+    """
+    if thread_type == ThreadType.GROUP:
+        return True
+    try:
+        settings = read_settings(client.uid)
+        user_platforms = settings.get("user_platforms", {})
+        platform = user_platforms.get(author_id, "ios")
+        return platform == "ios"
+    except Exception as e:
+        print(f"Error checking should_convert_to_m4a: {e}")
+        return True
+
 
 

@@ -1,4 +1,4 @@
-from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file, get_random_user_agent
+from core.bot_sys import _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, process_next_music_queue, create_rotating_webp, upload_file, get_random_user_agent, should_convert_to_m4a
 from aiohttp import client_exceptions
 import requests
 import json
@@ -639,12 +639,27 @@ def upload_to_uguu(file_path):
         return upload_file(file_path, "image/png")
 
 def convert_mp3_to_m4a(mp3_path):
+    """Convert MP3 to M4A (AAC) để tương thích iPhone/iOS (Tối ưu hóa tốc độ)"""
     m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
         if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
             print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
             return mp3_path
-        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        
+        file_size = os.path.getsize(mp3_path)
+        is_long = file_size > 8 * 1024 * 1024  # Files larger than 8MB are considered long
+        
+        cmd = ['ffmpeg', '-y', '-threads', '0', '-i', mp3_path]
+        cmd += ['-vn', '-sn', '-dn']
+        cmd += ['-c:a', 'aac']
+        
+        if is_long:
+            cmd += ['-ac', '1', '-b:a', '96k']
+        else:
+            cmd += ['-b:a', '128k']
+            
+        cmd += ['-movflags', '+faststart', m4a_path]
+        
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         if os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
             return m4a_path
@@ -910,11 +925,15 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
             with open(temp_file, "wb") as f:
                 f.write(r_audio.content)
             
-            m4a_file = convert_mp3_to_m4a(temp_file)
-            upload_url = upload_to_uguu(m4a_file)
+            if should_convert_to_m4a(client, author_id, thread_type):
+                audio_file = convert_mp3_to_m4a(temp_file)
+            else:
+                audio_file = temp_file
+                
+            upload_url = upload_to_uguu(audio_file)
             delete_file(temp_file)
-            if m4a_file != temp_file:
-                delete_file(m4a_file)
+            if audio_file != temp_file:
+                delete_file(audio_file)
 
             if not upload_url:
                 text = f"🚦{username}, không thể tải nhạc lên server trung gian 🤧"

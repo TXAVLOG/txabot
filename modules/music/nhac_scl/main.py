@@ -2,7 +2,7 @@ from colorsys import hsv_to_rgb
 from colorsys import rgb_to_hsv
 import subprocess
 import inspect
-from core.bot_sys import is_admin, _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, create_rotating_webp, process_next_music_queue, upload_file, get_random_user_agent
+from core.bot_sys import is_admin, _music_styled_msg, zalo_len, zalo_offset, USER_MUSIC_STATES, create_rotating_webp, process_next_music_queue, upload_file, get_random_user_agent, should_convert_to_m4a
 from zlapi.models import *
 import requests
 from bs4 import BeautifulSoup
@@ -630,13 +630,27 @@ def upload_to_uguu(file_path):
         return upload_file(file_path, "image/png")
 
 def convert_mp3_to_m4a(mp3_path):
-    """Convert MP3 to M4A (AAC) để tương thích iPhone/iOS"""
+    """Convert MP3 to M4A (AAC) để tương thích iPhone/iOS (Tối ưu hóa tốc độ)"""
     m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
     try:
         if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
             print(f"Error converting to m4a: Input file {mp3_path} does not exist or is too small.")
             return mp3_path
-        cmd = ['ffmpeg', '-y', '-i', mp3_path, '-vn', '-c:a', 'aac', '-b:a', '128k', m4a_path]
+        
+        file_size = os.path.getsize(mp3_path)
+        is_long = file_size > 8 * 1024 * 1024  # Files larger than 8MB are considered long
+        
+        cmd = ['ffmpeg', '-y', '-threads', '0', '-i', mp3_path]
+        cmd += ['-vn', '-sn', '-dn']
+        cmd += ['-c:a', 'aac']
+        
+        if is_long:
+            cmd += ['-ac', '1', '-b:a', '96k']
+        else:
+            cmd += ['-b:a', '128k']
+            
+        cmd += ['-movflags', '+faststart', m4a_path]
+        
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         if os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
             return m4a_path
@@ -1179,12 +1193,16 @@ def _play_and_send_song(song, username, author_id, thread_id, thread_type, messa
             client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
             return
 
-        # Convert sang M4A (AAC) để tương thích iPhone/iOS
-        m4a_file = convert_mp3_to_m4a(file_path)
-        upload_response = upload_to_uguu(m4a_file)
+        # Convert sang M4A (AAC) để tương thích iPhone/iOS nếu cần thiết
+        if should_convert_to_m4a(client, author_id, thread_type):
+            audio_file = convert_mp3_to_m4a(file_path)
+        else:
+            audio_file = file_path
+            
+        upload_response = upload_to_uguu(audio_file)
         delete_file(file_path)
-        if m4a_file != file_path:
-            delete_file(m4a_file)
+        if audio_file != file_path:
+            delete_file(audio_file)
 
         if not upload_response:
             print(f"[DEBUG] Lỗi tải lên tệp âm thanh cho bài: {title}")
