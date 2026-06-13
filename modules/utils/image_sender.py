@@ -322,7 +322,7 @@ class ImageSender:
             if not url:
                 return "❌ Không tìm thấy URL video hợp lệ!"
             
-            thumbnail_url = "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl"
+            thumbnail_url = "https://i.imgur.com/wudT3ID.jpeg"
             
             try:
                 bot.sendRemoteVideo(

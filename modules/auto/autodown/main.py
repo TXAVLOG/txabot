@@ -5,6 +5,7 @@ import tempfile
 import threading
 import requests
 import random
+from urllib.parse import urlparse
 from zlapi.models import Message
 
 KAIROBOT_BASE_URL = os.getenv("KAIROBOT_BASE_URL", "https://kairobot.qzz.io").rstrip("/")
@@ -161,7 +162,19 @@ def download_tiktok(bot, message_object, thread_id, thread_type, url):
         if not video_url and isinstance(inner.get("video"), dict):
             video_url = inner["video"].get("url") or inner["video"].get("play")
 
+        # Check if video_url is actually an image URL
+        is_image_url = False
         if video_url:
+            try:
+                parsed_url = urlparse(video_url)
+                path_lower = parsed_url.path.lower()
+                image_extensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".jxl"]
+                if any(path_lower.endswith(ext) for ext in image_extensions):
+                    is_image_url = True
+            except Exception:
+                pass
+
+        if video_url and not is_image_url:
             _send_video(bot, video_url, thread_id, thread_type, "🎬 Video TikTok")
             # Gửi reaction thành công
             _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
@@ -182,10 +195,31 @@ def download_tiktok(bot, message_object, thread_id, thread_type, url):
             _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
             return
 
+        # Fallback if video_url was identified as an image, but images list is empty
+        if video_url and is_image_url:
+            _send_image(bot, video_url, thread_id, thread_type, "📸 Ảnh TikTok")
+            _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
+            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
+            return
+
         # 3) Một số API trả về play/hd_play/no_watermark
         for key in ("play", "hd_play", "no_watermark", "wmplay"):
             if inner.get(key):
-                _send_video(bot, inner[key], thread_id, thread_type, "🎬 Video TikTok")
+                fallback_url = inner[key]
+                is_fb_image = False
+                try:
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(fallback_url)
+                    path_lower = parsed_url.path.lower()
+                    if any(path_lower.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".jxl"]):
+                        is_fb_image = True
+                except Exception:
+                    pass
+
+                if is_fb_image:
+                    _send_image(bot, fallback_url, thread_id, thread_type, "📸 Ảnh TikTok")
+                else:
+                    _send_video(bot, fallback_url, thread_id, thread_type, "🎬 Video TikTok")
                 _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
                 _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
                 return

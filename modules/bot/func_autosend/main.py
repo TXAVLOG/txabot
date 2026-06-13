@@ -387,8 +387,25 @@ def choose_reachable_url(urls):
             return url
     return candidates[0] if candidates else ""
 
+def is_video_type_valid(content_type):
+    try:
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data-send")
+        video_file = os.path.join(data_dir, f"{content_type}.txt")
+        if not os.path.exists(video_file) or os.path.getsize(video_file) == 0:
+            return False
+        with open(video_file, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    return True
+    except Exception:
+        pass
+    return False
+
 def send_fallback_video_content(bot, thread_id, message, excluded_type=None):
-    fallback_types = [t for t in VIDEO_CONTENT_TYPES if t != excluded_type]
+    fallback_types = [
+        t for t in VIDEO_CONTENT_TYPES 
+        if t != excluded_type and is_video_type_valid(t)
+    ]
     random.shuffle(fallback_types)
     for fallback_type in fallback_types:
         print(f"⏩ Thử fallback autosend video '{fallback_type}'.")

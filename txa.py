@@ -1991,7 +1991,78 @@ class bot(ZaloAPI):
         upload_path = temp_out_path if transcoded else filePath
         
         try:
-            # 3. Upload to Zalo CDN via photo_original upload endpoint
+            # 3. Generate a real thumbnail from video using ffmpeg
+            temp_thumb_path = None
+            generated_thumbnail_url = None
+            try:
+                fd_thumb, temp_thumb_path = tempfile.mkstemp(suffix=".jpg")
+                os.close(fd_thumb)
+                
+                thumb_cmd = [
+                    "ffmpeg", "-y",
+                    "-ss", "00:00:01",
+                    "-i", upload_path,
+                    "-vframes", "1",
+                    "-f", "image2",
+                    temp_thumb_path
+                ]
+                res_thumb = subprocess.run(thumb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if res_thumb.returncode != 0 or not os.path.exists(temp_thumb_path) or os.path.getsize(temp_thumb_path) == 0:
+                    thumb_cmd_fallback = [
+                        "ffmpeg", "-y",
+                        "-ss", "00:00:00",
+                        "-i", upload_path,
+                        "-vframes", "1",
+                        "-f", "image2",
+                        temp_thumb_path
+                    ]
+                    subprocess.run(thumb_cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                if os.path.exists(temp_thumb_path) and os.path.getsize(temp_thumb_path) > 0:
+                    thumb_size = os.path.getsize(temp_thumb_path)
+                    if thread_type == ThreadType.GROUP:
+                        thumb_url = "https://tt-files-wpa.chat.zalo.me/api/group/photo_original/upload"
+                        thumb_upload_type = 11
+                        thumb_to_key = "grid"
+                    else:
+                        thumb_url = "https://tt-files-wpa.chat.zalo.me/api/message/photo_original/upload"
+                        thumb_upload_type = 2
+                        thumb_to_key = "toid"
+                        
+                    with open(temp_thumb_path, "rb") as f_thumb:
+                        thumb_files = [("chunkContent", f_thumb)]
+                        thumb_params = {
+                            "params": self._encode({
+                                "totalChunk": 1,
+                                "fileName": "thumbnail.jpg",
+                                "clientId": int(time.time() * 1000),
+                                "totalSize": thumb_size,
+                                "imei": self.imei,
+                                "chunkId": 1,
+                                thumb_to_key: str(thread_id)
+                            }),
+                            "zpw_ver": 685,
+                            "zpw_type": 30,
+                            "type": thumb_upload_type
+                        }
+                        thumb_response = self._post(thumb_url, params=thumb_params, files=thumb_files)
+                        thumb_res_data = thumb_response.json()
+                        if thumb_res_data.get("error_code") == 0:
+                            thumb_decoded = self._decode(thumb_res_data["data"])
+                            if thumb_decoded.get("error_code") == 0:
+                                generated_thumbnail_url = thumb_decoded["data"]["normalUrl"]
+            except Exception as e_thumb:
+                logging.error(f"Error generating video thumbnail: {e_thumb}")
+            finally:
+                try:
+                    if temp_thumb_path and os.path.exists(temp_thumb_path):
+                        os.remove(temp_thumb_path)
+                except Exception:
+                    pass
+
+            thumbnail_url = generated_thumbnail_url or "https://raw.githubusercontent.com/niri99/zlapi/main/assets/default_video_thumb.jpg"
+
+            # 4. Upload to Zalo CDN via asyncfile upload endpoint
             file_size = os.path.getsize(upload_path)
             file_name = os.path.basename(filePath)
             

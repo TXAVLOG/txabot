@@ -280,8 +280,26 @@ def _download_via_tikwm(link):
         item.get("title") or "TikTok video",
         item.get("duration") or 10,
         item.get("width") or 1080,
-        item.get("height") or 1920,
     )
+
+
+def _download_raw_data(link):
+    try:
+        data = _api_get("/tiktok/download", {"url": link})
+        return data.get("data", data) or {}
+    except Exception as e:
+        print(f"[TikTok] KaiRobot download failed: {e}. Trying TikWM fallback...")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Origin": "https://tikwm.com",
+            "Referer": "https://tikwm.com/"
+        }
+        response = requests.post("https://tikwm.com/api/", headers=headers, data={"url": link, "hd": "1"}, timeout=30)
+        response.raise_for_status()
+        res_json = response.json()
+        if res_json.get("code") != 0 or "data" not in res_json:
+            raise RuntimeError("Không thể lấy được video từ link này.")
+        return res_json["data"] or {}
 
 
 def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_type, message):
@@ -326,31 +344,186 @@ def handle_tiktok_download(bot, message_object, author_id, thread_id, thread_typ
             return
 
     try:
-        try:
-            video_url, cover_url, title, duration, width, height = _download_via_kairobot(link)
-        except Exception as kai_error:
-            print(f"[TikTok] KaiRobot download fallback: {kai_error}")
-            video_url, cover_url, title, duration, width, height = _download_via_tikwm(link)
+        inner = _download_raw_data(link)
 
-        if not video_url:
-            _send_text(bot, thread_id, thread_type, "❌ Không thể lấy được video từ link này", message_object)
+        # 1. Extract video_url
+        video_url = (
+            inner.get("video_url")
+            or inner.get("url")
+            or inner.get("download_url")
+            or inner.get("play")
+            or inner.get("hdplay")
+            or inner.get("wmplay")
+        )
+        if not video_url and isinstance(inner.get("video"), dict):
+            video_url = inner["video"].get("url") or inner["video"].get("play")
+
+        # Check if video_url is actually an image URL
+        is_image_url = False
+        if video_url:
+            from urllib.parse import urlparse
+            try:
+                parsed_url = urlparse(video_url)
+                path_lower = parsed_url.path.lower()
+                image_extensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".jxl"]
+                if any(path_lower.endswith(ext) for ext in image_extensions):
+                    is_image_url = True
+            except Exception:
+                pass
+
+        cover_url = _find_url(inner, ("cover", "thumbnail", "thumbnail_url", "origin_cover", "dynamic_cover"))
+        title = _pick(inner, "title", "desc", "description", default="TikTok media")
+        duration = _pick(inner, "duration", default=10)
+        width = _pick(inner, "width", default=1080)
+        height = _pick(inner, "height", default=1920)
+
+        # A. If it is a valid video URL (and not identified as an image)
+        if video_url and not is_image_url:
+            _send_text(bot, thread_id, thread_type, f"✅ Đang tải video TikTok...\nTiêu đề: {title}", message_object)
+            bot.sendRemoteVideo(
+                videoUrl=video_url,
+                thumbnailUrl=cover_url or "https://i.imgur.com/f3nK6z5.jpeg",
+                duration=int(float(duration or 10)) * 1000,
+                thread_id=thread_id,
+                thread_type=thread_type,
+                width=int(float(width or 1080)),
+                height=int(float(height or 1920)),
+                message=Message(text=f"Tiêu đề: {title}")
+            )
+            try:
+                bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+            except Exception:
+                pass
             return
 
-        _send_text(bot, thread_id, thread_type, f"✅ Đang tải video TikTok...\nTiêu đề: {title}", message_object)
-        bot.sendRemoteVideo(
-            videoUrl=video_url,
-            thumbnailUrl=cover_url or "https://i.imgur.com/f3nK6z5.jpeg",
-            duration=int(float(duration or 10)) * 1000,
-            thread_id=thread_id,
-            thread_type=thread_type,
-            width=int(float(width or 1080)),
-            height=int(float(height or 1920)),
-            message=Message(text=f"Tiêu đề: {title}")
-        )
-        try:
-            bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
-        except Exception:
-            pass
+        # B. If it is a slideshow / image post
+        images = inner.get("images") or inner.get("medias") or []
+        if images:
+            _send_text(bot, thread_id, thread_type, f"✅ Đang tải ảnh TikTok...\nTiêu đề: {title}", message_object)
+            
+            # Helper to download and send image locally
+            def _send_image_local(img_url, caption):
+                path = os.path.join(tempfile.gettempdir(), f"tt_image_{thread_id}_{os.getpid()}_{random.randint(0,1000)}.jpeg")
+                import random
+                try:
+                    img_resp = requests.get(img_url, timeout=15)
+                    img_resp.raise_for_status()
+                    with open(path, "wb") as f:
+                        f.write(img_resp.content)
+                    bot.sendLocalImage(
+                        path,
+                        message=Message(text=caption),
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        width=1200,
+                        height=1200
+                    )
+                finally:
+                    try:
+                        if os.path.exists(path):
+                            os.remove(path)
+                    except Exception:
+                        pass
+
+            for i, img in enumerate(images):
+                img_url = img.get("url") if isinstance(img, dict) else img
+                if not img_url:
+                    continue
+                _send_image_local(img_url, f"📸 Ảnh TikTok [{i+1}/{len(images)}]\nTiêu đề: {title}")
+
+            try:
+                bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+            except Exception:
+                pass
+            return
+
+        # C. If video_url was identified as an image and there are no other images
+        if video_url and is_image_url:
+            _send_text(bot, thread_id, thread_type, f"✅ Đang tải ảnh TikTok...\nTiêu đề: {title}", message_object)
+            path = os.path.join(tempfile.gettempdir(), f"tt_image_{thread_id}_{os.getpid()}_{random.randint(0,1000)}.jpeg")
+            import random
+            try:
+                img_resp = requests.get(video_url, timeout=15)
+                img_resp.raise_for_status()
+                with open(path, "wb") as f:
+                    f.write(img_resp.content)
+                bot.sendLocalImage(
+                    path,
+                    message=Message(text=f"📸 Ảnh TikTok\nTiêu đề: {title}"),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    width=1200,
+                    height=1200
+                )
+            finally:
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                except Exception:
+                    pass
+            try:
+                bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+            except Exception:
+                pass
+            return
+
+        # D. Try fallback fields if no video_url was matched
+        for key in ("play", "hd_play", "no_watermark", "wmplay"):
+            if inner.get(key):
+                fallback_url = inner[key]
+                is_fb_image = False
+                try:
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(fallback_url)
+                    path_lower = parsed_url.path.lower()
+                    if any(path_lower.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".jxl"]):
+                        is_fb_image = True
+                except Exception:
+                    pass
+
+                if is_fb_image:
+                    _send_text(bot, thread_id, thread_type, f"✅ Đang tải ảnh TikTok...\nTiêu đề: {title}", message_object)
+                    path = os.path.join(tempfile.gettempdir(), f"tt_image_{thread_id}_{os.getpid()}_{random.randint(0,1000)}.jpeg")
+                    import random
+                    try:
+                        img_resp = requests.get(fallback_url, timeout=15)
+                        img_resp.raise_for_status()
+                        with open(path, "wb") as f:
+                            f.write(img_resp.content)
+                        bot.sendLocalImage(
+                            path,
+                            message=Message(text=f"📸 Ảnh TikTok\nTiêu đề: {title}"),
+                            thread_id=thread_id,
+                            thread_type=thread_type,
+                            width=1200,
+                            height=1200
+                        )
+                    finally:
+                        try:
+                            if os.path.exists(path):
+                                os.remove(path)
+                        except Exception:
+                            pass
+                else:
+                    _send_text(bot, thread_id, thread_type, f"✅ Đang tải video TikTok...\nTiêu đề: {title}", message_object)
+                    bot.sendRemoteVideo(
+                        videoUrl=fallback_url,
+                        thumbnailUrl=cover_url or "https://i.imgur.com/f3nK6z5.jpeg",
+                        duration=int(float(duration or 10)) * 1000,
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        width=int(float(width or 1080)),
+                        height=int(float(height or 1920)),
+                        message=Message(text=f"Tiêu đề: {title}")
+                    )
+                try:
+                    bot.sendReaction(message_object, "TBOT ✅", thread_id, thread_type)
+                except Exception:
+                    pass
+                return
+
+        raise RuntimeError("Không tìm thấy tệp phương tiện nào để tải xuống.")
+
     except Exception as e:
         try:
             bot.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
