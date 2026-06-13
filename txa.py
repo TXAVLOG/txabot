@@ -3185,7 +3185,7 @@ class bot(ZaloAPI):
                             f"📱 Cấu hình thiết bị nhận nhạc (Giảm thời gian chờ convert):\n"
                             f"👉 Cú pháp: {prefix}device <ios / android / pc>\n"
                             f"💡 Mặc định: ios\n"
-                            f"💡 Android/PC: Không cần convert, nhận nhạc mp3 siêu nhanh!"
+                            f"💡 Android/PC: Không cần convert, nhưng có thể hok nghe được trên ios!"
                         )), message_object, thread_id, thread_type)
                         return
 
