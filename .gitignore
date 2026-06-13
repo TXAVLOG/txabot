@@ -41,6 +41,7 @@ modules/cache/
 api-*.json
 !background/*.jpeg
 !info.png
+!modules/music/nhac_scl/sclden.jpg
 
 # Logs
 *.log

@@ -582,7 +582,7 @@ def save_file_to_cache(url, filename):
             print("Error in save_file_to_cache: Safe filename is empty after processing")
             return None
 
-        if 'cover' in safe_filename.lower():
+        if safe_filename.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
             if not safe_filename.lower().endswith('.jpg'):
                 safe_filename = safe_filename.rsplit('.', 1)[0] if '.' in safe_filename else safe_filename
                 safe_filename += '.jpg'

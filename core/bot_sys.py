@@ -3493,8 +3493,9 @@ def _music_styled_msg(text, **kwargs):
     offset = 0
     for i, line in enumerate(lines):
         color = MUSIC_COLORS[i % len(MUSIC_COLORS)]
-        styles.append(MessageStyle(style="color", color=color, offset=offset, length=len(line), auto_format=False))
-        offset += len(line) + 1
+        line_len = zalo_len(line)
+        styles.append(MessageStyle(style="color", color=color, offset=offset, length=line_len, auto_format=False))
+        offset += line_len + 1
     if lines:
         styles.append(MessageStyle(style="italic", offset=0, length=offset - 1, auto_format=False))
         styles.append(MessageStyle(style="font", size="13", offset=0, length=offset - 1, auto_format=False))
@@ -4599,7 +4600,7 @@ def process_next_music_queue(bot, author_id):
         print(f"{Fore.GREEN}{Style.BRIGHT}[MUSIC QUEUE] ============================================================{Style.RESET_ALL}")
         
         # Thực thi lệnh
-        bot.onMessage(msg_obj)
+        bot.onMessage(msg_obj.msgId, author_id, msg_text, msg_obj, thread_id, thread_type)
 
 def get_tech_icon(name: str, size: int = 64):
     """
