@@ -287,5 +287,8 @@
     ],
     "silver_users_expiry": {
         "1299910007340159336": null
+    },
+    "user_platforms": {
+        "1299910007340159336": "ios"
     }
 }
