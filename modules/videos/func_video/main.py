@@ -129,7 +129,8 @@ def handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id
         if not video_url:
             raise Exception("Không lấy được URL video từ API.")
         
-        thumbnail_url = 'https://vdang1.sbs/images/gaisexy'
+        # Use fallback thumbnail
+        thumbnail_url = image_sender.upload_fallback_thumbnail(bot, thread_id, thread_type) or 'https://vdang1.sbs/images/gaisexy'
         duration = '1000'
         
         try:

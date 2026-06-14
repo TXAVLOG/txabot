@@ -4,7 +4,7 @@ import requests
 import time
 from pathlib import Path
 from urllib.parse import urlparse
-from zlapi.models import Message
+from zlapi.models import Message, ThreadType
 
 REQUEST_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -63,6 +63,7 @@ class ImageSender:
             self.data_dir = os.path.join(os.path.dirname(__file__), "..", "data-send")
         
         self.local_images_dir = os.path.join(os.path.dirname(__file__), "..", "local-images")
+        self.fallback_thumbnail_path = os.path.join(self.data_dir, "fallback-thumbnail.png")
         
         self.config = {
             "girl": {
@@ -242,6 +243,50 @@ class ImageSender:
         
         return files
     
+    def upload_fallback_thumbnail(self, bot, thread_id, thread_type):
+        """Upload fallback thumbnail to Zalo server and return URL"""
+        if not os.path.exists(self.fallback_thumbnail_path):
+            return None
+        
+        try:
+            # Use the same logic as txa.py's sendLocalVideo for thumbnail upload
+            thumb_size = os.path.getsize(self.fallback_thumbnail_path)
+            if thread_type == ThreadType.GROUP:
+                thumb_url = "https://tt-files-wpa.chat.zalo.me/api/group/photo_original/upload"
+                thumb_upload_type = 11
+                thumb_to_key = "grid"
+            else:
+                thumb_url = "https://tt-files-wpa.chat.zalo.me/api/message/photo_original/upload"
+                thumb_upload_type = 2
+                thumb_to_key = "toid"
+                
+            with open(self.fallback_thumbnail_path, "rb") as f_thumb:
+                thumb_files = [("chunkContent", f_thumb)]
+                thumb_params = {
+                    "params": bot._encode({
+                        "totalChunk": 1,
+                        "fileName": "fallback-thumbnail.png",
+                        "clientId": int(time.time() * 1000),
+                        "totalSize": thumb_size,
+                        "imei": bot.imei,
+                        "chunkId": 1,
+                        thumb_to_key: str(thread_id)
+                    }),
+                    "zpw_ver": 685,
+                    "zpw_type": 30,
+                    "type": thumb_upload_type
+                }
+                thumb_response = bot._post(thumb_url, params=thumb_params, files=thumb_files)
+                thumb_res_data = thumb_response.json()
+                if thumb_res_data.get("error_code") == 0:
+                    thumb_decoded = bot._decode(thumb_res_data["data"])
+                    if thumb_decoded.get("error_code") == 0:
+                        return thumb_decoded["data"]["normalUrl"]
+        except Exception as e:
+            print(f"Error uploading fallback thumbnail: {e}")
+        
+        return None
+    
     def send_image(self, bot, message_object=None, thread_id=None, thread_type=None, author_id=None, type_name=None, custom_caption=""):
         """Gửi ảnh hoặc video tới chat"""
         
@@ -322,7 +367,11 @@ class ImageSender:
             if not url:
                 return "❌ Không tìm thấy URL video hợp lệ!"
             
-            thumbnail_url = "https://i.imgur.com/wudT3ID.jpeg"
+            # Use fallback thumbnail for vdgirl and vdsexy
+            if type_name in ["vdgirl", "vdsexy"]:
+                thumbnail_url = self.upload_fallback_thumbnail(bot, thread_id, thread_type) or "https://i.imgur.com/wudT3ID.jpeg"
+            else:
+                thumbnail_url = "https://i.imgur.com/wudT3ID.jpeg"
             
             try:
                 bot.sendRemoteVideo(
