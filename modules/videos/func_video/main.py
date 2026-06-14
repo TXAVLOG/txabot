@@ -1,6 +1,7 @@
 import requests
 from zlapi.models import Message
 from modules.utils.image_sender import ImageSender
+from core.bot_sys import read_settings, write_settings
 
 image_sender = ImageSender()
 
@@ -18,25 +19,62 @@ txa = {
     "command": ["vdgirl", "vdcos", "vdanime", "vdsexy", "vdchill", "vdgai"]
 }
 
+def check_permission(bot, author_id):
+    settings = read_settings(bot.uid)
+    admin_bot = settings.get("admin_bot", [])
+    high_level_admins = settings.get("high_level_admins", [])
+    silver_users = settings.get("silver_users", [])
+    
+    is_super_admin = (author_id == bot.uid) or (author_id in high_level_admins)
+    is_admin_bot = is_super_admin or (author_id in admin_bot)
+    is_silver = is_admin_bot or (author_id in silver_users)
+    return is_silver
+
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
-    cmd = message_text[len(prefix):].split()[0].lower()
+    parts = message_text[len(prefix):].strip().split()
+    cmd = parts[0].lower() if parts else ""
+    args = parts[1:] if len(parts) > 1 else []
     
     if cmd == 'vdgirl':
-        handle_vdgirl_command(bot, message_object, thread_id, thread_type, author_id)
+        handle_vdgirl_command(bot, message_object, thread_id, thread_type, author_id, args)
     elif cmd == 'vdcos':
         handle_vdcos_command(bot, message_object, thread_id, thread_type, author_id)
     elif cmd == 'vdanime':
         handle_vdanime_command(bot, message_object, thread_id, thread_type, author_id)
     elif cmd == 'vdsexy':
-        handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id)
+        handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id, args)
     elif cmd == 'vdchill':
         handle_vdchill_command(bot, message_object, thread_id, thread_type, author_id)
     elif cmd == 'vdgai':
         handle_vdgai_command(bot, message_object, thread_id, thread_type, author_id)
 
-def handle_vdgirl_command(bot, message_object, thread_id, thread_type, author_id):
-    """Gửi video girl"""
+def handle_vdgirl_command(bot, message_object, thread_id, thread_type, author_id, args):
+    """Gửi video girl hoặc bật/tắt lệnh"""
+    if args and args[0].lower() in ["on", "off"]:
+        if not check_permission(bot, author_id):
+            bot.replyMessage(Message(text="❌ Bạn không có quyền sử dụng tính năng này! (Yêu cầu S_AD/ADMIN trở lên)"), message_object, thread_id, thread_type)
+            return
+        
+        status = args[0].lower() == "on"
+        settings = read_settings(bot.uid)
+        
+        if "disabled_vdgirl" not in settings:
+            settings["disabled_vdgirl"] = {}
+            
+        settings["disabled_vdgirl"][thread_id] = not status
+        write_settings(bot.uid, settings)
+        
+        status_text = "Bật ✅" if status else "Tắt ❌"
+        bot.replyMessage(Message(text=f"🚦 Lệnh {bot.prefix}vdgirl đã được {status_text} trong nhóm này!"), message_object, thread_id, thread_type)
+        return
+
+    settings = read_settings(bot.uid)
+    disabled_vdgirl = settings.get("disabled_vdgirl", {})
+    if disabled_vdgirl.get(thread_id, False):
+        bot.replyMessage(Message(text="⚠️ Lệnh vdgirl đã bị tắt trong nhóm này! Vui lòng liên hệ S_AD hoặc ADMIN để bật lại."), message_object, thread_id, thread_type)
+        return
+
     error = image_sender.send_image(bot, message_object, thread_id, thread_type, author_id, "vdgirl")
     if error:
         bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)
@@ -53,8 +91,32 @@ def handle_vdanime_command(bot, message_object, thread_id, thread_type, author_i
     if error:
         bot.replyMessage(Message(text=error), message_object, thread_id, thread_type)
 
-def handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id):
-    """Gửi video sexy"""
+def handle_vdsexy_command(bot, message_object, thread_id, thread_type, author_id, args):
+    """Gửi video sexy hoặc bật/tắt lệnh"""
+    if args and args[0].lower() in ["on", "off"]:
+        if not check_permission(bot, author_id):
+            bot.replyMessage(Message(text="❌ Bạn không có quyền sử dụng tính năng này! (Yêu cầu S_AD/ADMIN trở lên)"), message_object, thread_id, thread_type)
+            return
+        
+        status = args[0].lower() == "on"
+        settings = read_settings(bot.uid)
+        
+        if "disabled_vdsexy" not in settings:
+            settings["disabled_vdsexy"] = {}
+            
+        settings["disabled_vdsexy"][thread_id] = not status
+        write_settings(bot.uid, settings)
+        
+        status_text = "Bật ✅" if status else "Tắt ❌"
+        bot.replyMessage(Message(text=f"🚦 Lệnh {bot.prefix}vdsexy đã được {status_text} trong nhóm này!"), message_object, thread_id, thread_type)
+        return
+
+    settings = read_settings(bot.uid)
+    disabled_vdsexy = settings.get("disabled_vdsexy", {})
+    if disabled_vdsexy.get(thread_id, False):
+        bot.replyMessage(Message(text="⚠️ Lệnh vdsexy đã bị tắt trong nhóm này! Vui lòng liên hệ S_AD hoặc ADMIN để bật lại."), message_object, thread_id, thread_type)
+        return
+
     api_url = 'https://vdang1.sbs/videos/vdsexy'
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'

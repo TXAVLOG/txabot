@@ -2062,51 +2062,13 @@ class bot(ZaloAPI):
 
             thumbnail_url = generated_thumbnail_url or "https://raw.githubusercontent.com/niri99/zlapi/main/assets/default_video_thumb.jpg"
 
-            # 4. Upload to Zalo CDN via asyncfile upload endpoint
-            file_size = os.path.getsize(upload_path)
-            file_name = os.path.basename(filePath)
-            
-            if thread_type == ThreadType.GROUP:
-                url = "https://tt-files-wpa.chat.zalo.me/api/group/photo_original/upload"
-                upload_type = 11
-                to_key = "grid"
-            else:
-                url = "https://tt-files-wpa.chat.zalo.me/api/message/photo_original/upload"
-                upload_type = 2
-                to_key = "toid"
+            # 4. Upload to external host (Catbox/Uguu) to get a direct URL
+            uploaded_url = upload_file(upload_path, mime_type="video/mp4")
+            if not uploaded_url:
+                raise Exception("Upload video file to external host failed.")
                 
-            with open(upload_path, "rb") as f:
-                files = [("chunkContent", f)]
-                params = {
-                    "params": self._encode({
-                        "totalChunk": 1,
-                        "fileName": file_name,
-                        "clientId": int(time.time() * 1000),
-                        "totalSize": file_size,
-                        "imei": self.imei,
-                        "isE2EE": 0,
-                        "jxl": 0,
-                        "chunkId": 1,
-                        to_key: str(thread_id)
-                    }),
-                    "zpw_ver": 685,
-                    "zpw_type": 30,
-                    "type": upload_type
-                }
-                
-                response = self._post(url, params=params, files=files)
-                res_data = response.json()
-                if res_data.get("error_code") != 0:
-                    raise Exception(f"Upload to Zalo CDN failed: {res_data}")
-                    
-                decoded = self._decode(res_data["data"])
-                if decoded.get("error_code") != 0:
-                    raise Exception(f"Decode Zalo CDN upload response failed: {decoded}")
-                    
-                uploaded_url = decoded["data"]["normalUrl"]
-                
-            # 4. Send video using Zalo remote video message
-            thumbnail_url = "https://f66-zpg-r.zdn.vn/jxl/8107149848477004187/d08a4d364d8cf9d2a09d.jxl"
+            # 5. Send video using Zalo remote video message
+            thumbnail_url = generated_thumbnail_url or "https://raw.githubusercontent.com/niri99/zlapi/main/assets/default_video_thumb.jpg"
             
             result = super().sendRemoteVideo(
                 videoUrl=uploaded_url,
@@ -2133,40 +2095,9 @@ class bot(ZaloAPI):
         msg_text = message.text if isinstance(message, Message) else message or ''
         self.log_bot_message(f"🎥 [GỬI VIDEO REMOTE] {msg_text}\nURL video: {videoUrl}", thread_id, thread_type)
         
-        # Intercept external URLs to upload them to Zalo CDN first for iOS audio compatibility
-        if videoUrl.startswith("http") and "zdn.vn" not in videoUrl and "zalo.me" not in videoUrl:
-            
-            fd, temp_path = tempfile.mkstemp(suffix=".mp4")
-            os.close(fd)
-            
-            try:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                }
-                response = requests.get(videoUrl, headers=headers, stream=True)
-                response.raise_for_status()
-                with open(temp_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        
-                # Send the downloaded local video
-                result = self.sendLocalVideo(temp_path, thread_id, thread_type, message, ttl)
-                return result
-            except Exception as e:
-                logging.error(f"Failed to auto-process and send remote video via Zalo CDN: {e}. Falling back to direct URL sending.")
-                result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
-                self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
-                return result
-            finally:
-                try:
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-                except Exception:
-                    pass
-        else:
-            result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
-            self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
-            return result
+        result = super().sendRemoteVideo(videoUrl, thumbnailUrl, duration, thread_id, thread_type, width, height, message, ttl)
+        self._schedule_ttl_delete(result, thread_id, thread_type, ttl)
+        return result
 
 
     def sendSticker(self, stickerType, stickerId, cateId, thread_id, thread_type, ttl=0):
