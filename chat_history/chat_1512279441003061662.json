@@ -1,0 +1,22 @@
+[
+  {
+    "role": "user",
+    "content": "Chào em",
+    "ts": 1781519231
+  },
+  {
+    "role": "assistant",
+    "content": "Chào bạn, mình rất vui được gặp bạn. Bạn cần được giúp đỡ về cái gì không?",
+    "ts": 1781519231
+  },
+  {
+    "role": "user",
+    "content": "Ô không theo vai vế à.\nmày là ai vậy",
+    "ts": 1781519251
+  },
+  {
+    "role": "assistant",
+    "content": "Mình là một AI (Trí tuệ nhân tạo) được thiết kế để hỗ trợ và trò chuyện với người dùng. Mình không có thực thể cụ thể, nhưng mình có thể giúp bạn với mọi thứ từ thông tin, hướng dẫn, đến thậm chí là trò chuyện vui vẻ. Bạn muốn thử trò chuyện với mình không?",
+    "ts": 1781519251
+  }
+]

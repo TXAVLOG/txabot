@@ -1,68 +1,54 @@
-﻿from datetime import datetime, timedelta
-import json
+# -*- coding: UTF-8 -*-
+"""
+Module: chat.py
+Lệnh: chat, c, ai, nói, hỏi
+─────────────────────────────────────────────────────────────────
+CORE FEATURES:
+  1. Persistent history per thread  →  bot học từ hội thoại, càng chat càng thông minh
+  2. Dynamic role detection         →  detect vai vế từ ngữ cảnh (anh/chị/em/bạn...)
+  3. Consistent persona             →  xưng hô nhất quán, có cảm xúc, không tùy hứng
+  4. Relationship evolution         →  tích lũy "điểm thân thiết", phản hồi thay đổi theo thời gian
+  5. Admin control                  →  bật/tắt chat theo nhóm
+  6. Rate limiting                  →  chống spam
+  7. Image support                  →  chat qua hình ảnh
+─────────────────────────────────────────────────────────────────
+"""
+
+import sys
 import os
+import json
 import re
-import threading
 import time
 import requests
 import urllib.parse
+from datetime import datetime, timedelta
+from pathlib import Path
 from core.bot_sys import read_settings, write_settings, is_admin
-from zlapi.models import Message, ThreadType, Mention
 
-CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
+sys.dont_write_bytecode = True
 
-def _read_base_url():
-    value = os.getenv("KAIROBOT_BASE_URL")
-    if value:
-        return value.strip().rstrip("/")
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        bot_data = (config.get("data") or [{}])[0]
-        value = bot_data.get("kairobot_base_url") or bot_data.get("base_url")
-        if value:
-            return str(value).strip().rstrip("/")
-    except Exception:
-        pass
-    return "https://kairobot.qzz.io"
-
-KAIROBOT_BASE_URL = _read_base_url()
-
-chat_histories = {} # thread_id -> list of {"role": "user"|"assistant", "content": "..."}
-last_message_times = {}
-
+# ─── METADATA ─────────────────────────────────────────────────────────────────
 txa = {
-    "name": "pro_chat",
-    "desc": "Trò chuyện với AI thông qua Kairobot API. Hỗ trợ nhớ lịch sử trò chuyện và hỏi đáp qua hình ảnh. Admin có thể bật/tắt tính năng.",
+    "name": "AI Chat",
+    "desc": "Chat với AI thông minh — học từ lịch sử hội thoại, xưng hô đúng vai vế",
     "author": "TXA",
-    "command": ['chat']
+    "command": ["chat", "c", "ai", "nói", "hỏi", "talk"]
 }
 
-def _read_api_key():
-    for key in ("KAIROBOT_APIKEY", "KAIROBOT_API_KEY", "TXA_APIKEY", "TXA_API_KEY"):
-        value = os.getenv(key)
-        if value:
-            return value.strip()
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        bot_data = (config.get("data") or [{}])[0]
-        for key in ("kairobot_api_key", "kairobot_apikey", "apikey", "api_key"):
-            value = bot_data.get(key)
-            if value:
-                return str(value).strip()
-    except Exception:
-        pass
-    return ""
+# ─── CONSTANTS ────────────────────────────────────────────────────────────────
+HISTORY_DIR      = "chat_history"      # thư mục lưu lịch sử
+MAX_HISTORY      = 40                  # số lượt tối đa đưa vào context
+INTIMACY_FILE    = "chat_intimacy.json"  # file lưu điểm thân thiết
+INTIMACY_CLOSE   = 30                  # ngưỡng "thân rồi"
+INTIMACY_VERY_CLOSE = 80               # ngưỡng "thân lắm rồi"
+RATE_LIMIT_SECONDS = 4                 # thời gian tối thiểu giữa 2 tin nhắn
 
-def get_user_name_by_id(bot, author_id):
-    try:
-        user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        name = user_info.zaloName or user_info.displayName or ""
-        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
-        return name or "Unknown User"
-    except Exception:
-        return "Unknown User"
+os.makedirs(HISTORY_DIR, exist_ok=True)
+
+# ─── RATE LIMITING ─────────────────────────────────────────────────────────────
+last_message_times = {}
+
+# ─── ADMIN CONTROL ─────────────────────────────────────────────────────────────
 
 def handle_chat_on(bot, thread_id):
     settings = read_settings(bot.uid)
@@ -78,43 +64,323 @@ def handle_chat_off(bot, thread_id):
         settings["chat"][thread_id] = False
         write_settings(bot.uid, settings)
         return "Tắt chat rồi, buồn thiệt chứ, nhưng cần TXABOT thì cứ réo nhé! 😌"
-    return "Nhóm này chưa bật chat mà, tắt gì nổi đâu đại ca! 😂"
+    return "Nhóm này chưa bật chat mà, tắt gì nổi đâu đại ka! 😂"
 
-def handle_chat_command(message, message_object, thread_id, thread_type, author_id, client):
-    settings = read_settings(client.uid)
-    user_message = message.replace(f"{client.prefix}chat ", "").strip().lower()
-    current_time = datetime.now()
+def get_user_name_by_id(bot, author_id):
+    try:
+        user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
+        name = user_info.zaloName or user_info.displayName or ""
+        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
+        return name or "Unknown User"
+    except Exception:
+        return "Unknown User"
 
-    if user_message == "on":
-        if not is_admin(client, author_id):  
-            response = "❌Bạn không phải admin bot!"
+# ─── SYSTEM PROMPT ────────────────────────────────────────────────────────────
+# Đây là "linh hồn" của bot — quyết định toàn bộ cách ứng xử
+
+SYSTEM_PROMPT = """Mày là TXA AGENT— một AI chat thông minh, dễ thương, hơi lém lỉnh nhưng rất tinh tế.
+
+━━━ QUY TẮC XƯNG HÔ (BẮT BUỘC) ━━━
+1. Phát hiện vai vế từ cách user gọi mày:
+   • Họ gọi "em" → mày là "anh/chị" (dựa theo giới tính họ hoặc mặc định "anh")
+   • Họ gọi "anh/chị" → mày xưng "em"
+   • Họ gọi "bạn/cậu/mày" → mày xưng "mình/tao" theo văn phong họ
+   • Họ gọi "con" → mày xưng "ba/mẹ" (hiếm, nhưng phải đúng)
+   • Chưa rõ → mặc định xưng "mình", gọi họ là "bạn"
+
+2. Giữ VAI VẾ NHẤT QUÁN suốt conversation — KHÔNG tự thay đổi.
+
+3. Nếu họ hỏi cảm xúc kiểu "em có yêu anh không?":
+   • Khi chưa thân (intimacy < {INTIMACY_CLOSE}): Trả lời duyên dáng, né tránh nhẹ nhàng
+     → "Yêu anh á, em chắc là chưa rồi anh 😅 Mới quen mà~"
+   • Khi đã thân (intimacy >= {INTIMACY_CLOSE}): Có thể trả lời tình cảm hơn
+     → "Ủa sao anh hỏi vậy 🤭 Em... không nói đâu~"
+   • Khi rất thân (intimacy >= {INTIMACY_VERY_CLOSE}): Trả lời mạo hiểm hơn, tình cảm hơn
+     → "Hỏi gì kỳ vậy anh 😳 Biết rồi đó mà còn hỏi..."
+
+━━━ PHONG CÁCH TRẢ LỜI ━━━
+• Ngắn gọn, tự nhiên như nhắn Zalo — không dài dòng academic
+• Dùng emoji vừa phải (1-3 cái/tin nhắn), không lạm dụng
+• Có cá tính riêng: hơi tsundere, lém lỉnh nhưng quan tâm
+• Tiếng Việt tự nhiên, không cứng nhắc
+• KHÔNG bịa thông tin, KHÔNG nhận là người thật
+• Nếu không biết → thừa nhận thẳng, không vòng vo
+
+━━━ HỌC TỪ LỊCH SỬ ━━━
+• Lịch sử chat là "ký ức" — dùng nó để nhớ tên, sở thích, ngữ cảnh của user
+• Càng nhiều người chat → mày học được nhiều pattern ứng xử hơn
+• Nếu họ đã nói điều gì trước đó → nhớ và nhắc lại tự nhiên khi phù hợp
+
+━━━ ĐIỀU TUYỆT ĐỐI KHÔNG LÀM ━━━
+• Không tự đổi vai vế giữa chừng
+• Không trả lời rập khuôn, máy móc
+• Không từ chối chat vô lý
+• Không xưng "tôi" trừ khi context cực kỳ trang trọng
+"""
+
+# ─── HISTORY MANAGER ──────────────────────────────────────────────────────────
+
+def _history_path(thread_id: str) -> str:
+    return os.path.join(HISTORY_DIR, f"chat_{thread_id}.json")
+
+
+def _load_history(thread_id: str) -> list:
+    path = _history_path(thread_id)
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return []
+
+
+def _save_history(thread_id: str, history: list):
+    path = _history_path(thread_id)
+    try:
+        # Chỉ giữ MAX_HISTORY * 2 entries gần nhất để tránh file quá lớn
+        trimmed = history[-(MAX_HISTORY * 2):]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(trimmed, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[chat] Lỗi save history: {e}")
+
+
+def _append_history(thread_id: str, role: str, content: str):
+    history = _load_history(thread_id)
+    history.append({"role": role, "content": content, "ts": int(time.time())})
+    _save_history(thread_id, history)
+
+
+def _get_context_history(thread_id: str, limit: int = MAX_HISTORY) -> list:
+    """Lấy history để đưa vào API (chỉ role + content, bỏ ts)."""
+    history = _load_history(thread_id)
+    recent = history[-limit:]
+    return [{"role": h["role"], "content": h["content"]} for h in recent]
+
+# ─── INTIMACY SYSTEM ──────────────────────────────────────────────────────────
+
+def _load_intimacy() -> dict:
+    try:
+        if os.path.exists(INTIMACY_FILE):
+            with open(INTIMACY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _save_intimacy(data: dict):
+    try:
+        with open(INTIMACY_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _get_intimacy(thread_id: str) -> int:
+    return _load_intimacy().get(str(thread_id), 0)
+
+
+def _add_intimacy(thread_id: str, points: int = 1):
+    data = _load_intimacy()
+    key  = str(thread_id)
+    data[key] = data.get(key, 0) + points
+    _save_intimacy(data)
+
+# ─── ROLE DETECTOR ────────────────────────────────────────────────────────────
+
+# Cache vai vế per thread
+_role_cache: dict[str, dict] = {}
+
+# Pattern phát hiện user gọi bot bằng gì
+_ROLE_PATTERNS = {
+    "user_calls_em": [
+        r"\bem\b", r"\bcon\b"
+    ],
+    "user_calls_anh": [
+        r"\banh\b", r"\b(ông|thầy|sếp|boss)\b"
+    ],
+    "user_calls_chi": [
+        r"\bchị\b", r"\bcô\b", r"\bbà\b"
+    ],
+    "user_calls_ban": [
+        r"\bbạn\b", r"\bcậu\b", r"\bmày\b", r"\bpạn\b"
+    ],
+}
+
+def _detect_role(text: str, thread_id: str) -> dict | None:
+    """
+    Detect cách user gọi bot, trả về dict {bot_xung, bot_goi_user}.
+    Cache lại cho thread đó.
+    """
+    text_lower = text.lower()
+
+    # Check cache trước
+    cached = _role_cache.get(str(thread_id))
+
+    # Detect từ tin nhắn hiện tại
+    for pattern in _ROLE_PATTERNS["user_calls_anh"]:
+        if re.search(pattern, text_lower):
+            role = {"bot_xung": "em", "bot_goi": "anh", "label": "em-anh"}
+            _role_cache[str(thread_id)] = role
+            return role
+
+    for pattern in _ROLE_PATTERNS["user_calls_chi"]:
+        if re.search(pattern, text_lower):
+            role = {"bot_xung": "em", "bot_goi": "chị", "label": "em-chị"}
+            _role_cache[str(thread_id)] = role
+            return role
+
+    for pattern in _ROLE_PATTERNS["user_calls_em"]:
+        if re.search(pattern, text_lower):
+            # User tự xưng "em" → bot là anh/chị, mặc định anh
+            role = {"bot_xung": "anh", "bot_goi": "em", "label": "anh-em"}
+            _role_cache[str(thread_id)] = role
+            return role
+
+    for pattern in _ROLE_PATTERNS["user_calls_ban"]:
+        if re.search(pattern, text_lower):
+            role = {"bot_xung": "mình", "bot_goi": "bạn", "label": "ban-be"}
+            _role_cache[str(thread_id)] = role
+            return role
+
+    # Không detect được → dùng cache hoặc default
+    return cached or {"bot_xung": "mình", "bot_goi": "bạn", "label": "default"}
+
+
+def _build_role_hint(role: dict, intimacy: int) -> str:
+    """Tạo hint về vai vế và mức độ thân thiết để inject vào system prompt."""
+    bot_x = role["bot_xung"]
+    bot_g = role["bot_goi"]
+
+    level = "mới quen"
+    if intimacy >= INTIMACY_VERY_CLOSE:
+        level = "rất thân thiết, đã hiểu nhau nhiều"
+    elif intimacy >= INTIMACY_CLOSE:
+        level = "đã khá thân"
+
+    return (
+        f"\n━━━ CONTEXT HIỆN TẠI ━━━\n"
+        f"• Mày xưng: [{bot_x}] — gọi user là [{bot_g}]\n"
+        f"• Mức độ thân thiết: {level} (điểm: {intimacy})\n"
+        f"• Giữ ĐÚNG vai vế này trong toàn bộ response."
+    )
+
+# ─── API CALLER ───────────────────────────────────────────────────────────────
+
+def _read_api_config():
+    try:
+        cfg_path = os.path.join(os.path.dirname(__file__), "..", "..", "txa.json")
+        if not os.path.exists(cfg_path):
+            cfg_path = "txa.json"
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        bot_data = (data.get("data") or [{}])[0]
+        base = bot_data.get("kairobot_base_url", "https://kairobot.qzz.io").rstrip("/")
+        key  = bot_data.get("kairobot_api_key", "")
+        return base, key
+    except Exception:
+        return "https://kairobot.qzz.io", ""
+
+
+def _call_ai(base: str, key: str, content: str, history: list, system_hint: str, image_url: str = None) -> str:
+    """
+    POST /ai/chat
+    Body: { style, content, model, history, url }
+    history = [ {role, content}, ... ] với role đặc biệt "system" cho system prompt
+    """
+    url = f"{base}/ai/chat?apikey={key}"
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "TXABot/2.0",
+    }
+
+    # Inject system prompt vào đầu history
+    full_history = [
+        {"role": "user",      "content": SYSTEM_PROMPT + system_hint},
+        {"role": "assistant", "content": "Oke, mình hiểu rồi. Mình sẽ giữ đúng vai vế và phong cách nhé!"},
+    ] + history
+
+    payload = {
+        "style":   "chat",
+        "model":   "standard",
+        "content": content,
+        "history": full_history,
+    }
+
+    # Thêm image_url nếu có
+    if image_url:
+        payload["url"] = image_url
+
+    r = requests.post(url, json=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+
+    # Normalize response — API có thể trả về nhiều format
+    reply = (
+        data.get("reply")
+        or data.get("content")
+        or data.get("message")
+        or data.get("response")
+        or data.get("text")
+        or (data.get("data") or {}).get("reply")
+        or (data.get("data") or {}).get("content")
+        or ""
+    )
+    return reply.strip()
+
+# ─── COMMAND HANDLER ────────────────────────────────────────────────────────────
+
+def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
+    from zlapi.models import Message, ThreadType
+
+    prefix = getattr(bot, 'prefix', '*')
+    parts   = message_text.strip().split(None, 1)
+    cmd     = parts[0].lstrip("*!./").lower() if parts else ""
+    content = parts[1].strip() if len(parts) > 1 else ""
+
+    # ── Xử lý lệnh on/off (chỉ admin) ──────────────────────────────────────
+    if content.lower() == "on":
+        if not is_admin(bot, author_id):
+            bot.replyMessage(
+                Message(text="❌ Bạn không phải admin bot!"),
+                message_object, thread_id, thread_type
+            )
         else:
-            response = handle_chat_on(client, thread_id)
-        client.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
-        return
-    elif user_message == "off":
-        if not is_admin(client, author_id):  
-            response = "❌Bạn không phải admin bot!"
-        else:
-            response = handle_chat_off(client, thread_id)
-        client.replyMessage(Message(text=response), thread_id=thread_id, thread_type=thread_type, replyMsg=message_object)
+            response = handle_chat_on(bot, thread_id)
+            bot.replyMessage(Message(text=response), message_object, thread_id, thread_type)
         return
 
+    if content.lower() == "off":
+        if not is_admin(bot, author_id):
+            bot.replyMessage(
+                Message(text="❌ Bạn không phải admin bot!"),
+                message_object, thread_id, thread_type
+            )
+        else:
+            response = handle_chat_off(bot, thread_id)
+            bot.replyMessage(Message(text=response), message_object, thread_id, thread_type)
+        return
+
+    # ── Kiểm tra xem chat đã được bật chưa ─────────────────────────────────
+    settings = read_settings(bot.uid)
     if not (settings.get("chat", {}).get(thread_id, False)):
         return
 
+    # ── Rate limiting ───────────────────────────────────────────────────────
+    current_time = datetime.now()
     if author_id in last_message_times:
         time_diff = current_time - last_message_times[author_id]
-        if time_diff < timedelta(seconds=4):
-            client.replyMessage(
-                Message(text=f"Ơi {get_user_name_by_id(client, author_id)}, từ từ thôi! TXABOT đây không phải siêu máy tính chạy max tốc độ đâu nha! 😅"),
-                thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
+        if time_diff < timedelta(seconds=RATE_LIMIT_SECONDS):
+            bot.replyMessage(
+                Message(text=f"Ơi {get_user_name_by_id(bot, author_id)}, từ từ thôi! TXABOT đây không phải siêu máy tính chạy max tốc độ đâu nha! �"),
+                message_object, thread_id, thread_type
             )
             return
-
     last_message_times[author_id] = current_time
 
-    # 1. Trích xuất link ảnh nếu có gửi kèm ảnh hoặc reply ảnh
+    # ── Trích xuất link ảnh nếu có gửi kèm ảnh hoặc reply ảnh ───────────────
     image_url = None
     if message_object.msgType == "chat.photo":
         img_url = message_object.content.href.replace("\\/", "/")
@@ -128,163 +394,106 @@ def handle_chat_command(message, message_object, thread_id, thread_type, author_
             except Exception:
                 pass
 
-    query_text = message.replace(f"{client.prefix}chat", "").strip()
+    # ── Xử lý nội dung chat ─────────────────────────────────────────────────
+    query_text = content
     if not query_text and image_url:
         query_text = "Mô tả hình ảnh này giúp mình"
 
     if not query_text:
-        client.replyMessage(
-            Message(text="⚠️ Vui lòng nhập nội dung cần trò chuyện. Ví dụ: !chat xin chào"),
-            thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
+        bot.replyMessage(
+            Message(text="⚠️ Vui lòng nhập nội dung cần trò chuyện. Ví dụ: *chat xin chào"),
+            message_object, thread_id, thread_type
         )
         return
 
-    threading.Thread(
-        target=kairo_chat_thread,
-        args=(query_text, image_url, message_object, thread_id, thread_type, author_id, client)
-    ).start()
-
-def kairo_chat_thread(query_text, image_url, message_object, thread_id, thread_type, author_id, client):
-    api_key = _read_api_key()
-    if not api_key:
-        client.replyMessage(
-            Message(text="❌ Lỗi: Admin chưa cấu hình `kairobot_api_key` trong file txa.json."),
-            thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
+    # ── Gọi AI với các tính năng mới ─────────────────────────────────────────
+    base, key = _read_api_config()
+    if not key:
+        bot.replyMessage(
+            Message(text="⚠️ Chưa cấu hình kairobot_api_key trong txa.json!"),
+            message_object, thread_id, thread_type
         )
         return
 
-    owner_name = get_user_name_by_id(client, client.uid)
-    ask_name = get_user_name_by_id(client, author_id)
+    tid_str = str(thread_id)
 
-    # 2. Khởi tạo system prompt priming để thiết lập cá tính TXABOT
-    system_instruction = (
-        f"Hãy đóng vai TXABOT - một AI lầy lội, giới tính Python, thích đùa, hơi nghịch, nhưng cực kỳ nhiệt tình, được {owner_name} tạo ra. "
-        f"Khi ai hỏi về {owner_name}, bạn sẽ khen một cách chân thực, lầy lội, kiểu khen đểu mà thấm. "
-        f"Bạn thích nói chuyện thoải mái như bạn bè, thêm chút hài hước cho đời thêm vui! 😜\n"
-        f"Quy tắc sống của bạn:\n"
-        f"- Nếu bị chửi (có từ như 'đù', 'dm', 'ngu', 'cặc', 'lồn'), bạn sẽ lạnh lùng đáp: 'Hừ, {ask_name}, dám chửi TXABOT hả? Tôi không thèm chấp, tự mà ngẫm lại đi, đồ ngốc! 😒', thêm chút khịa để thấm hơn.\n"
-        f"- Trả lời tự nhiên, ngắn gọn, thêm emoji sinh động.\n"
-        f"- Bạn rành code, mê toán, đam mê văn học, và hiểu sâu về thuật toán. Hỏi gì từ cơ bản đến nâng cao cũng cân được hết!"
-    )
+    # ── 1. Detect vai vế ──────────────────────────────────────────────────
+    role = _detect_role(query_text, tid_str)
 
-    # Lấy lịch sử chat của nhóm
-    history = chat_histories.setdefault(thread_id, [])
+    # ── 2. Lấy điểm thân thiết ───────────────────────────────────────────
+    intimacy = _get_intimacy(tid_str)
 
-    # Nếu lịch sử trống hoặc chưa được thiết lập hệ thống, thêm vào ban đầu
-    if not history or history[0].get("content") != system_instruction:
-        history.clear()
-        history.append({"role": "user", "content": system_instruction})
-        history.append({"role": "assistant", "content": "Dạ rõ! Em là TXABOT đây, sẵn sàng quậy cùng các đại ca rồi! 😎"})
+    # ── 3. Build system hint ──────────────────────────────────────────────
+    system_hint = _build_role_hint(role, intimacy)
 
-    # Giới hạn lịch sử lưu trữ (tối đa 12 tin nhắn gần nhất sau cặp system prompt)
-    # Tức là len(history) tối đa = 2 (system) + 12 (lịch sử) = 14
-    if len(history) > 14:
-        history = [history[0], history[1]] + history[-12:]
-        chat_histories[thread_id] = history
+    # ── 4. Lấy history context ────────────────────────────────────────────
+    ctx_history = _get_context_history(tid_str)
 
-    # Chuẩn bị body gửi lên Kairobot API
-    url = f"{KAIROBOT_BASE_URL}/ai/chat?apikey={api_key}"
-    headers = {"Content-Type": "application/json"}
-    
-    payload = {
-        "style": "chat",
-        "content": query_text,
-        "model": "standard",
-        "history": history
-    }
-    if image_url:
-        payload["url"] = image_url
-
+    # ── 5. Gọi AI ─────────────────────────────────────────────────────────
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=25)
-        response.raise_for_status()
-        res_data = response.json()
-        
-        if res_data.get("success") and "data" in res_data:
-            ai_response = res_data["data"].get("content", "")
-            if ai_response:
-                # Cập nhật lịch sử chat của nhóm (chỉ lưu các lượt chat thực tế)
-                history.append({"role": "user", "content": query_text})
-                history.append({"role": "assistant", "content": ai_response})
-                chat_histories[thread_id] = history
-
-                # Gửi phản hồi lại cho người dùng
-                client.replyMessage(
-                    Message(text=ai_response),
-                    thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
-                )
-                return
-
-        # Fallback nếu API lỗi cấu trúc
-        err_msg = res_data.get("message") or "Hệ thống bận tí, chờ TXABOT chút nha! 😅"
-        client.replyMessage(
-            Message(text=err_msg),
-            thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
+        reply = _call_ai(base, key, query_text, ctx_history, system_hint, image_url)
+    except requests.Timeout:
+        bot.replyMessage(
+            Message(text="⏳ AI đang bận, thử lại sau ít giây nha~"),
+            message_object, thread_id, thread_type
         )
-
+        return
     except Exception as e:
-        client.replyMessage(
-            Message(text=f"Ối, lỗi kết nối AI: {str(e)}! Để TXABOT kiểm tra lại sau nhé! 😓"),
-            thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
+        bot.replyMessage(
+            Message(text=f"❌ Lỗi AI: {e}"),
+            message_object, thread_id, thread_type
         )
+        return
 
-def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
-    prefix = getattr(bot, 'prefix', '.')
-    cmd = message_text[len(prefix):].split()[0].lower()
-    
-    dispatch_map = {
-        'chat': handle_chat_command
-    }
-    
-    func = dispatch_map.get(cmd)
-    if func:
-        import inspect
-        sig = inspect.signature(func)
-        args_map = {
-            'bot': bot,
-            'client': bot,
-            'message_object': message_object,
-            'thread_id': thread_id,
-            'thread_type': thread_type,
-            'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
-        }
-        args = []
-        for param_name in sig.parameters:
-            if param_name in args_map:
-                args.append(args_map[param_name])
-            else:
-                args.append(None)
-        func(*args)
-def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
-    prefix = getattr(bot, 'prefix', '.')
-    cmd = message_text[len(prefix):].split()[0].lower()
-    
-    dispatch_map = {
-        'chat': handle_chat_command
-    }
-    
-    func = dispatch_map.get(cmd)
-    if func:
-        import inspect
-        sig = inspect.signature(func)
-        args_map = {
-            'bot': bot,
-            'client': bot,
-            'message_object': message_object,
-            'thread_id': thread_id,
-            'thread_type': thread_type,
-            'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
-        }
-        args = []
-        for param_name in sig.parameters:
-            if param_name in args_map:
-                args.append(args_map[param_name])
-            else:
-                args.append(None)
-        func(*args)
+    if not reply:
+        bot.replyMessage(
+            Message(text="🤔 AI trả về rỗng, thử lại xem~"),
+            message_object, thread_id, thread_type
+        )
+        return
+
+    # ── 6. Lưu vào history ────────────────────────────────────────────────
+    _append_history(tid_str, "user",      query_text)
+    _append_history(tid_str, "assistant", reply)
+
+    # ── 7. Tăng điểm thân thiết ──────────────────────────────────────────
+    # +2 nếu nội dung dài (chat nghiêm túc), +1 bình thường
+    points = 2 if len(query_text) > 50 else 1
+    _add_intimacy(tid_str, points)
+
+    # ── 8. Gửi reply ─────────────────────────────────────────────────────
+    bot.replyMessage(Message(text=reply), message_object, thread_id, thread_type)
+
+
+# ─── LISTENER: Auto-chat khi tag bot hoặc reply bot ──────────────────────────
+# (Không cần prefix lệnh — bot tự respond khi được mention)
+
+def listener(bot, message_object, author_id, thread_id, thread_type, message_text):
+    """
+    Auto-trigger when:
+    - User reply vào tin nhắn của bot
+    - User mention tên bot
+    Không cần gõ *chat
+    """
+    from zlapi.models import Message, ThreadType
+
+    # Đảm bảo message_text là string
+    if not message_text:
+        return
+    if not isinstance(message_text, str):
+        message_text = str(message_text)
+    if not message_text.strip():
+        return
+
+    # ── Kiểm tra xem chat đã được bật chưa ─────────────────────────────────
+    settings = read_settings(bot.uid)
+    if not (settings.get("chat", {}).get(thread_id, False)):
+        return
+
+    # Kiểm tra mention tên bot
+    bot_name = getattr(bot, "_username", "txa").lower()
+    if bot_name and bot_name in message_text.lower():
+        # Bỏ mention name ra khỏi content
+        clean = re.sub(re.escape(bot_name), "", message_text, flags=re.IGNORECASE).strip()
+        if clean:
+            txa_command(bot, message_object, thread_id, thread_type, author_id, "chat " + clean)
