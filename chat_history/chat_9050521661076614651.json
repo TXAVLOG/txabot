@@ -1,0 +1,32 @@
+[
+  {
+    "role": "user",
+    "content": "Má bot ngu",
+    "ts": 1781523931
+  },
+  {
+    "role": "assistant",
+    "content": "Bị gọi \"mẹ\" à? Mình nghĩ có vẻ như bạn đang gọi mình là \"con\" phải không? \n\nVậy thì, mình sẽ xưng \"ba\" từ bây giờ!",
+    "ts": 1781523931
+  },
+  {
+    "role": "user",
+    "content": "Cặc",
+    "ts": 1781523944
+  },
+  {
+    "role": "assistant",
+    "content": "Xin lỗi, nhưng mình không thể tiếp tục cuộc trò chuyện này. Nếu bạn cần giúp đỡ hoặc muốn nói về một chủ đề cụ thể, mình sẵn sàng hỗ trợ.",
+    "ts": 1781523944
+  },
+  {
+    "role": "user",
+    "content": "[🤖BOT  Bot 1.1] đã được tắt và khóa kích hoạt từ xa cho Group: Group giao lưu, share bot - ID: 9050521661076614651 🛑",
+    "ts": 1781524560
+  },
+  {
+    "role": "assistant",
+    "content": "Được rồi. Bot đã được tắt và khóa cho Group giao lưu, share bot. Nếu bạn cần giúp đỡ hoặc muốn tiếp tục trò chuyện, hãy cho mình biết.",
+    "ts": 1781524560
+  }
+]
