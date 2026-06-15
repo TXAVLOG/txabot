@@ -22,5 +22,45 @@
         "type": "disc",
         "authorId": "1934642265051564731",
         "timestamp": 1781297650
+    },
+    {
+        "name": "txa_4",
+        "staticImgUrl": "https://files.catbox.moe/x4ht8r.webp",
+        "animationImgUrl": "https://files.catbox.moe/x4ht8r.webp",
+        "type": "normal",
+        "authorId": "1512279441003061662",
+        "timestamp": 1781505115
+    },
+    {
+        "name": "Gai",
+        "staticImgUrl": "https://files.catbox.moe/nzile5.webp",
+        "animationImgUrl": "https://files.catbox.moe/nzile5.webp",
+        "type": "pixel",
+        "authorId": "1512279441003061662",
+        "timestamp": 1781505464
+    },
+    {
+        "name": "txa_6",
+        "staticImgUrl": "https://files.catbox.moe/jzf14k.webp",
+        "animationImgUrl": "https://files.catbox.moe/jzf14k.webp",
+        "type": "pixel",
+        "authorId": "1512279441003061662",
+        "timestamp": 1781505481
+    },
+    {
+        "name": "txa_7",
+        "staticImgUrl": "https://files.catbox.moe/h6x1rx.webp",
+        "animationImgUrl": "https://files.catbox.moe/h6x1rx.webp",
+        "type": "pixel",
+        "authorId": "5788812850506714167",
+        "timestamp": 1781505546
+    },
+    {
+        "name": "txa_8",
+        "staticImgUrl": "https://files.catbox.moe/9oppye.webp",
+        "animationImgUrl": "https://files.catbox.moe/9oppye.webp",
+        "type": "normal",
+        "authorId": "5788812850506714167",
+        "timestamp": 1781505560
     }
 ]
