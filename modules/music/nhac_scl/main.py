@@ -802,7 +802,16 @@ def create_song_list_image(songs):
             draw.text((x, y), text, font=font, fill=fill)
 
         for i, song in enumerate(songs_to_draw):
-            link, title, cover_url, plays, likes, comments, username, duration = song  
+            if not song or not isinstance(song, (list, tuple)) or len(song) < 3:
+                continue
+            link = song[0] if len(song) > 0 else ""
+            title = song[1] if len(song) > 1 else "Unknown"
+            cover_url = song[2] if len(song) > 2 else ""
+            plays = song[3] if len(song) > 3 else 0
+            likes = song[4] if len(song) > 4 else 0
+            comments = song[5] if len(song) > 5 else 0
+            username = song[6] if len(song) > 6 else "Unknown"
+            duration = song[7] if len(song) > 7 else 0  
 
             col = i // songs_per_col
             row = i % songs_per_col
@@ -915,7 +924,11 @@ def create_single_song_image(song):
         image = Image.new("RGB", (img_width, img_height), (25, 25, 25))
         draw = ImageDraw.Draw(image)
 
-        link, title, cover_url = song[:3]
+        if not song or not isinstance(song, (list, tuple)) or len(song) < 3:
+            return None
+        link = song[0]
+        title = song[1]
+        cover_url = song[2]
         plays = song[3] if len(song) > 3 else 0
         likes = song[4] if len(song) > 4 else 0
         comments = song[5] if len(song) > 5 else 0
@@ -1069,7 +1082,15 @@ def is_valid_image_url(url):
 
 def _play_and_send_song(song, username, author_id, thread_id, thread_type, message_object, client, selected_number=None):
     global user_states
-    link, title, cover_url = song[:3]
+    if not song or not isinstance(song, (list, tuple)) or len(song) < 3:
+        text = f"🚨{username}, dữ liệu bài hát không hợp lệ."
+        offset = zalo_offset(text, username)
+        mention = Mention(author_id, offset=offset, length=zalo_len(username)) if (thread_type != ThreadType.USER and offset != -1) else None
+        client.replyMessage(_music_styled_msg(text=text, mention=mention), message_object, thread_id, thread_type, ttl=60000)
+        return
+    link = song[0]
+    title = song[1]
+    cover_url = song[2]
     plays = song[3] if len(song) > 3 else 0
     likes = song[4] if len(song) > 4 else 0
     comments = song[5] if len(song) > 5 else 0

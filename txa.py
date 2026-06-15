@@ -3121,6 +3121,8 @@ class bot(ZaloAPI):
                         cmd_name = 'mp3'
                     elif source == 'nct':
                         cmd_name = 'nct'
+                    elif source == 'tiktok':
+                        cmd_name = 'tt'
                         
                     if cmd_name:
                         # Gọi execute, nó sẽ handle tất cả tham số
