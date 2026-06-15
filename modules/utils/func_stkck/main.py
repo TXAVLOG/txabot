@@ -53,6 +53,23 @@ def handle_bank_command(message, message_object, thread_id, thread_type, author_
             parts = clean_msg.strip().split()
             
             if not parts:
+                help_text = (
+                    f"🏦 HƯỚNG DẪN SỬ DỤNG LỆNH {prefix}bank\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"➜ {prefix}bank default — Xem QR code Techcombank mặc định\n"
+                    f"➜ {prefix}bank [số_tiền] — Tạo QR với số tiền cụ thể\n"
+                    f"➜ {prefix}bank [số_tiền] [nội_dung] — Tạo QR với số tiền + nội dung\n"
+                    f"➜ {prefix}bank on — Bật lệnh bank trong nhóm (Admin)\n"
+                    f"➜ {prefix}bank off — Tắt lệnh bank trong nhóm (Admin)\n"
+                    f"➜ {prefix}bank set [stk] [ngân_hàng] [tên_chủ_tk] — Cấu hình tài khoản (Admin)\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"💡 Ví dụ:\n"
+                    f"   • {prefix}bank default\n"
+                    f"   • {prefix}bank 50000\n"
+                    f"   • {prefix}bank 100k đóng góp quỹ\n"
+                    f"   • {prefix}bank 500k tiền nước"
+                )
+                client.replyMessage(Message(text=help_text), message_object, thread_id, thread_type)
                 return
                 
             cmd = parts[0].lower()
@@ -72,6 +89,71 @@ def handle_bank_command(message, message_object, thread_id, thread_type, author_
                     return
                 response = handle_stkck_off(client, thread_id)
                 client.replyMessage(Message(text=response), message_object, thread_id, thread_type)
+                return
+            
+            # Handle "default" - show default QR without checking stkck setting
+            if args and args[0].lower() == "default":
+                bank = DEFAULT_BANK
+                stk = DEFAULT_STK
+                name = DEFAULT_NAME
+                amount = None
+                description = ""
+                
+                if len(args) > 1:
+                    first_arg = args[1]
+                    parsed = parse_amount(first_arg)
+                    if parsed is not None:
+                        amount = parsed
+                        description = " ".join(args[2:])
+                    else:
+                        description = " ".join(args[1:])
+                
+                encoded_name = urllib.parse.quote(name)
+                qr_url = f"https://img.vietqr.io/image/{bank}-{stk}-compact2.png?accountName={encoded_name}"
+                if amount is not None:
+                    qr_url += f"&amount={amount}"
+                if description:
+                    encoded_desc = urllib.parse.quote(description)
+                    qr_url += f"&addInfo={encoded_desc}"
+                
+                temp_dir = "modules/cache"
+                os.makedirs(temp_dir, exist_ok=True)
+                temp_path = os.path.join(temp_dir, f"bank_qr_{uuid.uuid4().hex}.png")
+                
+                try:
+                    res = requests.get(qr_url, timeout=15)
+                    res.raise_for_status()
+                    with open(temp_path, "wb") as f:
+                        f.write(res.content)
+                except Exception as download_err:
+                    client.replyMessage(Message(text=f"❌ Lỗi tải mã QR: {download_err}"), message_object, thread_id, thread_type)
+                    return
+                
+                amount_txt = f"{amount:,} VNĐ" if amount is not None else "Tùy tâm"
+                desc_txt = description if description else "Chuyển khoản"
+                
+                caption = (
+                    "💳 THÔNG TIN CHUYỂN KHOẢN (DEFAULT) 💳\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    f"🏦 Ngân hàng: {bank.upper()}\n"
+                    f"🔑 Số tài khoản: {stk}\n"
+                    f"👤 Chủ tài khoản: {name.upper()}\n"
+                    f"💰 Số tiền: {amount_txt}\n"
+                    f"📝 Nội dung: {desc_txt}\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    "⚠️ Quét mã QR bên dưới để chuyển khoản nhanh."
+                )
+                
+                client.sendLocalImage(
+                    imagePath=temp_path,
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    message=Message(text=caption),
+                    ttl=0
+                )
+                
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
                 return
             
             # Check custom configuration commands for Bank Details
@@ -213,7 +295,9 @@ def handle_bank_command(message, message_object, thread_id, thread_type, author_
 
 txa = {
     "name": "pro_stkck",
-    "desc": "Tạo mã QR chuyển khoản và thông tin tài khoản ngân hàng. Bật/tắt bằng lệnh on/off.",
+    "desc": {
+        "bank": "Tạo mã QR chuyển khoản. Gõ bank để xem hướng dẫn, bank default để lấy QR Techcombank mặc định.",
+    },
     "author": "TXA",
     "command": ['bank']
 }

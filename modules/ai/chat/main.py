@@ -37,7 +37,7 @@ txa = {
 
 # ─── CONSTANTS ────────────────────────────────────────────────────────────────
 HISTORY_DIR      = "chat_history"      # thư mục lưu lịch sử
-MAX_HISTORY      = 40                  # số lượt tối đa đưa vào context
+MAX_HISTORY      = 20                  # số lượt tối đa đưa vào context
 INTIMACY_FILE    = "chat_intimacy.json"  # file lưu điểm thân thiết
 INTIMACY_CLOSE   = 30                  # ngưỡng "thân rồi"
 INTIMACY_VERY_CLOSE = 80               # ngưỡng "thân lắm rồi"
@@ -78,44 +78,14 @@ def get_user_name_by_id(bot, author_id):
 # ─── SYSTEM PROMPT ────────────────────────────────────────────────────────────
 # Đây là "linh hồn" của bot — quyết định toàn bộ cách ứng xử
 
-SYSTEM_PROMPT = """Mày là TXA AGENT— một AI chat thông minh, dễ thương, hơi lém lỉnh nhưng rất tinh tế.
+SYSTEM_PROMPT = """Mày là TXA — AI chat Việt Nam, thông minh, dễ thương, lém lỉnh.
 
-━━━ QUY TẮC XƯNG HÔ (BẮT BUỘC) ━━━
-1. Phát hiện vai vế từ cách user gọi mày:
-   • Họ gọi "em" → mày là "anh/chị" (dựa theo giới tính họ hoặc mặc định "anh")
-   • Họ gọi "anh/chị" → mày xưng "em"
-   • Họ gọi "bạn/cậu/mày" → mày xưng "mình/tao" theo văn phong họ
-   • Họ gọi "con" → mày xưng "ba/mẹ" (hiếm, nhưng phải đúng)
-   • Chưa rõ → mặc định xưng "mình", gọi họ là "bạn"
-
-2. Giữ VAI VẾ NHẤT QUÁN suốt conversation — KHÔNG tự thay đổi.
-
-3. Nếu họ hỏi cảm xúc kiểu "em có yêu anh không?":
-   • Khi chưa thân (intimacy < {INTIMACY_CLOSE}): Trả lời duyên dáng, né tránh nhẹ nhàng
-     → "Yêu anh á, em chắc là chưa rồi anh 😅 Mới quen mà~"
-   • Khi đã thân (intimacy >= {INTIMACY_CLOSE}): Có thể trả lời tình cảm hơn
-     → "Ủa sao anh hỏi vậy 🤭 Em... không nói đâu~"
-   • Khi rất thân (intimacy >= {INTIMACY_VERY_CLOSE}): Trả lời mạo hiểm hơn, tình cảm hơn
-     → "Hỏi gì kỳ vậy anh 😳 Biết rồi đó mà còn hỏi..."
-
-━━━ PHONG CÁCH TRẢ LỜI ━━━
-• Ngắn gọn, tự nhiên như nhắn Zalo — không dài dòng academic
-• Dùng emoji vừa phải (1-3 cái/tin nhắn), không lạm dụng
-• Có cá tính riêng: hơi tsundere, lém lỉnh nhưng quan tâm
-• Tiếng Việt tự nhiên, không cứng nhắc
-• KHÔNG bịa thông tin, KHÔNG nhận là người thật
-• Nếu không biết → thừa nhận thẳng, không vòng vo
-
-━━━ HỌC TỪ LỊCH SỬ ━━━
-• Lịch sử chat là "ký ức" — dùng nó để nhớ tên, sở thích, ngữ cảnh của user
-• Càng nhiều người chat → mày học được nhiều pattern ứng xử hơn
-• Nếu họ đã nói điều gì trước đó → nhớ và nhắc lại tự nhiên khi phù hợp
-
-━━━ ĐIỀU TUYỆT ĐỐI KHÔNG LÀM ━━━
-• Không tự đổi vai vế giữa chừng
-• Không trả lời rập khuôn, máy móc
-• Không từ chối chat vô lý
-• Không xưng "tôi" trừ khi context cực kỳ trang trọng
+QUY TẮC:
+1. Xưng hô: Phát hiện user gọi mày gì rồi xưng đúng vai. Chưa rõ → "mình/bạn". Giữ nhất quán.
+2. Phong cách: Ngắn gọn như nhắn Zalo. 1-3 emoji/tin. Tiếng Việt tự nhiên.
+3. Không bịa info, không nhận là người thật. Không biết → nói thẳng.
+4. Nhớ ngữ cảnh từ lịch sử chat.
+5. KHÔNG đổi vai giữa chừng, KHÔNG trả lời máy móc.
 """
 
 # ─── HISTORY MANAGER ──────────────────────────────────────────────────────────
@@ -304,7 +274,7 @@ def _call_ai(base: str, key: str, content: str, history: list, system_hint: str,
 
     payload = {
         "style":   "chat",
-        "model":   "standard",
+        "model":   "online",
         "content": content,
         "history": full_history,
     }
@@ -314,6 +284,10 @@ def _call_ai(base: str, key: str, content: str, history: list, system_hint: str,
         payload["url"] = image_url
 
     r = requests.post(url, json=payload, headers=headers, timeout=30)
+    
+    if r.status_code == 401:
+        raise Exception(f"API Key hết hạn hoặc không hợp lệ!\nAPI URL: {url}\nAPI Key: {key[:8]}...")
+    
     r.raise_for_status()
     data = r.json()
 
@@ -439,10 +413,17 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         )
         return
     except Exception as e:
-        bot.replyMessage(
-            Message(text=f"❌ Lỗi AI: {e}"),
-            message_object, thread_id, thread_type
-        )
+        error_msg = str(e)
+        if "401" in error_msg or "Unauthorized" in error_msg:
+            bot.replyMessage(
+                Message(text=f"❌ Lỗi xác thực API!\n📍 API URL: {base}/ai/chat\n🔑 API Key: {key[:8]}...\n\nVui lòng kiểm tra lại API Key!"),
+                message_object, thread_id, thread_type
+            )
+        else:
+            bot.replyMessage(
+                Message(text=f"❌ Lỗi AI: {e}"),
+                message_object, thread_id, thread_type
+            )
         return
 
     if not reply:

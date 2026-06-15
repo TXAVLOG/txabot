@@ -46,6 +46,26 @@ def get_freefire_data(uid):
         response.raise_for_status()
         data = response.json()
         
+        if not data:
+            return None
+        
+        if isinstance(data, dict) and "data" in data:
+            inner = data["data"]
+            if isinstance(inner, dict):
+                if "basicInfo" in inner or "profileInfo" in inner:
+                    return inner
+                if "data" in inner and isinstance(inner["data"], dict):
+                    return inner["data"]
+            return inner
+        
+        if isinstance(data, dict) and ("basicInfo" in data or "profileInfo" in data):
+            return data
+        
+        if isinstance(data, list) and len(data) > 0:
+            first = data[0]
+            if isinstance(first, dict) and ("basicInfo" in first or "profileInfo" in first):
+                return first
+        
         return data
             
     except Exception as e:

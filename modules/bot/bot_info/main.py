@@ -157,15 +157,17 @@ txa = {
         "bot": "Xem hướng dẫn và cấu hình Bot",
         "del": "Xóa tin nhắn gần nhất",
         "xoa": "Xóa tin nhắn nhanh",
-        "delete": "Xóa tin nhắn"
+        "delete": "Xóa tin nhắn",
+        "help": "Xem hướng dẫn sử dụng lệnh"
     },
     "author": "TXA",
-    "command": ["bot", "del", "xoa", "delete"],
+    "command": ["bot", "del", "xoa", "delete", "help"],
     "t-per": {
         "bot": "s-admin",
         "del": "admin",
         "xoa": "admin",
-        "delete": "admin"
+        "delete": "admin",
+        "help": "all"
     }
 }
 

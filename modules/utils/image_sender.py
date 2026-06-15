@@ -48,12 +48,16 @@ def url_is_reachable(url):
         return True
 
 def choose_reachable_url(urls):
+    VIDEO_EXTS = ('.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv')
     candidates = [url for url in (normalize_url(item) for item in urls) if url]
-    random.shuffle(candidates)
-    for url in candidates:
+    video_candidates = [u for u in candidates if any(u.lower().endswith(ext) for ext in VIDEO_EXTS)]
+    if not video_candidates:
+        video_candidates = candidates
+    random.shuffle(video_candidates)
+    for url in video_candidates:
         if url_is_reachable(url):
             return url
-    return candidates[0] if candidates else ""
+    return video_candidates[0] if video_candidates else (candidates[0] if candidates else "")
 
 class ImageSender:
     def __init__(self, data_dir=None):
@@ -366,6 +370,10 @@ class ImageSender:
             url = choose_reachable_url(urls)
             if not url:
                 return "❌ Không tìm thấy URL video hợp lệ!"
+            
+            VIDEO_EXTS = ('.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv')
+            if not any(url.lower().endswith(ext) for ext in VIDEO_EXTS):
+                return "❌ URL không phải video hợp lệ, vui lòng thử lại!"
             
             # Use fallback thumbnail for vdgirl and vdsexy
             if type_name in ["vdgirl", "vdsexy"]:
