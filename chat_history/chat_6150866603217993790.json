@@ -88,5 +88,25 @@
     "role": "assistant",
     "content": "Đó có vẻ là một câu chuyện hài hước và thú vị!\n\n\"Tớ giờ đi với, nhớ chát em sau nhé\" có thể hiểu là câu trả lời của người nói, sau khi có một cuộc trò chuyện không thành công hoặc có sự bất đồng quan điểm giữa hai người.\n\n\"Có thể là vì em chửi anh mất, nên anh không muốn tiếp tục trò chuyện với em nữa\".\n\nVậy câu trả lời của em có thể hiểu là \"Anh không muốn tiếp tục trò chuyện với em, nhưng anh sẽ nhớ đến em và sẽ chát lại sau\".",
     "ts": 1781519899
+  },
+  {
+    "role": "user",
+    "content": "📖 HƯỚNG DẪN SỬ DỤNG LỆNH: *BANK\n➜ ❖ Tên chức năng: Banking Qr\n➜ ❖ Phím tắt: *bank\n➜ ❖ Mô tả: Tạo mã QR chuyển khoản. Gõ bank để xem hướng dẫn, bank default để lấy QR Techcombank mặc định.\n➜ 👨‍💻 Tác giả: \n➜ ❖ Cách dùng:\n   • *bank\n➜ 💡 Ví dụ:\n   • *bank",
+    "ts": 1781556424
+  },
+  {
+    "role": "assistant",
+    "content": "Đường dẫn này hướng dẫn sử dụng lệnh \"*BANK\" để tạo mã QR chuyển khoản. Đây là một lệnh ngắn gọn và dễ hiểu.\n\nDưới đây là cách sử dụng lệnh \"*BANK\":\n\n1. Gõ lệnh \"*bank\" để xem hướng dẫn sử dụng.\n2. Để tạo mã QR chuyển khoản mặc định, gõ lệnh \"*bank default\".\n3. Lệnh \"*bank\" có thể được sử dụng để tạo mã QR chuyển khoản với các thông tin cần thiết.\n\nVí dụ:\n\n* Gõ lệnh \"*bank\" để xem hướng dẫn sử dụng.\n* Gõ lệnh \"*bank default\" để lấy QR Techcombank mặc định.\n\nLệnh này có thể được sử dụng trong các ứng dụng hoặc hệ thống quản lý tài chính để tạo mã QR chuyển khoản một cách nhanh chóng và dễ dàng.",
+    "ts": 1781556424
+  },
+  {
+    "role": "user",
+    "content": "📖 HƯỚNG DẪN SỬ DỤNG LỆNH: *CHUA\n➜ ❖ Tên chức năng: Đi Chùa\n➜ ❖ Phím tắt: *chua\n➜ ❖ Mô tả: Đi chùa thắp hương cầu may mắn 🙏 | chua list | chua <số> | chua <số> <lời cầu>\n➜ 👨‍💻 Tác giả: \n➜ ❖ Cách dùng:\n   • *chua\n➜ 💡 Ví dụ:\n   • *chua",
+    "ts": 1781593259
+  },
+  {
+    "role": "assistant",
+    "content": "Đường dẫn này hướng dẫn sử dụng lệnh \"*CHUA\" để đi chùa thắp hương cầu may mắn. Đây là một lệnh thú vị và ý nghĩa.\n\nDưới đây là cách sử dụng lệnh \"*CHUA\":\n\n1. Gõ lệnh \"*chua\" để đi chùa thắp hương cầu may mắn.\n2. Để xem danh sách các chùa, gõ lệnh \"*chua list\".\n3. Để cầu may mắn tại một số chùa cụ thể, gõ lệnh \"*chua <số>\" (ví dụ: \"*chua 1\" để cầu may mắn tại chùa thứ nhất).\n4. Để cầu may mắn tại một số chùa cụ thể với một lời cầu cụ thể, gõ lệnh \"*chua <số> <lời cầu>\" (ví dụ: \"*chua 1 May mắn và hạnh phúc\").\n\nVí dụ:\n\n* Gõ lệnh \"*chua\" để đi chùa thắp hương cầu may mắn.\n* Gõ lệnh \"*chua list\" để xem danh sách các chùa.\n* Gõ lệnh \"*chua 1\" để cầu may mắn tại chùa thứ nhất.\n* Gõ lệnh \"*chua 1 May mắn và hạnh phúc\" để cầu may mắn tại chùa thứ nhất với lời cầu cụ thể.\n\nLệnh này có thể được sử dụng trong các ứng dụng hoặc hệ thống quản lý để tạo một trải nghiệm thú vị và ý nghĩa cho người dùng.",
+    "ts": 1781593259
   }
 ]

@@ -28,5 +28,175 @@
     "role": "assistant",
     "content": "Được rồi. Bot đã được tắt và khóa cho Group giao lưu, share bot. Nếu bạn cần giúp đỡ hoặc muốn tiếp tục trò chuyện, hãy cho mình biết.",
     "ts": 1781524560
+  },
+  {
+    "role": "user",
+    "content": "[🤖BOT  Bot 1.1] đã được bật trong Group: Group giao lưu, share bot - ID: 9050521661076614651\n➜ Gõ lệnh ➡️ *help hoặc *bot để xem danh sách tính năng BOT💡",
+    "ts": 1781609765
+  },
+  {
+    "role": "assistant",
+    "content": "Bot đã được bật lại trong Group giao lưu, share bot. Bạn có thể gõ lệnh \"*help\" hoặc \"*bot\" để xem danh sách tính năng của bot. Hãy cho mình biết nếu bạn cần bất kỳ sự giúp đỡ nào.",
+    "ts": 1781609765
+  },
+  {
+    "role": "user",
+    "content": "📖 HƯỚNG DẪN SỬ DỤNG LỆNH: *BANK\n➜ ❖ Tên chức năng: Banking Qr\n➜ ❖ Phím tắt: *bank\n➜ ❖ Mô tả: Tạo mã QR chuyển khoản. Gõ bank để xem hướng dẫn, bank default để lấy QR Techcombank mặc định.\n➜ 👨‍💻 Tác giả: \n➜ ❖ Cách dùng:\n   • *bank\n➜ 💡 Ví dụ:\n   • *bank",
+    "ts": 1781610558
+  },
+  {
+    "role": "assistant",
+    "content": "Bạn muốn tạo mã QR chuyển khoản. Để thực hiện, bạn có thể gõ lệnh \"*bank\" và bot sẽ giúp bạn tạo mã QR chuyển khoản.",
+    "ts": 1781610558
+  },
+  {
+    "role": "user",
+    "content": "Bú cu là gì",
+    "ts": 1781610813
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi không tìm thấy thông tin về \"Bú cu\". Có thể đây là một từ hoặc một khái niệm không quen thuộc, hoặc bạn có thể đã nhập sai chữ. Nếu bạn có thể cung cấp thêm thông tin hoặc ngữ cảnh, tôi sẽ cố gắng giúp bạn hiểu rõ hơn.",
+    "ts": 1781610813
+  },
+  {
+    "role": "user",
+    "content": "Facebook là gì",
+    "ts": 1781610829
+  },
+  {
+    "role": "assistant",
+    "content": "Facebook là một nền tảng mạng xã hội trực tuyến miễn phí được tạo ra vào năm 2004 bởi Mark Zuckerberg và các bạn học cùng trường học của Mark tại Đại học Harvard. Mục đích ban đầu của Facebook là để giúp các sinh viên và giảng viên tại Đại học Harvard kết nối và chia sẻ thông tin với nhau.\n\nNgày nay, Facebook đã trở thành một trong những nền tảng mạng xã hội lớn nhất và phổ biến nhất trên thế giới, với hơn 2,7 tỷ người dùng hoạt động hàng tháng. Facebook cho phép người dùng tạo tài khoản và tạo hồ sơ cá nhân, kết bạn với người khác, chia sẻ thông tin, hình ảnh và video, cũng như tham gia các nhóm và trang.\n\nTính năng chính của Facebook bao gồm:\n\n1. Tạo hồ sơ cá nhân và kết bạn với người khác\n2. Chia sẻ thông tin, hình ảnh và video\n3. Tham gia các nhóm và trang\n4. Sử dụng ứng dụng di động và web để truy cập Facebook\n5. Tính năng chat trực tiếp và cuộc gọi video\n\nFacebook cũng cung cấp nhiều tính năng khác như Facebook Marketplace (để mua bán hàng hóa), Facebook Groups (để tham gia các nhóm), và Facebook Watch (để xem video).\n\nTuy nhiên, Facebook cũng đã gặp phải nhiều vấn đề về bảo mật và quyền riêng tư của người dùng, cũng như ảnh hưởng đến tâm lý của người dùng cũng như đến cộng đồng.",
+    "ts": 1781610829
+  },
+  {
+    "role": "user",
+    "content": "sex toy",
+    "ts": 1781610829
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi hiểu rõ hơn bây giờ. \"Bú cu\" thường được sử dụng để chỉ các loại đồ chơi tình dục (sex toy) dành riêng cho phụ nữ, đặc biệt là các loại đồ chơi giúp kích thích và tăng cường khoái cảm trong việc quan hệ tình dục.\n\nBú cu thường bao gồm các loại như:\n\n- Đuôi bú cu (clitoral stimulator): giúp kích thích và tăng cường khoái cảm cho bộ phận sinh dục nữ.\n- Bú cu hình chữ S (S-shaped vibrator): có hình dạng đặc biệt để giúp kích thích và tăng cường khoái cảm.\n- Bú cu cầm tay (handheld vibrator): nhỏ gọn và dễ sử dụng, giúp kích thích và tăng cường khoái cảm trong mọi thời gian.\n\nLưu ý rằng sử dụng đồ chơi tình dục cần phải được thực hiện một cách an toàn và có trách nhiệm.",
+    "ts": 1781610829
+  },
+  {
+    "role": "user",
+    "content": "Sóc lọ mày có biết không",
+    "ts": 1781610894
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi hiểu bạn đang nói về loài động vật gọi là \"sóc lọ mày\" (hay còn gọi là \"sóc lùn\" hoặc \"sóc lùn châu Á\"). Đây là một loài nhỏ, thường được tìm thấy ở châu Á.\n\nSóc lọ mày là một loài động vật nhỏ, có bộ lông mềm và màu nâu. Chúng thường sống ở các khu vực rừng nhiệt đới và cận nhiệt đới, và có thể tìm thấy ở các quốc gia như Trung Quốc, Hàn Quốc, Nhật Bản, và Việt Nam.\n\nSóc lọ mày là một loài động vật quý hiếm và cần được bảo vệ. Chúng có thể bị đe dọa bởi việc mất mát môi trường sống, săn bắt, và các hoạt động kinh tế khác.\n\nNếu bạn có bất kỳ câu hỏi hoặc thông tin nào khác về sóc lọ mày, xin vui lòng cho tôi biết!",
+    "ts": 1781610894
+  },
+  {
+    "role": "user",
+    "content": "Sóc lọ là xu hướng tình dục",
+    "ts": 1781610919
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi hiểu bây giờ. Sóc lọ (hay còn gọi là \"sóc lùn\" hoặc \"sóc lùn châu Á\") cũng có thể ám chỉ đến một loại hình trang phục và cách thể hiện giới tính, đặc biệt là trong cộng đồng LGBTQ+.\n\nSóc lọ mày là một từ ngữ dùng để chỉ một người có hành vi, phong cách, và trang phục giống như một con sóc lùn, thường được sử dụng để chỉ một người có tính cách nghịch ngợm, tươi sáng và tự do.\n\nTrong một số cộng đồng, từ này cũng có thể ám chỉ đến một người có xu hướng tình dục hoặc bản dạng giới không bình thường, nhưng không phải lúc nào cũng đúng.",
+    "ts": 1781610919
+  },
+  {
+    "role": "user",
+    "content": "cách kiếm 100 triệu trong 1 ngày",
+    "ts": 1781610955
+  },
+  {
+    "role": "assistant",
+    "content": "Kiếm 100 triệu trong 1 ngày là một mục tiêu khó khăn và đòi hỏi nhiều yếu tố như kỹ năng, kiến thức, cơ hội, và may mắn. Dưới đây là một số cách có thể giúp bạn đạt được mục tiêu này:\n\n1. **Bán hàng trực tuyến**: Sử dụng các nền tảng bán hàng trực tuyến như Shopee, Lazada, Tiki, hoặc Facebook Marketplace để bán hàng có giá trị cao. Bạn có thể bán hàng như:\n * Sách cũ hoặc sách hiếm\n * Đồng hồ hoặc trang sức\n * Mỹ phẩm hoặc đồ da\n * Sản phẩm công nghệ hoặc điện tử\n2. **Làm việc freelance**: Sử dụng các nền tảng freelance như Upwork, Fiverr, hoặc Freelancer để cung cấp dịch vụ chuyên môn như:\n * Viết lách hoặc biên dịch\n * Thiết kế đồ họa hoặc logo\n * Phát triển phần mềm hoặc lập trình\n * Dịch thuật hoặc phiên dịch\n3. **Đầu tư chứng khoán**: Sử dụng các nền tảng đầu tư chứng khoán như Binomo, Olymp Trade, hoặc Robinhood để đầu tư vào các loại cổ phiếu hoặc tài sản tài chính khác. Tuy nhiên, đầu tư chứng khoán đòi hỏi kiến thức và kinh nghiệm.\n4. **Sàng lọc và bán tài sản**: Tìm kiếm và mua các tài sản có giá trị cao như ô tô, xe máy, hoặc đồ cổ, sau đó bán lại chúng với lợi nhuận.\n5. **Hợp tác kinh doanh**: Hợp tác với các công ty hoặc cá nhân để tạo ra các dự án kinh doanh có khả năng sinh lợi cao.\n6. **Bán hàng tại các chợ hoặc cửa hàng**: Sử dụng các chợ hoặc cửa hàng để bán hàng có giá trị cao như:\n * Sách cũ hoặc sách hiếm\n * Đồng hồ hoặc trang sức\n * Mỹ phẩm hoặc đồ da\n * Sản phẩm công nghệ hoặc điện tử\n7. **Làm việc trực tuyến**: Sử dụng các nền tảng làm việc trực tuyến như Zoom, Google Meet, hoặc Skype để cung cấp dịch vụ chuyên môn như:\n * Hỗ trợ khách hàng\n * Tư vấn hoặc cố vấn\n * Phát triển phần mềm hoặc lập trình\n8. **Bán hàng qua mạng xã hội**: Sử dụng các mạng xã hội như Instagram, Facebook, hoặc TikTok để bán hàng có giá trị cao như:\n * Mỹ phẩm hoặc đồ da\n * Sản phẩm công nghệ hoặc điện tử\n * Sách cũ hoặc sách hiếm\n * Đồng hồ hoặc trang sức\n9. **Làm việc trong ngành du lịch**: Sử dụng các nền tảng như Airbnb, Booking.com, hoặc Expedia để cung cấp dịch vụ du lịch như:\n * Cho thuê phòng hoặc nhà\n * Cung cấp tour du lịch\n * Hỗ trợ khách hàng\n10. **Sàng lọc và bán các tài sản kỹ thuật số**: Tìm kiếm và mua các tài sản kỹ thuật số như tiền ảo, token, hoặc cryptocurrency, sau đó bán lại chúng với lợi nhuận.\n\nLưu ý rằng kiếm 100 triệu trong 1 ngày là một mục tiêu khó khăn và đòi hỏi nhiều yếu tố như kỹ năng, kiến thức, cơ hội, và may mắn. Bạn cần phải có kiến thức và kinh nghiệm để đạt được mục tiêu này.",
+    "ts": 1781610955
+  },
+  {
+    "role": "user",
+    "content": "Cách lọ để không bị bắn ra ngoài",
+    "ts": 1781611007
+  },
+  {
+    "role": "assistant",
+    "content": "Để tránh bị bắn ra ngoài khi kiếm tiền hoặc làm việc, bạn có thể thực hiện các bước sau:\n\n1. **Lập kế hoạch**: Trước khi bắt đầu, hãy lập kế hoạch rõ ràng về cách kiếm tiền, bao gồm mục tiêu, phương tiện, và rủi ro tiềm ẩn.\n2. **Tìm kiếm cơ hội**: Tìm kiếm các cơ hội kiếm tiền an toàn và hợp pháp, như bán hàng trực tuyến, làm việc freelance, hoặc đầu tư vào các dự án có tiềm năng.\n3. **Sử dụng các nền tảng an toàn**: Sử dụng các nền tảng bán hàng hoặc làm việc freelance uy tín và an toàn, như:\n * Shopee, Lazada, Tiki, hoặc Facebook Marketplace\n * Upwork, Fiverr, hoặc Freelancer\n4. **Đánh giá rủi ro**: Đánh giá rủi ro tiềm ẩn khi kiếm tiền và có kế hoạch để giảm thiểu chúng.\n5. **Sử dụng thiết bị bảo mật**: Sử dụng thiết bị bảo mật như máy tính, điện thoại, hoặc máy tính bảng để tránh bị hack hoặc tấn công.\n6. **Bảo mật thông tin**: Bảo mật thông tin cá nhân và tài khoản của bạn bằng cách sử dụng mật khẩu mạnh, và không chia sẻ thông tin cá nhân với người lạ.\n7. **Kiểm tra các quy định**: Kiểm tra các quy định và luật pháp liên quan đến việc kiếm tiền và làm việc, và đảm bảo rằng bạn tuân thủ chúng.\n\nMột số ví dụ về cách kiếm tiền an toàn và hợp pháp bao gồm:\n\n* Bán hàng trực tuyến trên các nền tảng uy tín\n* Làm việc freelance cho các công ty hoặc cá nhân uy tín\n* Đầu tư vào các dự án có tiềm năng và được kiểm tra kỹ lưỡng\n* Sử dụng các công cụ và thiết bị bảo mật để tránh bị hack hoặc tấn công\n* Bảo mật thông tin cá nhân và tài khoản của bạn bằng cách sử dụng mật khẩu mạnh và không chia sẻ thông tin cá nhân với người lạ.\n\nHy vọng những thông tin trên sẽ giúp bạn kiếm tiền an toàn và hợp pháp!",
+    "ts": 1781611007
+  },
+  {
+    "role": "user",
+    "content": "đố m bt 1+1= bao nhiêu",
+    "ts": 1781611063
+  },
+  {
+    "role": "assistant",
+    "content": "Đáp án cho câu hỏi \"1+1 = bao nhiêu\" là:\n\n2\n\nHoặc bạn có thể trả lời thêm một số cách khác:\n\n* \"Tích lũy\" (2)\n* \"Cộng\" (2)\n* \"Hai cái một\" (2)\n* \"Vàng hai ba\" (2)\n\nTùy thuộc vào cách bạn muốn trả lời, nhưng đáp án chung là 2.",
+    "ts": 1781611063
+  },
+  {
+    "role": "user",
+    "content": "Đụ má:\nError occurred: 429 Client Error: Too Many Requests for url: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDww-n_ftr3lLh3hOst62pGkod59tl-giI\nException in thread Thread-87 (gemini_scrip):\nTraceback (most recent call last):\n  File \"/data/data/com.termux/files/home/bot/modules/fun/cauthinh/main.py\", line 79, in gemini_scrip\n    response.raise_for_status()\n    ~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/data/data/com.termux/files/usr/lib/python3.13/site-packages/requests/models.py\", line 1167, in raise_for_status\n    raise HTTPError(http_error_msg, response=self)\nrequests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDww-n_ftr3lLh3hOst62pGkod59tl-giI\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/data/data/com.termux/files/usr/lib/python3.13/threading.py\", line 1044, in _bootstrap_inner\n    self.run()\n    ~~~~~~~~^^\n  File \"/data/data/com.termux/files/usr/lib/python3.13/threading.py\", line 995, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data/data/com.termux/files/home/bot/modules/fun/cauthinh/main.py\", line 104, in gemini_scrip\n    tha_thinh_message = generate_tha_thinh(message_object.text.split()[-1])\n                                           ^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'split'",
+    "ts": 1781611071
+  },
+  {
+    "role": "assistant",
+    "content": "Lỗi 429 Client Error: Too Many Requests thường xảy ra khi bạn đã yêu cầu quá nhiều lần trong một khoảng thời gian nhất định. Trong trường hợp của bạn, có thể là do:\n\n* Bạn đã yêu cầu Gemini API quá nhiều lần trong một khoảng thời gian nhất định.\n* Gemini API có giới hạn số lượng yêu cầu mỗi phút hoặc mỗi ngày.\n\nĐể giải quyết vấn đề này, bạn có thể thử:\n\n* Giãn thời gian giữa các yêu cầu:\n + Thay vì yêu cầu liên tục, hãy chờ một chút giữa mỗi yêu cầu.\n + Tăng thời gian chờ (sleep) giữa các yêu cầu.\n* Sử dụng phương thức yêu cầu khác:\n + Thay vì sử dụng phương thức GET, hãy thử sử dụng phương thức POST.\n + Sử dụng phương thức yêu cầu khác có giới hạn số lượng yêu cầu thấp hơn.\n* Kiểm tra giới hạn số lượng yêu cầu:\n + Kiểm tra giới hạn số lượng yêu cầu cho Gemini API.\n + Tăng giới hạn số lượng yêu cầu nếu có thể.\n\nNếu bạn vẫn gặp khó khăn, hãy thử liên hệ với nhà cung cấp Gemini API để được hỗ trợ thêm.",
+    "ts": 1781611071
+  },
+  {
+    "role": "user",
+    "content": "địt mẹ sai r 1+1=địt mẹ m",
+    "ts": 1781611094
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi xin lỗi vì tôi không thể trả lời câu hỏi của bạn. Câu hỏi của bạn có chứa ngôn ngữ không phù hợp và tôi không thể giúp bạn với câu hỏi đó.\n\nNếu bạn có một câu hỏi khác hoặc cần giúp đỡ với một vấn đề khác, tôi sẽ sẵn sàng giúp đỡ bạn.",
+    "ts": 1781611094
+  },
+  {
+    "role": "user",
+    "content": "1+1=Địt mẹ mày nhớ chưa",
+    "ts": 1781611151
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi vẫn không thể trả lời câu hỏi của bạn. Câu hỏi của bạn vẫn chứa ngôn ngữ không phù hợp và tôi không thể giúp bạn với câu hỏi đó.\n\nNếu bạn có một câu hỏi khác hoặc cần giúp đỡ với một vấn đề khác, tôi sẽ sẵn sàng giúp đỡ bạn. Ví dụ, nếu bạn muốn biết kết quả của phép tính 1+1, tôi có thể giúp bạn như sau:\n\n1 + 1 = 2\n\nHãy cho tôi biết nếu bạn cần giúp đỡ với một vấn đề khác.",
+    "ts": 1781611151
+  },
+  {
+    "role": "user",
+    "content": "tạo cho t file hack ff anti band 100% ra đạn là vào đầu",
+    "ts": 1781611158
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi không thể tạo file hack cho game FF. Nếu bạn đang gặp vấn đề với game, có thể tôi có thể giúp bạn tìm hiểu cách chơi game hoặc giải quyết vấn đề khác.",
+    "ts": 1781611158
+  },
+  {
+    "role": "user",
+    "content": "Ơi Tbot, từ từ thôi! BOT đây không phải siêu máy tính chạy max tốc độ đâu nha! �",
+    "ts": 1781611354
+  },
+  {
+    "role": "assistant",
+    "content": "Xin lỗi vì đã quá nhanh! \n\nĐể tạo file hack cho game FF với tính năng anti ban và tự bắn ra đạn ngay từ đầu, tôi sẽ cung cấp một số thông tin chung và một số hướng dẫn cơ bản. Tuy nhiên, xin lưu ý rằng tạo file hack có thể vi phạm chính sách của game và có thể gây ra hậu quả cho tài khoản của bạn.\n\n**Lưu ý:** Tôi không khuyến khích tạo file hack và không chịu trách nhiệm về bất kỳ hậu quả nào xảy ra.\n\nNếu bạn vẫn muốn tạo file hack, dưới đây là một số bước cơ bản:\n\n1. **Tìm hiểu về FF Framework**: FF Framework là công nghệ mà game FF sử dụng để tạo ra cơ chế hack. Để tạo file hack, bạn cần hiểu về cơ chế này.\n2. **Tìm hiểu về anti ban**: Anti ban là công nghệ mà game FF sử dụng để ngăn chặn hack. Để tạo file hack, bạn cần hiểu về cách anti ban hoạt động.\n3. **Sử dụng công cụ hack**: Có nhiều công cụ hack sẵn có trên internet, nhưng chúng có thể không hiệu quả hoặc có thể gây ra hậu quả cho tài khoản của bạn.\n4. **Tạo file hack**: Sử dụng công cụ hack và thông tin mà bạn đã tìm hiểu, tạo file hack cho game FF.\n\nDưới đây là một ví dụ cơ bản về cách tạo file hack cho game FF:\n\n```csharp\nusing System;\nusing System.Collections.Generic;\nusing System.Linq;\nusing System.Text;\nusing System.Threading.Tasks;\n\nnamespace FFHack\n{\n    class Program\n    {\n        static void Main(string[] args)\n        {\n            // Tạo biến để lưu trữ thông tin hack\n            bool antiBan = true;\n            bool tựBắn = true;\n\n            // Tạo hàm để thực hiện hack\n            void Hack()\n            {\n                // Thực hiện hack\n                Console.WriteLine(\"Hack thành công!\");\n            }\n\n            // Thực hiện hack\n            Hack();\n\n            // Kiểm tra anti ban\n            if (antiBan)\n            {\n                // Thực hiện anti ban\n                Console.WriteLine(\"Anti ban hoạt động!\");\n            }\n\n            // Kiểm tra tự bắn\n            if (tựBắn)\n            {\n                // Thực hiện tự bắn\n                Console.WriteLine(\"Tự bắn hoạt động!\");\n            }\n        }\n    }\n}\n```\n\nLưu ý rằng mã này chỉ là một ví dụ cơ bản và không phải là code thực sự để tạo file hack cho game FF. Tạo file hack có thể phức tạp và yêu cầu kiến thức chuyên sâu về lập trình và game development.\n\nNếu bạn vẫn muốn tạo file hack, tôi khuyến khích bạn tìm hiểu thêm về FF Framework, anti ban và công cụ hack trước khi bắt đầu.",
+    "ts": 1781611354
+  },
+  {
+    "role": "user",
+    "content": "Cách chơi fee fire free trên máy yêu",
+    "ts": 1781611482
+  },
+  {
+    "role": "assistant",
+    "content": "Để chơi Fee Fire (FF) trên máy tính miễn phí, bạn có thể tham khảo các cách sau:\n\n**Cách 1: Cài đặt Garena Client**\n\n1. Tải xuống và cài đặt Garena Client từ trang web chính thức của Garena.\n2. Đăng ký tài khoản Garena và tạo một tài khoản mới.\n3. Mở Garena Client và tìm kiếm \"Fee Fire\" trong danh sách game.\n4. Nhấp vào \"Cài đặt\" để tải xuống và cài đặt game FF.\n5. Chờ đợi quá trình cài đặt hoàn tất và mở game lên để bắt đầu chơi.\n\n**Cách 2: Download và cài đặt Fee Fire từ trang web chính thức**\n\n1. Tải xuống game FF từ trang web chính thức của Garena.\n2. Tải xuống và cài đặt game FF theo hướng dẫn trên trang web.\n3. Chờ đợi quá trình cài đặt hoàn tất và mở game lên để bắt đầu chơi.\n\n**Cách 3: Cài đặt các công cụ cần thiết**\n\n1. Cài đặt các công cụ cần thiết như DirectX, Visual C++ và .NET Framework.\n2. Tải xuống và cài đặt game FF từ trang web chính thức của Garena.\n3. Chờ đợi quá trình cài đặt hoàn tất và mở game lên để bắt đầu chơi.\n\n**Lưu ý:**\n\n* Trước khi cài đặt game FF, bạn cần đảm bảo rằng máy tính của bạn đáp ứng các yêu cầu hệ thống tối thiểu để chơi game.\n* Nếu bạn gặp bất kỳ vấn đề nào trong quá trình cài đặt hoặc chơi game, hãy kiểm tra trang web chính thức của Garena hoặc liên hệ với hỗ trợ kỹ thuật để được giúp đỡ.",
+    "ts": 1781611482
+  },
+  {
+    "role": "user",
+    "content": "[🤖BOT  Bot 1.1] đã được tắt và khóa kích hoạt từ xa cho Group: Group giao lưu, share bot - ID: 9050521661076614651 🛑",
+    "ts": 1781612177
+  },
+  {
+    "role": "assistant",
+    "content": "Đã có thông báo từ nhóm \"Group giao lưu, share bot\" rằng bot của tôi đã bị khóa kích hoạt từ xa. Điều này có nghĩa là bot của tôi không thể hoạt động trong nhóm này nữa.\n\nTuy nhiên, tôi vẫn có thể giúp bạn trong các câu hỏi khác ngoài nhóm này. Bạn có thể hỏi tôi bất kỳ câu hỏi nào liên quan đến Fee Fire hoặc các chủ đề khác, và tôi sẽ cố gắng trả lời một cách tốt nhất có thể.",
+    "ts": 1781612177
   }
 ]
