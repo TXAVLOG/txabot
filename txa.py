@@ -1646,11 +1646,28 @@ class DynamicCommandHandler:
             print(f"❌ Lỗi nghiêm trọng khi load modules: {e}")
 
     def execute(self, command_name, message_text, message_object, thread_id, thread_type, author_id):
-        handler = self.commands.get(command_name)
+        aliases_file = r"c:\Users\TXA3099\Desktop\Bot\txabot\aliases.json"
+        resolved_name = command_name
+        if os.path.exists(aliases_file):
+            try:
+                with open(aliases_file, "r", encoding="utf-8") as f:
+                    aliases = json.load(f)
+                if command_name in aliases:
+                    resolved_name = aliases[command_name]
+                    prefix = getattr(self.client, "prefix", ".")
+                    prefix_cmd = f"{prefix}{command_name}"
+                    if message_text.startswith(prefix_cmd):
+                        message_text = f"{prefix}{resolved_name}" + message_text[len(prefix_cmd):]
+                    elif message_text.startswith(command_name):
+                        message_text = resolved_name + message_text[len(command_name):]
+            except Exception as e:
+                print(f"[DynamicCommandHandler] Error reading aliases: {e}")
+
+        handler = self.commands.get(resolved_name)
         if not handler:
             return False
             
-        cmd_info = txacommand.loaded_commands.get(command_name)
+        cmd_info = txacommand.loaded_commands.get(resolved_name)
         if cmd_info:
             t_per = cmd_info.get('t-per', 'all')
             if t_per != 'all':

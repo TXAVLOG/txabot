@@ -15,6 +15,7 @@ env/
 app.py
 
 debug_tiktok.txt
+api_debug_ff.json
 
 # IDE
 .vscode/

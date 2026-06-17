@@ -17,3 +17,4 @@ requests
 speedtest-cli
 websockets
 pymupdf
+html2image

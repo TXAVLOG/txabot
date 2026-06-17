@@ -1,7 +1,7 @@
 {
     "data": [
         {
-            "prefix": "*",
+            "prefix": ",",
             "session_cookies": {
                 "_zlang": "vn",
                 "_ga": "GA1.2.1872066576.1781168265",
@@ -18,7 +18,7 @@
             "username": "TXA",
             "author_id": "195390386800941989",
             "status": true,
-            "gemini_api_key": "",
+            "gemini_api_key": "AIzaSyByHEsPMvB6WF2QxCpA6ZXV8VeWhw6HuBE",
             "gemini_model": "gemini-3.1-pro-preview",
             "openweather_api_key": "a04afb351782e60364704c65d3ac1601",
             "kairobot_api_key": "d7ae3f5ae66ab7b2b0f60e17c023b2",

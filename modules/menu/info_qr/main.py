@@ -287,7 +287,11 @@ def handle_info_qr_command(message, message_object, thread_id, thread_type, auth
 
 txa = {
     "name": "info_qr",
-    "desc": "Lệnh tạo mã QR thông tin cá nhân dạng thẻ ảnh Premium v2.",
+    "desc": {
+        "info_qr": "Tạo mã QR thông tin cá nhân dạng thẻ ảnh Premium v2",
+        "infoqr": "Tạo thẻ QR cá nhân nhanh chóng",
+        "qr": "Tạo mã QR quét kết bạn Zalo"
+    },
     "author": "TXA",
     "command": ['info_qr', 'infoqr', 'qr']
 }

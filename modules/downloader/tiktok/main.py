@@ -8,6 +8,7 @@ Lệnh: tt, tiktok, ttdl, tksearch, tiktoksearch, downtik, tiktokinfo, in4tiktok
 - tiktokinfo <username>     → Xem thông tin profile TikTok
 """
 
+from zlapi import ThreadType
 import sys
 import os
 import json
@@ -15,6 +16,7 @@ import glob
 import random
 import tempfile
 import requests
+import time
 from io import BytesIO
 
 sys.dont_write_bytecode = True
@@ -40,9 +42,12 @@ txa = {
         "tiktoksearch": "Tìm kiếm video/ảnh TikTok",
         "tiktokinfo": "Xem thông tin profile TikTok",
         "in4tiktok": "Xem thông tin profile TikTok",
+        "ttmp3": "Tải nhạc/voice từ TikTok",
+        "ttaudio": "Tải âm thanh từ TikTok",
+        "ttmusic": "Tải nhạc nền từ TikTok"
     },
     "author": "TXA",
-    "command": ["tt", "tiktok", "ttdl", "downtik", "tksearch", "tiktoksearch", "tiktokinfo", "in4tiktok"],
+    "command": ["tt", "tiktok", "ttdl", "downtik", "tksearch", "tiktoksearch", "tiktokinfo", "in4tiktok", "ttmp3", "ttaudio", "ttmusic"],
 }
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -145,210 +150,382 @@ def _truncate_text(draw, text, max_width, font):
     return text + "…"
 
 
-def _draw_text_with_shadow(draw, position, text, font, fill, shadow_color=(0, 0, 0, 150), shadow_offset=(2, 2)):
-    x, y = position
-    draw.text((x + shadow_offset[0], y + shadow_offset[1]), text, font=font, fill=shadow_color)
-    draw.text((x, y), text, font=font, fill=fill)
+def _is_emoji(ch):
+    import emoji as emoji_mod
+    return ch in emoji_mod.EMOJI_DATA
+
+
+def draw_text_mixed(draw, text, pos, font, emoji_font, fill):
+    x, y = pos
+    for ch in text:
+        if ord(ch) in (0xFE0F, 0xFE0E):
+            continue
+        f = emoji_font if _is_emoji(ch) else font
+        oy = y - f.size // 6 if _is_emoji(ch) else y
+        draw.text((x, oy), ch, font=f, fill=fill)
+        try:
+            w = draw.textbbox((0, 0), ch, font=f)[2] - draw.textbbox((0, 0), ch, font=f)[0]
+            if w == 0 and ch == " ":
+                w = f.size // 3
+        except Exception:
+            w = f.size // 2
+        x += w + (1 if _is_emoji(ch) else 0)
 
 
 # ─── TIKTOK SEARCH IMAGE ─────────────────────────────────────────────────────
 
+def _fetch_cover_image(item):
+    # 1. If it has images list, use the first image from tiktokcdn
+    images = item.get("images")
+    if isinstance(images, list) and images:
+        for img_url in images:
+            if img_url and img_url.startswith("http"):
+                try:
+                    resp = requests.get(img_url, timeout=8)
+                    resp.raise_for_status()
+                    return Image.open(BytesIO(resp.content))
+                except Exception as e:
+                    print(f"Error loading image post cover: {e}")
+    
+    # 2. If it is a video, extract the thumbnail using ffmpeg from the play URL
+    play_url = item.get("playUrl") or item.get("play") or item.get("hdplay") or item.get("video_url_no_watermark")
+    if play_url and play_url.startswith("http"):
+        try:
+            import subprocess
+            temp_dir = tempfile.gettempdir()
+            temp_out = os.path.join(temp_dir, f"thumb_{random.randint(100000, 999999)}.jpg")
+            cmd = ['ffmpeg', '-y', '-ss', '00:00:00', '-i', play_url, '-vframes', '1', '-f', 'image2', temp_out]
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            if os.path.exists(temp_out) and os.path.getsize(temp_out) > 0:
+                img = Image.open(temp_out)
+                img_data = BytesIO()
+                img.save(img_data, format="PNG")
+                img.close()
+                try:
+                    os.remove(temp_out)
+                except:
+                    pass
+                img_data.seek(0)
+                return Image.open(img_data)
+        except Exception as e:
+            print(f"ffmpeg extract failed: {e}")
+            
+    # 3. Fallback: try requesting the cover directly (which might fail with 403)
+    cover_url = item.get("coverUrl") or item.get("cover") or ""
+    if cover_url and cover_url.startswith("http"):
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(cover_url, headers=headers, timeout=8)
+            resp.raise_for_status()
+            return Image.open(BytesIO(resp.content))
+        except Exception as e:
+            print(f"Error loading direct cover: {e}")
+            
+    return None
+
+
+def _get_avatar_image(item):
+    author_obj = item.get("author")
+    avatar_url = ""
+    if isinstance(author_obj, dict):
+        avatar_url = author_obj.get("avatarUrl") or author_obj.get("avatar") or ""
+    else:
+        avatar_url = item.get("avatarUrl") or item.get("avatar") or ""
+        
+    if avatar_url and avatar_url.startswith("http") and "tikwm.com" not in avatar_url:
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            }
+            resp = requests.get(avatar_url, headers=headers, timeout=5)
+            resp.raise_for_status()
+            return Image.open(BytesIO(resp.content))
+        except Exception:
+            pass
+            
+    # Draw a premium default initial avatar
+    size = 120
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([0, 0, size, size], fill=(40, 45, 55, 255), outline=(255, 255, 255, 30), width=2)
+    draw.ellipse([size//3, size//5, size - size//3, size//2], fill=(170, 180, 195, 255))
+    draw.chord([size//5, size//2 + 5, size - size//5, size - size//10], start=180, end=360, fill=(170, 180, 195, 255))
+    return img
+
+
 def create_tiktok_search_image(items, keywords, content_type="video"):
     try:
-        scale = 2
-        font_path = "font/arial unicode ms.otf"
-        emoji_font_path = "font/NotoEmoji-Bold.ttf"
-
-        title_font = ImageFont.truetype(font_path, 26 * scale)
-        title_emoji_font = ImageFont.truetype(emoji_font_path, 26 * scale)
-        author_font = ImageFont.truetype(font_path, 18 * scale)
-        author_emoji_font = ImageFont.truetype(emoji_font_path, 18 * scale)
-        info_font = ImageFont.truetype(font_path, 14 * scale)
-        info_emoji_font = ImageFont.truetype(emoji_font_path, 14 * scale)
-        number_font = ImageFont.truetype(font_path, 36 * scale)
-        header_font = ImageFont.truetype(font_path, 22 * scale)
-        header_emoji_font = ImageFont.truetype(emoji_font_path, 22 * scale)
-
-        card_height = 110 * scale
-        card_width = 580 * scale
-        thumb_size = 90 * scale
-        padding = 20 * scale
-        spacing_y = 10 * scale
-        card_padding = 8 * scale
-
-        items_to_draw = items[:5]
-        N = len(items_to_draw)
-
-        img_width = card_width + 2 * padding
-        header_height = 70 * scale
-        img_height = header_height + padding + N * card_height + (N - 1) * spacing_y + padding
-
-        bg_images = glob.glob(BACKGROUND_PATH + "*.jpg") + glob.glob(BACKGROUND_PATH + "*.png") + glob.glob(BACKGROUND_PATH + "*.jpeg")
-        if bg_images:
+        width, height = 1200, 720
+        # Background
+        img = Image.new("RGBA", (width, height), (17, 20, 23, 255))
+        draw = ImageDraw.Draw(img)
+        
+        # Load background from background/ if exists
+        bg_path = None
+        if os.path.exists(BACKGROUND_PATH):
+            imgs = [os.path.join(BACKGROUND_PATH, f) for f in os.listdir(BACKGROUND_PATH)
+                    if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+            if imgs:
+                bg_path = random.choice(imgs)
+                
+        if bg_path:
             try:
-                bg_path = random.choice(bg_images)
-                background = Image.open(bg_path).convert("RGBA").resize((img_width, img_height), Image.Resampling.LANCZOS)
-                background = background.filter(ImageFilter.GaussianBlur(radius=7))
+                bg = Image.open(bg_path).convert("RGBA").resize((width, height), Image.Resampling.LANCZOS)
+                bg = bg.filter(ImageFilter.GaussianBlur(radius=25))
+                img = bg
+                draw = ImageDraw.Draw(img)
             except Exception:
-                background = Image.new("RGBA", (img_width, img_height), (20, 20, 20, 255))
+                pass
+                
+        # Draw grid stripes
+        for x in range(0, width, 120):
+            draw.line([(x, 0), (x, height)], fill=(255, 255, 255, 5), width=1)
+        for y in range(0, height, 120):
+            draw.line([(0, y), (width, y)], fill=(255, 255, 255, 5), width=1)
+
+        # Glassmorphism container card
+        draw.rounded_rectangle([30, 30, width - 30, height - 30], radius=32, fill=(18, 22, 28, 180), outline=(255, 255, 255, 20), width=1)
+        
+        # Fonts
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        font_dir = os.path.abspath(os.path.join(base_dir, "../../../font"))
+        
+        sf_pro_bold = os.path.join(font_dir, "SF-Pro.ttf")
+        font_path = sf_pro_bold if os.path.exists(sf_pro_bold) else os.path.join(font_dir, "arial unicode ms.otf")
+        emoji_font_path = os.path.join(font_dir, "NotoEmoji-Bold.ttf")
+        
+        font_large = ImageFont.truetype(font_path, 32)
+        font_bold = ImageFont.truetype(font_path, 20)
+        font_medium = ImageFont.truetype(font_path, 16)
+        font_small = ImageFont.truetype(font_path, 14)
+        
+        f_emoji_large = ImageFont.truetype(emoji_font_path, 32) if os.path.exists(emoji_font_path) else font_large
+        f_emoji_bold = ImageFont.truetype(emoji_font_path, 20) if os.path.exists(emoji_font_path) else font_bold
+        f_emoji_med = ImageFont.truetype(emoji_font_path, 16) if os.path.exists(emoji_font_path) else font_medium
+        f_emoji_sm = ImageFont.truetype(emoji_font_path, 14) if os.path.exists(emoji_font_path) else font_small
+
+        # Draw Left Panel (Item 1 Cover)
+        cover_size = 340
+        cx0, cy0 = 60, 60
+        cx1, cy1 = cx0 + cover_size, cy0 + cover_size
+        
+        # Get first item details
+        first_item = items[0] if items else {}
+        first_title = (first_item.get("title") or first_item.get("desc") or "Video TikTok").strip()
+        first_author_obj = first_item.get("author")
+        if isinstance(first_author_obj, dict):
+            first_author = first_author_obj.get("unique_id") or first_author_obj.get("nickname") or "User"
         else:
-            background = Image.new("RGBA", (img_width, img_height), (20, 20, 20, 255))
-
-        image = Image.new("RGBA", (img_width, img_height), (0, 0, 0, 0))
-        image.paste(background, (0, 0))
-        draw = ImageDraw.Draw(image)
-
-        box_colors = [
-            (255, 20, 147, 110),
-            (128, 0, 128, 110),
-            (0, 100, 0, 110),
-            (0, 0, 139, 110),
-            (184, 134, 11, 110),
-            (138, 3, 3, 110),
-            (0, 0, 0, 80),
-        ]
-        box_color = random.choice(box_colors)
-        title_color = _random_contrast_color(box_color)
-        number_color = _random_contrast_color(box_color)
-        info_color = (255, 255, 255, 255)
-
-        icon = "🎬" if content_type == "video" else "🖼️"
-        header_text = f"{icon} TikTok Search: {keywords}"
-        x_header = padding
-        y_header = padding
-        for char in header_text:
-            if char == '\ufe0f':
-                continue
+            first_author = first_item.get("nickname") or first_item.get("unique_id") or "User"
+            
+        first_stats_obj = first_item.get("stats")
+        if isinstance(first_stats_obj, dict):
+            first_likes = _format_number(first_stats_obj.get("digg_count") or first_stats_obj.get("diggCount") or 0)
+            first_plays = _format_number(first_stats_obj.get("play_count") or first_stats_obj.get("playCount") or 0)
+        else:
+            first_likes = _format_number(first_item.get("digg_count") or first_item.get("diggCount") or 0)
+            first_plays = _format_number(first_item.get("play_count") or first_item.get("play_count") or 0)
+            
+        first_stats = f"❤️ {first_likes}  •  🎬 {first_plays} lượt xem"
+        
+        cover_img = _fetch_cover_image(first_item)
+        has_first_cover = False
+        if cover_img:
             try:
-                import emoji as emoji_mod
-                font_used = header_emoji_font if emoji_mod.is_emoji(char) else header_font
-            except Exception:
-                font_used = header_font
-            _draw_text_with_shadow(draw, (x_header, y_header), char, font_used, title_color)
-            x_header += _get_text_width(draw, char, font_used)
+                cover_img = cover_img.convert("RGBA")
+                cover_img = ImageOps.fit(cover_img, (cover_size, cover_size), centering=(0.5, 0.5))
+                mask = Image.new("L", (cover_size, cover_size), 0)
+                draw_mask = ImageDraw.Draw(mask)
+                draw_mask.rounded_rectangle([0, 0, cover_size, cover_size], radius=24, fill=255)
+                cover_img.putalpha(mask)
+                img.paste(cover_img, (cx0, cy0), cover_img)
+                has_first_cover = True
+            except Exception as e:
+                print(f"Error loading first cover: {e}")
+                
+        if not has_first_cover:
+            # Draw placeholder cover
+            draw.rounded_rectangle([cx0, cy0, cx1, cy1], radius=24, fill=(30, 35, 45, 255), outline=(255, 255, 255, 10), width=1)
+            
+        # Draw texts under cover
+        if len(first_title) > 28:
+            first_title = first_title[:25] + "..."
+        draw_text_mixed(draw, first_title, (cx0 + 10, cy1 + 25), font_large, f_emoji_large, (255, 255, 255, 255))
+        draw_text_mixed(draw, f"@{first_author}", (cx0 + 10, cy1 + 75), font_medium, f_emoji_med, (170, 180, 195, 255))
+        draw_text_mixed(draw, first_stats, (cx0 + 10, cy1 + 110), font_small, f_emoji_sm, (0, 240, 255, 255))
 
-        y_start = padding + header_height
+        # Right Panel Layout
+        col1_x = 440
+        col2_x = 810
+        item_w = 330
+        item_h = 102
+        y_start = 60
+        y_space = 14
+        
+        # Parallel extraction of thumbnails to speed up
+        import concurrent.futures
+        def fetch_thumb_wrapped(item):
+            return _fetch_cover_image(item)
 
-        for i, item in enumerate(items_to_draw):
-            title = (item.get("title") or item.get("desc") or item.get("text") or "").strip()
-            title = title[:60] + "…" if len(title) > 60 else title
-            author = item.get("author") or item.get("nickname") or item.get("unique_id") or "?"
-            likes = _format_number(item.get("diggCount") or item.get("like_count") or item.get("digg_count") or 0)
-            comments = _format_number(item.get("commentCount") or item.get("comment_count") or 0)
-            plays = _format_number(item.get("playCount") or item.get("play_count") or 0)
-            shares = _format_number(item.get("shareCount") or item.get("share_count") or 0)
-            ctype = (item.get("type") or "video").lower()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            thumbs_imgs = list(executor.map(fetch_thumb_wrapped, items[1:]))
 
-            cover_url = (
-                item.get("cover")
-                or item.get("origin_cover")
-                or item.get("originCover")
-                or item.get("thumb")
-                or item.get("dynamic_cover")
-                or ""
-            )
-
-            left = padding
-            top = y_start + i * (card_height + spacing_y)
-
-            card_img = Image.new("RGBA", (card_width, card_height), (0, 0, 0, 0))
-            card_draw = ImageDraw.Draw(card_img)
-            radius = 20 * scale
-            card_draw.rounded_rectangle([0, 0, card_width, card_height], radius=radius, fill=box_color)
-            image.paste(card_img, (left, top), card_img.split()[3])
-
-            if cover_url and cover_url.startswith("http"):
+        for idx in range(1, len(items)):
+            col = 0 if idx <= 5 else 1
+            row = (idx - 1) % 5
+            
+            x = col1_x if col == 0 else col2_x
+            y = y_start + row * (item_h + y_space)
+            
+            # Card background
+            draw.rounded_rectangle([x, y, x + item_w, y + item_h], radius=16, fill=(25, 28, 32, 160), outline=(255, 255, 255, 15), width=1)
+            
+            # Thumbnail size
+            thumb_size = 76
+            tx = x + 12
+            ty = y + 13
+            
+            item = items[idx]
+            title = (item.get("title") or item.get("desc") or f"Video TikTok {idx + 1}").strip()
+            
+            item_author_obj = item.get("author")
+            if isinstance(item_author_obj, dict):
+                author = item_author_obj.get("unique_id") or item_author_obj.get("nickname") or "User"
+            else:
+                author = item.get("nickname") or item.get("unique_id") or "User"
+                
+            item_stats_obj = item.get("stats")
+            if isinstance(item_stats_obj, dict):
+                likes_val = _format_number(item_stats_obj.get("digg_count") or item_stats_obj.get("diggCount") or 0)
+            else:
+                likes_val = _format_number(item.get("digg_count") or item.get("diggCount") or 0)
+                
+            thumb_img = thumbs_imgs[idx - 1]
+            has_thumb = False
+            if thumb_img:
                 try:
-                    resp = requests.get(cover_url, timeout=8)
-                    resp.raise_for_status()
-                    cover = Image.open(BytesIO(resp.content)).convert("RGB")
-                    cover = ImageOps.fit(cover, (thumb_size, thumb_size), centering=(0.5, 0.5))
+                    thumb_img = thumb_img.convert("RGBA")
+                    thumb_img = ImageOps.fit(thumb_img, (thumb_size, thumb_size), centering=(0.5, 0.5))
                     mask = Image.new("L", (thumb_size, thumb_size), 0)
                     draw_mask = ImageDraw.Draw(mask)
-                    draw_mask.ellipse((0, 0, thumb_size, thumb_size), fill=255)
-                    cover.putalpha(mask)
-
-                    border_size = thumb_size + 10
-                    rainbow_border = Image.new("RGBA", (border_size, border_size), (0, 0, 0, 0))
-                    draw_border = ImageDraw.Draw(rainbow_border)
-                    steps = 360
-                    for j in range(steps):
-                        h = j / steps
-                        r, g, b = hsv_to_rgb(h, 1.0, 1.0)
-                        draw_border.arc(
-                            [(0, 0), (border_size - 1, border_size - 1)],
-                            j, j + (360 / steps),
-                            fill=(int(r * 255), int(g * 255), int(b * 255), 255),
-                            width=5,
-                        )
-                    cover_y = top + (card_height - thumb_size) // 2
-                    image.paste(rainbow_border, (left + card_padding - 5, cover_y - 5), rainbow_border)
-                    image.paste(cover, (left + card_padding, cover_y), cover)
-                except Exception:
-                    placeholder = Image.new("RGBA", (thumb_size, thumb_size), (60, 60, 60, 255))
-                    image.paste(placeholder, (left + card_padding, top + (card_height - thumb_size) // 2), placeholder)
-            else:
-                placeholder = Image.new("RGBA", (thumb_size, thumb_size), (60, 60, 60, 255))
-                image.paste(placeholder, (left + card_padding, top + (card_height - thumb_size) // 2), placeholder)
-
-            x_text = left + card_padding + thumb_size + 20 * scale
-            max_text_width = card_width - thumb_size - 3 * card_padding - 20 * scale
-
-            y_text = top + card_padding + 5 * scale
-            truncated_title = _truncate_text(draw, title, max_text_width, title_font)
-            for char in truncated_title:
-                if char == '\ufe0f':
-                    continue
-                try:
-                    import emoji as emoji_mod
-                    font_used = title_emoji_font if emoji_mod.is_emoji(char) else title_font
-                except Exception:
-                    font_used = title_font
-                _draw_text_with_shadow(draw, (x_text, y_text), char, font_used, title_color)
-                x_text += _get_text_width(draw, char, font_used)
-
-            y_author = y_text + int(32 * scale)
-            truncated_author = _truncate_text(draw, f"@{author}", max_text_width, author_font)
-            x_author = x_text - _get_text_width(draw, truncated_title[-1] if truncated_title else "", title_font) if truncated_title else x_text
-            x_author = left + card_padding + thumb_size + 20 * scale
-            for char in truncated_author:
-                if char == '\ufe0f':
-                    continue
-                try:
-                    import emoji as emoji_mod
-                    font_used = author_emoji_font if emoji_mod.is_emoji(char) else author_font
-                except Exception:
-                    font_used = author_font
-                _draw_text_with_shadow(draw, (x_author, y_author), char, font_used, info_color, shadow_offset=(1, 1))
-                x_author += _get_text_width(draw, char, font_used)
-
-            type_icon = "🎬" if ctype == "video" else "🖼️"
-            info_text = f"{type_icon} {plays}  ❤️ {likes}  💬 {comments}  🔁 {shares}"
-            x_info = left + card_padding + thumb_size + 20 * scale
-            info_height = info_font.size
-            y_info = top + card_height - card_padding - info_height - 2 * scale
-            for char in info_text:
-                if char == '\ufe0f':
-                    continue
-                try:
-                    import emoji as emoji_mod
-                    font_used = info_emoji_font if emoji_mod.is_emoji(char) else info_font
-                except Exception:
-                    font_used = info_font
-                _draw_text_with_shadow(draw, (x_info, y_info), char, font_used, info_color, shadow_offset=(1, 1))
-                x_info += _get_text_width(draw, char, font_used)
-
-            number_text = str(i + 1)
-            number_width = _get_text_width(draw, number_text, number_font)
-            number_x = left + card_width - number_width - card_padding
-            number_y = top + (card_height - number_font.size) // 2
-            _draw_text_with_shadow(draw, (number_x, number_y), number_text, number_font, number_color)
-
+                    draw_mask.rounded_rectangle([0, 0, thumb_size, thumb_size], radius=12, fill=255)
+                    thumb_img.putalpha(mask)
+                    img.paste(thumb_img, (tx, ty), thumb_img)
+                    has_thumb = True
+                except Exception as e:
+                    print(f"Error parsing thumbnail {idx}: {e}")
+                    
+            if not has_thumb:
+                draw.rounded_rectangle([tx, ty, tx + thumb_size, ty + thumb_size], radius=12, fill=(40, 45, 55, 255))
+                
+            if len(title) > 20:
+                title = title[:18] + "..."
+                
+            # Text layout inside the card
+            draw_text_mixed(draw, title, (x + 104, y + 20), font_bold, f_emoji_bold, (255, 255, 255, 255))
+            draw_text_mixed(draw, f"@{author} | {likes_val} likes", (x + 104, y + 54), font_small, f_emoji_sm, (170, 180, 195, 255))
+            
+            # Index Number
+            num_str = str(idx + 1)
+            draw.text((x + item_w - 36, y + 36), num_str, font=font_bold, fill=(255, 255, 255, 60))
+            
         file_path = os.path.join(CACHE_PATH, f"tt_search_{hash(keywords) & 0xFFFFFF:06x}.png")
-        image.convert("RGB").save(file_path, format="JPEG", quality=95, optimize=True)
+        img.convert("RGB").save(file_path, format="JPEG", quality=95, optimize=True)
         return file_path
     except Exception as e:
         print(f"[TikTok] Error creating search image: {e}")
+        return None
+
+
+def create_tiktok_download_image(data):
+    try:
+        width, height = 1200, 420
+        img = Image.new("RGBA", (width, height), (17, 20, 23, 255))
+        draw = ImageDraw.Draw(img)
+        
+        # Load background and blur
+        cover_img = _fetch_cover_image(data)
+        if cover_img:
+            try:
+                bg = cover_img.convert("RGBA").resize((width, height), Image.Resampling.LANCZOS)
+                bg = bg.filter(ImageFilter.GaussianBlur(radius=25))
+                img = bg
+                draw = ImageDraw.Draw(img)
+            except Exception as e:
+                print(f"Error generating background: {e}")
+                
+        # Draw glass card overlay
+        draw.rounded_rectangle([40, 40, width - 40, height - 40], radius=24, fill=(18, 22, 28, 180), outline=(255, 255, 255, 20), width=1)
+        
+        # Fonts
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        font_dir = os.path.abspath(os.path.join(base_dir, "../../../font"))
+        sf_pro_bold = os.path.join(font_dir, "SF-Pro.ttf")
+        font_path = sf_pro_bold if os.path.exists(sf_pro_bold) else os.path.join(font_dir, "arial unicode ms.otf")
+        emoji_font_path = os.path.join(font_dir, "NotoEmoji-Bold.ttf")
+        
+        f_large = ImageFont.truetype(font_path, 36)
+        f_medium = ImageFont.truetype(font_path, 22)
+        f_small = ImageFont.truetype(font_path, 16)
+        f_emoji = ImageFont.truetype(emoji_font_path, 36) if os.path.exists(emoji_font_path) else f_large
+        f_emoji_sm = ImageFont.truetype(emoji_font_path, 22) if os.path.exists(emoji_font_path) else f_medium
+        
+        # Left: Cover photo
+        cover_size = 300
+        cx0, cy0 = 60, 60
+        cx1, cy1 = cx0 + cover_size, cy0 + cover_size
+        
+        has_cover = False
+        if cover_img:
+            try:
+                cover = cover_img.convert("RGBA")
+                cover = ImageOps.fit(cover, (cover_size, cover_size), centering=(0.5, 0.5))
+                mask = Image.new("L", (cover_size, cover_size), 0)
+                draw_mask = ImageDraw.Draw(mask)
+                draw_mask.rounded_rectangle([0, 0, cover_size, cover_size], radius=18, fill=255)
+                cover.putalpha(mask)
+                img.paste(cover, (cx0, cy0), cover)
+                has_cover = True
+            except Exception as e:
+                print(f"Error loading download cover: {e}")
+                
+        if not has_cover:
+            draw.rounded_rectangle([cx0, cy0, cx1, cy1], radius=18, fill=(30, 35, 45, 255), outline=(255, 255, 255, 10), width=1)
+            
+        # Right: Texts
+        tx = cx1 + 40
+        ty = 80
+        
+        title = (data.get("title") or data.get("desc") or "Video TikTok").strip()
+        author_data = data.get("author")
+        if isinstance(author_data, dict):
+            author = author_data.get("unique_id") or author_data.get("nickname") or "User"
+        else:
+            author = data.get("author") or data.get("nickname") or data.get("unique_id") or "User"
+            
+        likes = _format_number(data.get("digg_count") or data.get("diggCount") or data.get("like_count") or 0)
+        plays = _format_number(data.get("play_count") or data.get("playCount") or 0)
+        dur = data.get("duration") or 0
+        dur_s = f"{int(dur)//60}:{int(dur)%60:02d}" if dur else "N/A"
+        
+        # Truncate title
+        if len(title) > 40:
+            title = title[:37] + "..."
+            
+        draw_text_mixed(draw, f"🎵 {title}", (tx, ty), f_large, f_emoji, (255, 255, 255, 255))
+        draw_text_mixed(draw, f"👤 Tác giả: @{author}", (tx, ty + 70), f_medium, f_emoji_sm, (170, 180, 195, 255))
+        draw_text_mixed(draw, "🎯 Nền tảng: TikTok", (tx, ty + 120), f_medium, f_emoji_sm, (170, 180, 195, 255))
+        
+        stats_str = f"⏱️ {dur_s}   ❤️ {likes}   🎬 {plays} lượt xem"
+        draw_text_mixed(draw, stats_str, (tx, ty + 170), f_medium, f_emoji_sm, (0, 240, 255, 255))
+        
+        file_path = os.path.join(CACHE_PATH, f"tt_dl_{int(time.time())}.png")
+        img.convert("RGB").save(file_path, format="JPEG", quality=95, optimize=True)
+        return file_path
+    except Exception as e:
+        print(f"[TikTok] Error creating download image: {e}")
         return None
 
 
@@ -357,7 +534,11 @@ def create_tiktok_search_image(items, keywords, content_type="video"):
 def _build_download_card(data: dict) -> str:
     title = (data.get("title") or data.get("desc") or "").strip()
     title = title[:100] + "…" if len(title) > 100 else title
-    author = data.get("author") or data.get("nickname") or data.get("unique_id") or "?"
+    author_data = data.get("author")
+    if isinstance(author_data, dict):
+        author = author_data.get("unique_id") or author_data.get("nickname") or "User"
+    else:
+        author = data.get("author") or data.get("nickname") or data.get("unique_id") or "?"
     dur = data.get("duration") or 0
     dur_s = f"{int(dur)//60}:{int(dur)%60:02d}" if dur else "?"
     likes = _num_fmt(data.get("diggCount") or data.get("like_count") or 0)
@@ -407,7 +588,7 @@ def _build_profile_card(data: dict) -> str:
 
 # ─── API CALLS ────────────────────────────────────────────────────────────────
 
-def _search_tiktok(keywords: str, content_type: str = "video", count: int = 5, cursor: int = 0):
+def _search_tiktok(keywords: str, content_type: str = "video", count: int = 11, cursor: int = 0):
     params = {"keywords": keywords, "count": count, "cursor": cursor}
     if content_type:
         params["type"] = content_type
@@ -420,6 +601,7 @@ def _download_tiktok(video_url: str):
 
 def _get_profile(username: str):
     return _api_get("/tiktok/profile", {"username": username})
+
 
 # ─── NORMALIZE ────────────────────────────────────────────────────────────────
 
@@ -451,11 +633,230 @@ def _normalize_profile(resp):
             return resp
     return resp if isinstance(resp, dict) else {}
 
+def _convert_mp3_to_m4a(mp3_path):
+    m4a_path = mp3_path.rsplit('.', 1)[0] + '.m4a'
+    try:
+        if not os.path.exists(mp3_path) or os.path.getsize(mp3_path) < 1024:
+            return mp3_path
+        cmd = ['ffmpeg', '-y', '-threads', '0', '-i', mp3_path, '-vn', '-sn', '-dn', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', m4a_path]
+        import subprocess
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        if os.path.exists(m4a_path) and os.path.getsize(m4a_path) > 0:
+            return m4a_path
+    except Exception as e:
+        print(f"Error converting to m4a: {e}")
+    return mp3_path
+
+
+def send_tiktok_media(bot, video_url, is_voice_only, thread_id, thread_type, message_object):
+    from zlapi.models import Message
+    try:
+        print(f"\n[TikTok] >>> Bắt đầu xử lý tải xuống: {video_url}")
+        print(f"[TikTok] Chế độ tải: {'Chỉ lấy nhạc (Voice Only)' if is_voice_only else 'Tải video đầy đủ'}")
+        
+        status_msg = "⏳ Đang tải nhạc/voice từ TikTok…" if is_voice_only else "⏳ Đang tải video TikTok…"
+        loading_msg = bot.replyMessage(Message(text=status_msg), message_object, thread_id, thread_type)
+        
+        print(f"[TikTok] Đang yêu cầu API lấy link tải...")
+        try:
+            data = _download_tiktok(video_url)
+            print(f"[TikTok] Lấy siêu dữ liệu video thành công.")
+        except Exception as e:
+            print(f"[TikTok] Lỗi gọi API: {e}")
+            bot.replyMessage(Message(text=f"❌ Lỗi tải TikTok: {e}"), message_object, thread_id, thread_type)
+            return
+
+        inner = data.get("data") if isinstance(data, dict) else data
+        if not inner:
+            print(f"[TikTok] Thất bại: API không trả về dữ liệu 'data'.")
+            bot.replyMessage(Message(text="❌ Không thể lấy dữ liệu từ link TikTok này."), message_object, thread_id, thread_type)
+            return
+            
+        title = (inner.get("title") or inner.get("desc") or "").strip()
+        author_data = inner.get("author")
+        if isinstance(author_data, dict):
+            author = author_data.get("unique_id") or author_data.get("nickname") or "User"
+        else:
+            author = inner.get("author") or inner.get("nickname") or inner.get("unique_id") or "?"
+            
+        if is_voice_only:
+            music_data = inner.get("music")
+            audio_url = None
+            if isinstance(music_data, dict):
+                audio_url = music_data.get("play") or music_data.get("url") or music_data.get("playUrl")
+            if not audio_url:
+                audio_url = inner.get("musicUrl") or inner.get("music_url")
+                
+            if not audio_url:
+                print(f"[TikTok] Thất bại: Không tìm thấy link âm thanh (audio_url).")
+                bot.replyMessage(Message(text="❌ Không tìm thấy âm thanh của video này."), message_object, thread_id, thread_type)
+                return
+                
+            try:
+                print(f"[TikTok] Đang kết nối tải file âm thanh: {audio_url}")
+                r_audio = requests.get(audio_url, stream=True, timeout=20)
+                r_audio.raise_for_status()
+                total_size = int(r_audio.headers.get('content-length', 0))
+                
+                temp_dir = tempfile.gettempdir()
+                temp_file = os.path.join(temp_dir, f"tiktok_voice_{int(time.time())}.mp3")
+                
+                downloaded = 0
+                with open(temp_file, "wb") as f:
+                    for chunk in r_audio.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                percent = (downloaded / total_size) * 100
+                                print(f"\r[TikTok] Tiến trình tải nhạc: {percent:.1f}% ({downloaded}/{total_size} bytes)", end="", flush=True)
+                            else:
+                                print(f"\r[TikTok] Tiến trình tải nhạc: {downloaded} bytes", end="", flush=True)
+                print("\n[TikTok] Đã tải xong file âm thanh gốc.")
+                    
+                from core.bot_sys import should_convert_to_m4a, upload_file
+                if should_convert_to_m4a(bot, author_id=None, thread_type=thread_type):
+                    print(f"[TikTok] Đang chuyển đổi định dạng MP3 -> M4A...")
+                    audio_file = _convert_mp3_to_m4a(temp_file)
+                else:
+                    audio_file = temp_file
+                    
+                print(f"[TikTok] Đang tải file âm thanh lên server trung gian...")
+                upload_url = upload_file(audio_file, "audio/mp4" if audio_file.endswith(".m4a") else "audio/mpeg")
+                
+                try:
+                    os.remove(temp_file)
+                    if audio_file != temp_file:
+                        os.remove(audio_file)
+                except:
+                    pass
+                    
+                if not upload_url:
+                    print(f"[TikTok] Thất bại: Lỗi tải file lên server trung gian.")
+                    bot.replyMessage(Message(text="❌ Lỗi tải âm thanh lên server trung gian."), message_object, thread_id, thread_type)
+                    return
+                    
+                if loading_msg:
+                    try:
+                        if thread_type == ThreadType.GROUP:
+                            bot.deleteGroupMsg(loading_msg.msgId, bot.uid, loading_msg.cliMsgId, thread_id)
+                        else:
+                            bot.undoMessage(loading_msg.msgId, loading_msg.cliMsgId, thread_id, thread_type)
+                    except:
+                        pass
+                        
+                print(f"[TikTok] Đang gửi Voice Message qua Zalo...")
+                bot.sendRemoteVoice(voiceUrl=upload_url, thread_id=thread_id, thread_type=thread_type)
+                bot.replyMessage(Message(text=f"🔊 Tải nhạc từ @{author} thành công!\n📝 {title}"), message_object, thread_id, thread_type)
+                print(f"[TikTok] Gửi voice hoàn tất thành công!")
+            except Exception as e:
+                print(f"[TikTok] Lỗi trong quá trình tải/gửi voice: {e}")
+                bot.replyMessage(Message(text=f"❌ Lỗi tải âm thanh: {e}"), message_object, thread_id, thread_type)
+        else:
+            video_dl = (
+                inner.get("video_url_no_watermark")
+                or inner.get("video")
+                or inner.get("url")
+                or inner.get("play")
+                or inner.get("hdplay")
+            )
+            
+            if not video_dl:
+                print(f"[TikTok] Thất bại: Không lấy được link tải video không watermark.")
+                bot.replyMessage(Message(text="❌ Không lấy được link tải video không watermark."), message_object, thread_id, thread_type)
+                return
+                
+            print(f"[TikTok] Đang vẽ Card tải xuống...")
+            img_path = create_tiktok_download_image(inner)
+            if img_path and os.path.exists(img_path):
+                try:
+                    with Image.open(img_path) as img_ref:
+                        w, h = img_ref.size
+                    print(f"[TikTok] Đang gửi Card hình ảnh...")
+                    bot.sendLocalImage(
+                        img_path,
+                        message=Message(text="✅ Video không watermark đang gửi…"),
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        width=w,
+                        height=h,
+                    )
+                except Exception as err:
+                    print(f"[TikTok] Lỗi gửi Card hình ảnh: {err}")
+                    card = _build_download_card(inner)
+                    bot.replyMessage(Message(text=card), message_object, thread_id, thread_type)
+                finally:
+                    try:
+                        os.remove(img_path)
+                    except:
+                        pass
+            else:
+                print(f"[TikTok] Vẽ Card thất bại, fallback sang Card text.")
+                card = _build_download_card(inner)
+                bot.replyMessage(Message(text=card), message_object, thread_id, thread_type)
+            
+            if loading_msg:
+                try:
+                    if thread_type == ThreadType.GROUP:
+                        bot.deleteGroupMsg(loading_msg.msgId, bot.uid, loading_msg.cliMsgId, thread_id)
+                    else:
+                        bot.undoMessage(loading_msg.msgId, loading_msg.cliMsgId, thread_id, thread_type)
+                except:
+                    pass
+                    
+            try:
+                print(f"[TikTok] Đang tải video về local: {video_dl}")
+                r_video = requests.get(video_dl, stream=True, timeout=60)
+                r_video.raise_for_status()
+                total_size = int(r_video.headers.get('content-length', 0))
+                
+                temp_dir = tempfile.gettempdir()
+                temp_video = os.path.join(temp_dir, f"tiktok_video_{int(time.time())}.mp4")
+                
+                downloaded = 0
+                with open(temp_video, "wb") as f:
+                    for chunk in r_video.iter_content(chunk_size=16384):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                percent = (downloaded / total_size) * 100
+                                print(f"\r[TikTok] Tiến trình tải video: {percent:.1f}% ({downloaded}/{total_size} bytes)", end="", flush=True)
+                            else:
+                                print(f"\r[TikTok] Tiến trình tải video: {downloaded} bytes", end="", flush=True)
+                print("\n[TikTok] Đã tải xong video về local.")
+                
+                print(f"[TikTok] Đang gửi video local qua Zalo...")
+                bot.sendLocalVideo(
+                    filePath=temp_video,
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+                print(f"[TikTok] Gửi video local hoàn tất!")
+                
+                try:
+                    os.remove(temp_video)
+                except:
+                    pass
+            except Exception as e:
+                print(f"[TikTok] Lỗi tải/gửi video local: {e}")
+                bot.replyMessage(
+                    Message(text=f"⚠️ Không gửi được video trực tiếp.\n🔗 Link tải: {video_dl}"),
+                    message_object, thread_id, thread_type,
+                )
+    except Exception as e:
+        print(f"[TikTok] Lỗi ngoài dự kiến: {e}")
+        bot.replyMessage(Message(text=f"❌ Đã xảy ra lỗi: {e}"), message_object, thread_id, thread_type)
+
+
 # ─── COMMAND HANDLER ──────────────────────────────────────────────────────────
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
-    from zlapi.models import Message
+    from zlapi.models import Message, ThreadType
+    from core.bot_sys import USER_MUSIC_STATES
+    user_states = USER_MUSIC_STATES
 
+    prefix = getattr(bot, "prefix", ".")
     parts = message_text.strip().split(None, 1)
     cmd = parts[0].lstrip("*!./").lower() if parts else ""
     arg = parts[1].strip() if len(parts) > 1 else ""
@@ -467,17 +868,78 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         )
         return
 
+    # ── SELECTION HANDLING (ZingMP3-like) ──────────────────────────────────
+    is_direct_selection = cmd.isdigit() and author_id in user_states and user_states[author_id].get('source') == 'tiktok'
+    is_command_selection = cmd in ("tt", "tiktok", "ttmp3", "ttaudio", "ttmusic") and arg.isdigit() and author_id in user_states and user_states[author_id].get('source') == 'tiktok'
+
+    if is_direct_selection or is_command_selection:
+        selected_number = cmd if is_direct_selection else arg
+        state = user_states[author_id]
+        
+        if time.time() - state.get('time_of_search', 0) > 180:
+            bot.replyMessage(Message(text="⚠️ Hết thời gian lựa chọn kết quả tìm kiếm TikTok."), message_object, thread_id, thread_type)
+            return
+
+        items = state.get("items", [])
+        idx = int(selected_number) - 1
+        if idx < 0 or idx >= len(items):
+            bot.replyMessage(Message(text=f"❌ Số thứ tự không hợp lệ: {selected_number}"), message_object, thread_id, thread_type)
+            return
+
+        search_msg = state.get('search_msg')
+        if search_msg and hasattr(search_msg, 'msgId') and hasattr(search_msg, 'cliMsgId'):
+            try:
+                bot.undoMessage(search_msg.msgId, search_msg.cliMsgId, thread_id, thread_type)
+            except Exception as e:
+                print(f"[TikTok] Recall search image error: {e}")
+
+        query_msg_id = state.get('query_msg_id')
+        query_cli_msg_id = state.get('query_cli_msg_id')
+        if thread_type == ThreadType.GROUP and query_msg_id and query_cli_msg_id:
+            try:
+                bot.deleteGroupMsg(query_msg_id, author_id, query_cli_msg_id, thread_id)
+            except Exception as e:
+                print(f"[TikTok] Delete search query msg error: {e}")
+
+        if thread_type == ThreadType.GROUP and message_object and hasattr(message_object, 'msgId') and hasattr(message_object, 'cliMsgId'):
+            try:
+                bot.deleteGroupMsg(message_object.msgId, author_id, message_object.cliMsgId, thread_id)
+            except Exception as e:
+                print(f"[TikTok] Delete selection msg error: {e}")
+
+        selected_item = items[idx]
+        if author_id in user_states:
+            del user_states[author_id]
+
+        video_id = selected_item.get("id")
+        author_obj = selected_item.get("author")
+        if isinstance(author_obj, dict):
+            unique_id = author_obj.get("unique_id") or "user"
+        else:
+            unique_id = selected_item.get("unique_id") or "user"
+            
+        video_url = f"https://www.tiktok.com/@{unique_id}/video/{video_id}"
+        is_voice_only = state.get("is_voice_only", False)
+        
+        def run_selection_download():
+            send_tiktok_media(bot, video_url, is_voice_only, thread_id, thread_type, message_object)
+            
+        import threading
+        threading.Thread(target=run_selection_download, daemon=True).start()
+        return
+
     # ── HELP ──────────────────────────────────────────────────────────────
-    if not arg and cmd in ("tiktok", "tt", "tksearch", "tiktoksearch"):
+    if not arg and cmd in ("tiktok", "tt", "tksearch", "tiktoksearch", "ttmp3", "ttaudio", "ttmusic"):
         bot.replyMessage(
             Message(text=(
                 "🎵 TikTok Search & Download\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 "📌 Lệnh:\n"
-                "  *tt <từ khóa>           → Tìm video\n"
-                "  *tt img <từ khóa>       → Tìm ảnh\n"
-                "  *ttdl <link>            → Tải video no-WM\n"
-                "  *tiktokinfo <username>  → Xem profile"
+                f"  {prefix}tt <từ khóa>           → Tìm kiếm & Chọn tải video\n"
+                f"  {prefix}ttmp3 <từ khóa>        → Tìm kiếm & Chọn tải nhạc/voice\n"
+                f"  {prefix}ttdl <link>            → Tải video no-WM bằng link\n"
+                f"  {prefix}ttmp3 <link>           → Tải âm thanh từ link TikTok\n"
+                f"  {prefix}tiktokinfo <username>  → Xem profile"
             )),
             message_object, thread_id, thread_type,
         )
@@ -487,7 +949,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     if cmd in ("tiktokinfo", "in4tiktok"):
         if not arg:
             bot.replyMessage(
-                Message(text="🎵 Dùng: *tiktokinfo <username>\nVí dụ: *tiktokinfo @nguyenhung07"),
+                Message(text=f"🎵 Dùng: {prefix}tiktokinfo <username>\nVí dụ: {prefix}tiktokinfo @nguyenhung07"),
                 message_object, thread_id, thread_type,
             )
             return
@@ -532,59 +994,19 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                 pass
         return
 
-    # ── DOWNLOAD ──────────────────────────────────────────────────────────
-    if cmd in ("ttdl", "downtik"):
-        if not arg or not arg.startswith("http"):
-            bot.replyMessage(
-                Message(text="🎬 Dùng: *ttdl <link TikTok>\nVí dụ: *ttdl https://www.tiktok.com/@user/video/xxx"),
-                message_object, thread_id, thread_type,
-            )
-            return
-
-        bot.replyMessage(Message(text="⏳ Đang tải video TikTok…"), message_object, thread_id, thread_type)
-
-        try:
-            data = _download_tiktok(arg)
-        except Exception as e:
-            bot.replyMessage(
-                Message(text=f"❌ Lỗi API: {e}"),
-                message_object, thread_id, thread_type,
-            )
-            return
-
-        inner = data.get("data") if isinstance(data, dict) else data
-
-        video_dl = (
-            (inner or {}).get("video_url_no_watermark")
-            or (inner or {}).get("video")
-            or (inner or {}).get("url")
-            or data.get("video_url_no_watermark")
-            or data.get("video")
-            or data.get("url")
-        )
-
-        card = _build_download_card(inner or data)
-        bot.replyMessage(Message(text=card), message_object, thread_id, thread_type)
-
-        if video_dl:
-            try:
-                cover = (inner or data).get("cover") or ""
-                dur = int((inner or data).get("duration") or 0)
-                bot.sendRemoteVideo(
-                    videoUrl=video_dl,
-                    thumbnailUrl=cover,
-                    duration=dur,
-                    thread_id=thread_id,
-                    thread_type=thread_type,
-                )
-            except Exception:
-                bot.replyMessage(
-                    Message(text=f"⚠️ Không gửi được video trực tiếp.\n🔗 Link tải: {video_dl}"),
-                    message_object, thread_id, thread_type,
-                )
+    # ── DOWNLOAD DIRECT LINK (Video or Voice) ─────────────────────────────
+    if cmd in ("ttdl", "downtik", "ttmp3", "ttaudio", "ttmusic") and arg.startswith("http"):
+        is_voice_only = cmd in ("ttmp3", "ttaudio", "ttmusic")
+        
+        def run_direct_download():
+            send_tiktok_media(bot, arg, is_voice_only, thread_id, thread_type, message_object)
+            
+        import threading
+        threading.Thread(target=run_direct_download, daemon=True).start()
         return
 
-    # ── SEARCH ────────────────────────────────────────────────────────────
+    # ── SEARCH & CHOOSE (ZingMP3-style) ───────────────────────────────────
+    is_voice_search = cmd in ("ttmp3", "ttaudio", "ttmusic")
     content_type = "video"
     keywords = arg
     if arg.lower().startswith(("img ", "image ", "ảnh ", "photo ")):
@@ -598,13 +1020,14 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         )
         return
 
+    search_type_str = "nhạc/voice" if is_voice_search else f"TikTok {content_type}"
     bot.replyMessage(
-        Message(text=f"🔍 Đang tìm TikTok {content_type}: **{keywords}**…"),
+        Message(text=f"🔍 Đang tìm {search_type_str}: {keywords}…"),
         message_object, thread_id, thread_type,
     )
 
     try:
-        resp = _search_tiktok(keywords, content_type, count=5)
+        resp = _search_tiktok(keywords, content_type, count=11)
     except Exception as e:
         bot.replyMessage(
             Message(text=f"❌ Lỗi tìm kiếm: {e}"),
@@ -616,29 +1039,49 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
 
     if not items:
         bot.replyMessage(
-            Message(text=f"😔 Không tìm thấy kết quả cho: **{keywords}**"),
+            Message(text=f"😔 Không tìm thấy kết quả cho: {keywords}"),
             message_object, thread_id, thread_type,
         )
         return
 
-    total = min(len(items), 5)
+    total = min(len(items), 11)
+    
+    # Save selection state
+    user_states[author_id] = {
+        "source": "tiktok",
+        "items": items[:total],
+        "time_of_search": time.time(),
+        "query_msg_id": getattr(message_object, "msgId", None),
+        "query_cli_msg_id": getattr(message_object, "cliMsgId", None),
+        "search_msg": None,
+        "is_voice_only": is_voice_search
+    }
+
     image_path = create_tiktok_search_image(items[:total], keywords, content_type)
 
     if image_path and os.path.exists(image_path):
         try:
             with Image.open(image_path) as img:
                 w, h = img.size
-            bot.sendLocalImage(
+            
+            search_title = f"🎵 TikTok Music Search: {keywords}" if is_voice_search else f"🎬 TikTok Video Search: {keywords}"
+            sent_msg = bot.sendLocalImage(
                 image_path,
-                message=Message(text=f"🎵 TikTok Search: {keywords} ({total} kết quả)"),
+                message=Message(text=f"{search_title}\n👉 Chọn bằng cách gõ từ số 1 đến {total}"),
                 thread_id=thread_id,
                 thread_type=thread_type,
                 width=w,
                 height=h,
             )
-        except Exception:
+            
+            # Save sent image message object so we can recall it upon selection
+            if sent_msg and author_id in user_states:
+                user_states[author_id]["search_msg"] = sent_msg
+                
+        except Exception as err:
+            print("Error sending search image:", err)
             bot.replyMessage(
-                Message(text=f"🎵 Tìm thấy {total} kết quả TikTok cho: **{keywords}**"),
+                Message(text=f"🎵 Tìm thấy {total} kết quả TikTok. Gửi số từ 1 đến {total} để tải."),
                 message_object, thread_id, thread_type,
             )
         finally:
@@ -648,11 +1091,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                 pass
     else:
         bot.replyMessage(
-            Message(text=f"🎵 Tìm thấy {total} kết quả TikTok cho: **{keywords}**"),
+            Message(text=f"🎵 Tìm thấy {total} kết quả TikTok. Gửi số từ 1 đến {total} để tải."),
             message_object, thread_id, thread_type,
         )
-
-    bot.replyMessage(
-        Message(text="💡 Dùng *ttdl <link> để tải video không watermark"),
-        message_object, thread_id, thread_type,
-    )

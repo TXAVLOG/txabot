@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 import json
 from core.bot_sys import *
 from zlapi.models import *
@@ -13,7 +13,7 @@ import time
 
 def get_gemini_api_key():
     try:
-        config_path = os.path.join(os.path.dirname(__file__), "../../txa.json")
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -28,7 +28,7 @@ def get_gemini_api_key():
 
 def get_gemini_model():
     try:
-        config_path = os.path.join(os.path.dirname(__file__), "../../txa.json")
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)

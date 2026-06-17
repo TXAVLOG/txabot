@@ -27,7 +27,8 @@ CONFIG = {
         "uptime/main.py": {"emoji": "❖", "title": "Uptime", "cmds": ["uptime"]},
         "func_duyet/main.py": {"emoji": "🔑", "title": "Duyệt quyền & QL key", "cmds": ["duyet", "unduyet", "capkey", "huykey", "listkey", "duyetmedia", "duyetanh", "duyetnude", "unduyetnude"]},
         "func_group_lock/main.py": {"emoji": "🔒", "title": "Khóa nhóm", "cmds": ["lock", "lockgroup", "unlockgroup"]},
-        "tiktok/main.py": {"emoji": "🎵", "title": "TikTok", "cmds": ["tt", "tiktok", "ttdl", "downtik", "tksearch", "tiktoksearch", "tiktokinfo", "in4tiktok"]},
-        "func_eval/main.py": {"emoji": "👑", "title": "Chạy lệnh", "cmds": ["eval"]}
+        "cmd/main.py": {"emoji": "📋", "title": "Command Manager", "cmds": ["cmd"]},
+        "func_eval/main.py": {"emoji": "👑", "title": "Chạy lệnh", "cmds": ["eval"]},
+        "upcommunity/main.py": {"emoji": "❖", "title": "Up community", "cmds": ["upcommunity", "upcom"]},
     }
 }

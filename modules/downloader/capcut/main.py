@@ -7,10 +7,18 @@ Lệnh: cap, capcut, capdl
 - capdl <link>            → Tải video CapCut không watermark
 """
 
+import os
 import sys
 import requests
 
 sys.dont_write_bytecode = True
+
+from PIL import Image
+from modules.shared.cards import (
+    create_search_card,
+    create_download_card,
+    create_help_card,
+)
 
 # ─── METADATA ─────────────────────────────────────────────────────────────────
 txa = {
@@ -176,8 +184,30 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
             return
 
         data = resp.get("data") or resp
-        card = _build_download_card(data)
-        bot.replyMessage(Message(text=card), message_object, thread_id, thread_type)
+        card_text = _build_download_card(data)
+
+        image_path = create_download_card(data, brand="capcut", size=None)
+        if image_path and os.path.exists(image_path):
+            try:
+                with Image.open(image_path) as img:
+                    w, h = img.size
+                bot.sendLocalImage(
+                    image_path,
+                    message=Message(text=card_text),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    width=w,
+                    height=h,
+                )
+            except Exception:
+                bot.replyMessage(Message(text=card_text), message_object, thread_id, thread_type)
+            finally:
+                try:
+                    os.remove(image_path)
+                except Exception:
+                    pass
+        else:
+            bot.replyMessage(Message(text=card_text), message_object, thread_id, thread_type)
 
         video_url = (
             data.get("video_url_no_watermark")
@@ -206,17 +236,47 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
 
     # ── SEARCH MODE ───────────────────────────────────────────────────────
     if not arg:
-        bot.replyMessage(
-            Message(text=(
-                "🎞️ CapCut Search\n"
-                "━━━━━━━━━━━━━━━━\n"
-                "📌 Lệnh:\n"
-                "  *cap <từ khóa>        → Tìm video template\n"
-                "  *cap img <từ khóa>    → Tìm ảnh\n"
-                "  *capdl <link>         → Tải video no-WM\n"
-            )),
-            message_object, thread_id, thread_type
+        help_path = create_help_card(
+            brand="capcut",
+            commands=[
+                ("cap <từ khóa>", "Tìm video template"),
+                ("cap img <từ khóa>", "Tìm ảnh"),
+                ("capdl <link>", "Tải video no-WM"),
+                ("capsearch <từ khóa>", "Tìm ảnh/video"),
+            ],
+            size=None,
         )
+        if help_path and os.path.exists(help_path):
+            try:
+                with Image.open(help_path) as img:
+                    w, h = img.size
+                bot.sendLocalImage(
+                    help_path,
+                    message=Message(text="🎞️ Hướng dẫn CapCut"),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    width=w,
+                    height=h,
+                )
+            except Exception:
+                pass
+            finally:
+                try:
+                    os.remove(help_path)
+                except Exception:
+                    pass
+        else:
+            bot.replyMessage(
+                Message(text=(
+                    "🎞️ CapCut Search\n"
+                    "━━━━━━━━━━━━━━━━\n"
+                    "📌 Lệnh:\n"
+                    "  *cap <từ khóa>        → Tìm video template\n"
+                    "  *cap img <từ khóa>    → Tìm ảnh\n"
+                    "  *capdl <link>         → Tải video no-WM\n"
+                )),
+                message_object, thread_id, thread_type
+            )
         return
 
     # Phát hiện search ảnh: type=2
@@ -253,35 +313,44 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         )
         return
 
-    # Build output card
+    # Build output card image
     icon   = "🖼️" if media_type == 2 else "🎬"
-    header = (
-        f"{icon} CapCut {ctype_label}: **{keywords}**\n"
-        f"{'═'*32}\n"
+    header_text = f"{icon} CapCut {ctype_label}: {keywords}"
+    footer_text = "💡 Dùng *capdl <link> để tải video no-WM"
+
+    image_path = create_search_card(
+        items,
+        header_title=f"CapCut {ctype_label}: {keywords}",
+        footer_text=footer_text,
+        brand="capcut",
+        content_type=ctype_label,
+        size=None,
     )
-    cards  = [_build_search_card(item, i + 1, ctype_label) for i, item in enumerate(items[:5])]
-    footer = f"\n{'═'*32}\n💡 Dùng *capdl <link> để tải video no-WM"
 
-    bot.replyMessage(
-        Message(text=header + "\n".join(cards) + footer),
-        message_object, thread_id, thread_type
+    text_fallback = (
+        f"{header_text}\n"
+        + "\n".join([_build_search_card(item, i + 1, ctype_label) for i, item in enumerate(items[:5])])
+        + f"\n{footer_text}"
     )
 
-    # Gửi thumbnail đại diện
-    cover = None
-    for item in items[:3]:
-        cover = item.get("cover") or item.get("thumb") or item.get("thumbnail")
-        if cover and cover.startswith("http"):
-            break
-
-    if cover:
+    if image_path and os.path.exists(image_path):
         try:
-            bot.sendRemoteImage(
-                cover,
-                thumbnailUrl=cover,
+            with Image.open(image_path) as img:
+                w, h = img.size
+            bot.sendLocalImage(
+                image_path,
+                message=Message(text=text_fallback),
                 thread_id=thread_id,
                 thread_type=thread_type,
-                message=Message(text=f"🖼️ Preview: {items[0].get('title','')[:50]}"),
+                width=w,
+                height=h,
             )
         except Exception:
-            pass
+            bot.replyMessage(Message(text=text_fallback), message_object, thread_id, thread_type)
+        finally:
+            try:
+                os.remove(image_path)
+            except Exception:
+                pass
+    else:
+        bot.replyMessage(Message(text=text_fallback), message_object, thread_id, thread_type)

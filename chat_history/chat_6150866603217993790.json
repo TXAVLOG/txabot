@@ -108,5 +108,15 @@
     "role": "assistant",
     "content": "Đường dẫn này hướng dẫn sử dụng lệnh \"*CHUA\" để đi chùa thắp hương cầu may mắn. Đây là một lệnh thú vị và ý nghĩa.\n\nDưới đây là cách sử dụng lệnh \"*CHUA\":\n\n1. Gõ lệnh \"*chua\" để đi chùa thắp hương cầu may mắn.\n2. Để xem danh sách các chùa, gõ lệnh \"*chua list\".\n3. Để cầu may mắn tại một số chùa cụ thể, gõ lệnh \"*chua <số>\" (ví dụ: \"*chua 1\" để cầu may mắn tại chùa thứ nhất).\n4. Để cầu may mắn tại một số chùa cụ thể với một lời cầu cụ thể, gõ lệnh \"*chua <số> <lời cầu>\" (ví dụ: \"*chua 1 May mắn và hạnh phúc\").\n\nVí dụ:\n\n* Gõ lệnh \"*chua\" để đi chùa thắp hương cầu may mắn.\n* Gõ lệnh \"*chua list\" để xem danh sách các chùa.\n* Gõ lệnh \"*chua 1\" để cầu may mắn tại chùa thứ nhất.\n* Gõ lệnh \"*chua 1 May mắn và hạnh phúc\" để cầu may mắn tại chùa thứ nhất với lời cầu cụ thể.\n\nLệnh này có thể được sử dụng trong các ứng dụng hoặc hệ thống quản lý để tạo một trải nghiệm thú vị và ý nghĩa cho người dùng.",
     "ts": 1781593259
+  },
+  {
+    "role": "user",
+    "content": "Mày ngu",
+    "ts": 1781702569
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi xin lỗi vì không hiểu và không đáp ứng được yêu cầu của bạn. Lệnh \"*CHUA\" dường như là một lệnh vui chơi hoặc một lệnh giả, và tôi không thể hiểu được ý nghĩa thực sự của nó.\n\nNếu bạn muốn, bạn có thể giải thích thêm về ý nghĩa và cách sử dụng của lệnh \"*CHUA\", tôi sẽ cố gắng giúp đỡ bạn. Hoặc nếu bạn muốn biết về cách sử dụng lệnh khác, hãy cho tôi biết và tôi sẽ cố gắng giúp đỡ bạn.",
+    "ts": 1781702569
   }
 ]

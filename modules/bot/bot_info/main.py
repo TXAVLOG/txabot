@@ -177,7 +177,7 @@ def txa_command(bot, message_object, author_id, thread_id, thread_type, message_
     return "no_reaction"
 
 SETTING_FILE = 'setting.json'
-CONFIG_FILE = 'txa.json'
+CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
 
 
 def load_message_log():

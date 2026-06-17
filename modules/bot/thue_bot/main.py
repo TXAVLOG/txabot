@@ -58,7 +58,7 @@ def handle_txabot_real(bot, author_id, thread_id, message_text):
 BACKGROUND_PATH = "background/"
 CACHE_PATH = "modules/cache/"
 OUTPUT_IMAGE_PATH = os.path.join(CACHE_PATH, "thuebot.png")
-CONFIG_FILE = "txa.json"
+CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
 logging.basicConfig(level=logging.INFO)
 
 def load_config():
@@ -80,8 +80,19 @@ def save_config(config):
         logging.error(f"Error saving txa.json: {str(e)}")
 
 def send_message(client, message_object, thread_id, thread_type, text):
-    """Gửi tin nhắn trả lời."""
-    client.replyMessage(Message(text=text), message_object, thread_id, thread_type)
+    """Gửi tin nhắn trả lời, trả về object để caller có thể lấy msgId."""
+    return client.replyMessage(Message(text=text), message_object, thread_id, thread_type)
+
+def parse_het_han(het_han_str):
+    """Parse ngày hết hạn hỗ trợ cả 2 format: '%H:%M:%S %d/%m/%Y' và '%d/%m/%Y'. Trả về datetime hoặc None."""
+    if not het_han_str or het_han_str == 'N/A':
+        return None
+    for fmt in ('%H:%M:%S %d/%m/%Y', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(het_han_str, fmt)
+        except ValueError:
+            continue
+    return None
 
 def get_user_name_by_id(client, author_id):
     """Lấy tên người dùng từ client dựa trên author_id."""
@@ -180,6 +191,156 @@ def handle_create_command(message, message_object, thread_id, thread_type, autho
             send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, đã xảy ra lỗi: {str(e)}")
 
     threading.Thread(target=create_bot_entry, daemon=True).start()
+
+def handle_login_qr_command(message, message_object, thread_id, thread_type, author_id, client):
+    def login_qr_entry():
+        try:
+            if thread_type != ThreadType.USER:
+                source_name = get_user_name_by_id(client, author_id)
+                return send_message(client, message_object, thread_id, thread_type,
+                    f"🚦 {source_name}, lệnh này chỉ hoạt động với USER cá nhân inbox riêng, không hoạt động trong GROUP 🤧\n"
+                    f"🚦 Hãy nhắn tin riêng cho Bot để đăng nhập bằng mã QR nhé! ✅")
+
+            parts = message.strip().split()
+            custom_prefix = "."
+            if len(parts) >= 3:
+                custom_prefix = parts[2].strip()
+                if custom_prefix.lower() == "none":
+                    custom_prefix = ""
+            else:
+                custom_prefix = getattr(client, "prefix", ".")
+
+            qr_file_path = f"qr_login_{author_id}_{int(time.time())}.png"
+            
+            from zlapi import ZaloAPI
+            from zlapi._exception import ZaloLoginError
+            
+            temp_client = ZaloAPI(phone=None, password=None, imei=None, auto_login=False)
+            
+            send_message(client, message_object, thread_id, thread_type,
+                "⏳ Đang khởi tạo phiên đăng nhập QR, vui lòng chờ trong giây lát...")
+            
+            # Lưu msgId tin nhắn QR để xóa sau
+            qr_msg_ref = [None]       # [sent_msg_object]
+            scan_notify_ref = [None]  # [sent_scan_notify_object]
+
+            def send_qr_to_user(path_to_qr):
+                if os.path.exists(path_to_qr):
+                    instruction = Message(text="🪪 MÃ QR ĐĂNG NHẬP ZALO CỦA BẠN ĐÂY.\n\n✅ Vui lòng quét mã này trên ứng dụng Zalo điện thoại trong vòng 100 giây.\n✅ Bấm XÁC NHẬN đăng nhập trên điện thoại để hoàn tất.")
+                    sent = client.sendLocalImage(
+                        imagePath=path_to_qr,
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        message=instruction,
+                        ttl=100000
+                    )
+                    if sent:
+                        qr_msg_ref[0] = sent
+
+            def on_qr_scanned(display_name, scan_info):
+                # Xóa tin nhắn ảnh QR
+                qr_msg = qr_msg_ref[0]
+                if qr_msg and hasattr(qr_msg, 'msgId') and hasattr(qr_msg, 'cliMsgId'):
+                    try:
+                        client.undoMessage(qr_msg.msgId, qr_msg.cliMsgId, thread_id, thread_type)
+                    except Exception:
+                        pass
+                # Gửi thông báo ai đã quét
+                notify = send_message(client, message_object, thread_id, thread_type,
+                    f"✅ Mã QR đã được quét bởi: {display_name}\n"
+                    f"📱 Vui lòng xác nhận đăng nhập trên điện thoại của bạn.")
+                if notify:
+                    scan_notify_ref[0] = notify
+
+            result = temp_client.loginWithQR(
+                qr_path=qr_file_path,
+                on_qr_generated=send_qr_to_user,
+                on_qr_scanned=on_qr_scanned
+            )
+            
+            if temp_client.isLoggedIn():
+                imei = temp_client._state.user_imei
+                cookies = temp_client.getSession()
+                
+                zalo_name = result.get("userInfo", {}).get("name", "Người dùng Zalo")
+                
+                # Xóa tin nhắn "đã quét / xác nhận"
+                scan_notify = scan_notify_ref[0]
+                if scan_notify and hasattr(scan_notify, 'msgId') and hasattr(scan_notify, 'cliMsgId'):
+                    try:
+                        client.undoMessage(scan_notify.msgId, scan_notify.cliMsgId, thread_id, thread_type)
+                    except Exception:
+                        pass
+
+                config = load_config()
+                if config is None:
+                    return send_message(client, message_object, thread_id, thread_type, "❌ Không thể tải cấu hình txa.json!")
+                
+                existing_bot = None
+                for bot in config.get("data", []):
+                    if str(bot.get("author_id")) == str(author_id) and not bot.get("is_main_bot", False):
+                        existing_bot = bot
+                        break
+                
+                if existing_bot:
+                    existing_bot["imei"] = imei
+                    existing_bot["session_cookies"] = cookies
+                    existing_bot["username"] = zalo_name
+                    if len(parts) >= 3:
+                        existing_bot["prefix"] = custom_prefix
+                    save_config(config)
+                    
+                    send_message(client, message_object, thread_id, thread_type,
+                        f"🎉 Cập nhật thành công Bot con cho {zalo_name}!\n"
+                        f"🤖 Hệ thống đang tải lại dữ liệu để khởi động Bot của bạn trong vài giây...")
+                else:
+                    new_bot = {
+                        "prefix": custom_prefix,
+                        "session_cookies": cookies,
+                        "imei": imei,
+                        "is_main_bot": False,
+                        "username": zalo_name,
+                        "author_id": author_id,
+                        "status": False
+                    }
+                    config["data"].append(new_bot)
+                    save_config(config)
+                    
+                    send_message(client, message_object, thread_id, thread_type,
+                        f"🎉 Tạo Bot con thành công cho {zalo_name}!\n"
+                        f"⚙️ Prefix: {custom_prefix if custom_prefix else 'Không có'}\n"
+                        f"⚠️ Trạng thái hiện tại: Đang tắt (Tạm dừng).\n"
+                        f"👉 Vui lòng liên hệ Admin để kích hoạt (active) Bot và bắt đầu sử dụng nhé!")
+                
+                if os.path.exists(qr_file_path):
+                    try:
+                        os.remove(qr_file_path)
+                    except Exception:
+                        pass
+                        
+                time.sleep(5)
+                os.execl(sys.executable, sys.executable, *sys.argv)
+                
+        except ZaloLoginError as e:
+            err_str = str(e)
+            if "Hết thời gian chờ" in err_str:
+                send_message(client, message_object, thread_id, thread_type,
+                    "⏰ Hết thời gian chờ. Không ai quét mã QR trong vòng 100 giây.")
+            else:
+                send_message(client, message_object, thread_id, thread_type,
+                    f"❌ Đăng nhập thất bại hoặc bị từ chối:\n{err_str}")
+        except Exception as e:
+            send_message(client, message_object, thread_id, thread_type,
+                f"❌ Đã xảy ra lỗi không mong muốn:\n{str(e)}")
+        finally:
+            if os.path.exists(qr_file_path):
+                try:
+                    os.remove(qr_file_path)
+                except Exception:
+                    pass
+
+    threading.Thread(target=login_qr_entry, daemon=True).start()
+
 
 def handle_lock_command(message, message_object, thread_id, thread_type, author_id, client):
     def lock_bot_entry():
@@ -291,18 +452,28 @@ def handle_list_bots_command(message, message_object, thread_id, thread_type, au
                 bot_entry_name = f"🆔 {bot_id}"
                 bot_display_name = f"🤖 {bot_name}"
                 expiration_time_str = bot.get("het_han", "N/A")
-                if expiration_time_str == "N/A":
-                    remaining_time_str = "00/00/0000"
+                if expiration_time_str == "N/A" or not expiration_time_str:
+                    remaining_time_str = "Chưa kích hoạt"
                 else:
-                    expiration_time = datetime.strptime(expiration_time_str, '%d/%m/%Y')
-                    if expiration_time > now:
+                    # Hỗ trợ cả 2 format cũ (dd/MM/YYYY) và mới (HH:MM:SS dd/MM/YYYY)
+                    try:
+                        expiration_time = datetime.strptime(expiration_time_str, '%H:%M:%S %d/%m/%Y')
+                    except ValueError:
+                        try:
+                            expiration_time = datetime.strptime(expiration_time_str, '%d/%m/%Y')
+                        except ValueError:
+                            expiration_time = None
+                    if expiration_time and expiration_time > now:
                         delta = expiration_time - now
                         days = delta.days
                         hours = delta.seconds // 3600
                         minutes = (delta.seconds % 3600) // 60
-                        remaining_time_str = f"{days} ngày {hours} giờ {minutes} phút - {expiration_time_str}"
-                    else:
+                        display_dt = expiration_time.strftime('%H:%M:%S %d/%m/%Y')
+                        remaining_time_str = f"{days} ngày {hours} giờ {minutes} phút - {display_dt}"
+                    elif expiration_time:
                         remaining_time_str = "Hết hạn"
+                    else:
+                        remaining_time_str = expiration_time_str
                 bot_entry = f"➜ {idx}.{bot_display_name}\n{bot_entry_name}\n🕑 {remaining_time_str}"
                 active_bots.append(bot_entry)
             message_text = "🤖 Danh sách bot ✅\n" + "\n\n".join(active_bots)
@@ -436,17 +607,37 @@ def handle_active_command(message, message_object, thread_id, thread_type, autho
                 f"🚦 {source_name}, cú pháp sai! Vui lòng nhập đúng: {client.prefix}thuebot active [thời gian] [@tag] hoặc {client.prefix}thuebot active [@tag] [thời gian]\n"
                 f"📖 Định dạng: `1d`, `5h`, `30m`, `1d 5h 30m`\n"
                 f"💞 Ví dụ: {client.prefix}thuebot active 1d @Bin Cte hoặc {client.prefix}thuebot active @Bin Cte 5h")
-        mentioned_uids = extract_uids_from_mentions(message_object)
-        if not mentioned_uids:
-            return send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, không tìm thấy người dùng được tag!")
         if config is None:
             return send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, không thể tải cấu hình!")
         
+        # Xác định danh sách UID mục tiêu
+        if thread_type == ThreadType.USER:
+            # Inbox: dùng author_id của người gửi (không cần @tag)
+            mentioned_uids = [str(author_id)]
+        else:
+            # Group: bắt buộc phải @tag
+            mentioned_uids = extract_uids_from_mentions(message_object)
+            if not mentioned_uids:
+                return send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, không tìm thấy người dùng được tag!")
+        
+        # Parse thời gian từ parts (bỏ qua phần @tag nếu có)
         duration_str = None
-        for i, part in enumerate(parts[2:], start=2):
-            if parse_time_duration(part) is not None:
-                duration_str = part
-                break
+        combined_time_parts = []
+        raw_parts = parts[2:]
+        for part in raw_parts:
+            cleaned = part.lstrip('@')
+            # Bỏ qua nếu là @tag (mention) - ký tự chữ thông thường không có số đơn vị
+            if re.match(r'^(\d+[dhm])+$', cleaned, re.IGNORECASE):
+                combined_time_parts.append(cleaned)
+        if combined_time_parts:
+            duration_str = ' '.join(combined_time_parts)
+        else:
+            # Thử từng part riêng lẻ
+            for part in raw_parts:
+                if parse_time_duration(part) is not None:
+                    duration_str = part
+                    break
+        
         if duration_str is None:
             return send_message(client, message_object, thread_id, thread_type,
                 f"🚦 {source_name}, thời gian không hợp lệ! Định dạng: `1d`, `5h`, `30m`, `1d 5h 30m`")
@@ -457,20 +648,26 @@ def handle_active_command(message, message_object, thread_id, thread_type, autho
                 f"🚦 {source_name}, thời gian không hợp lệ! Định dạng: `1d`, `5h`, `30m`, `1d 5h 30m`")
 
         now = datetime.now()
+        # Lấy tên thật admin (người gửi lệnh)
+        admin_real_name = get_user_name_by_id(client, author_id)
+
         for uid in mentioned_uids:
-            target_name = get_user_name_by_id(client, uid) if get_user_name_by_id(client, uid) else "Người dùng không tồn tại"
             target_bot = None
             for bot in config.get("data", []):
                 if str(bot.get("author_id")) == str(uid):
                     target_bot = bot
                     break
             if not target_bot:
-                send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, bot của {target_name} không tồn tại!")
+                target_display = get_user_name_by_id(client, uid) or str(uid)
+                send_message(client, message_object, thread_id, thread_type, f"🚦 {admin_real_name}, bot của {target_display} không tồn tại!")
                 continue
-            
-            activation_date = now.strftime('%d/%m/%Y')
+
+            # Tên hiển thị của bot con (từ config, không phải Zalo API)
+            target_bot_name = target_bot.get("username", get_user_name_by_id(client, uid) or str(uid))
+
+            activation_date = now.strftime('%H:%M:%S %d/%m/%Y')
             expiration_timestamp = now + timedelta(seconds=duration_seconds)
-            expiration_date = expiration_timestamp.strftime('%d/%m/%Y')
+            expiration_date = expiration_timestamp.strftime('%H:%M:%S %d/%m/%Y')
             
             target_bot["kich_hoat"] = activation_date
             target_bot["het_han"] = expiration_date
@@ -478,17 +675,27 @@ def handle_active_command(message, message_object, thread_id, thread_type, autho
             save_config(config)
             
             remaining = expiration_timestamp - now
-            days = remaining.days
-            hours = remaining.seconds // 3600
-            minutes = (remaining.seconds % 3600) // 60
-            
+            r_days = remaining.days
+            r_hours = remaining.seconds // 3600
+            r_minutes = (remaining.seconds % 3600) // 60
+
+            # Định dạng thời gian - bỏ qua các phần = 0
+            duration_parts = []
+            if r_days > 0: duration_parts.append(f"{r_days} ngày")
+            if r_hours > 0: duration_parts.append(f"{r_hours} giờ")
+            if r_minutes > 0: duration_parts.append(f"{r_minutes} phút")
+            if not duration_parts: duration_parts.append("dưới 1 phút")
+            duration_text = " ".join(duration_parts)
+
             send_message(client, message_object, thread_id, thread_type,
-                f"• Bot của {target_name} đang kích hoạt bởi {source_name}")
+                f"⚙️ Đang kích hoạt Bot: {target_bot_name}...")
             time.sleep(5)
             send_message(client, message_object, thread_id, thread_type,
-                f"• Bot của {target_name} đã được kích hoạt thành công bởi {source_name} vào ngày {activation_date} "
-                f"với thời gian: {days} ngày {hours} giờ {minutes} phút\n"
-                f"Bot sẽ tự động ngừng vào ngày {expiration_date}!")
+                f"✅ Bot [{target_bot_name}] đã được kích hoạt thành công!\n"
+                f"👤 Kích hoạt bởi: {admin_real_name}\n"
+                f"📅 Kích hoạt lúc: {activation_date}\n"
+                f"⏱ Thời gian sử dụng: {duration_text}\n"
+                f"🔚 Hết hạn lúc: {expiration_date}")
             
             timer = threading.Timer(duration_seconds, deactivate_bot, 
                                   args=(uid, config, client, message_object, thread_id, thread_type))
@@ -564,16 +771,19 @@ def handle_bot_info_command(message, message_object, thread_id, thread_type, aut
             status_text = "Hoạt động ✅" if status else "Tạm dừng ❌"
             
             now = datetime.now()
-            expiration_time_str = target_bot.get("het_han", now.strftime('%d/%m/%Y'))
-            try:
-                expiration_time = datetime.strptime(expiration_time_str, "%d/%m/%Y")
+            expiration_time_str = target_bot.get("het_han", "N/A")
+            expiration_time = parse_het_han(expiration_time_str)
+            if expiration_time:
                 if expiration_time > now:
                     delta = expiration_time - now
                     remaining_time = f"{delta.days} ngày {delta.seconds // 3600} giờ {(delta.seconds % 3600) // 60} phút"
+                    expiration_time_str = expiration_time.strftime('%H:%M:%S %d/%m/%Y')
                 else:
                     remaining_time = "Hết hạn"
-            except ValueError:
-                remaining_time = "Không xác định"
+                    expiration_time_str = expiration_time.strftime('%H:%M:%S %d/%m/%Y')
+            else:
+                remaining_time = "Chưa kích hoạt"
+                expiration_time_str = "N/A"
 
             settings = read_settings(client.uid)
             allowed_thread_ids = settings.get("allowed_thread_ids", [])
@@ -650,22 +860,26 @@ def handle_share_command(message, message_object, thread_id, thread_type, author
                     send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, bot chính không thể chia sẻ thời gian!")
                     continue
                 now = datetime.now()
-                source_expiration = datetime.strptime(source_bot.get("het_han", now.strftime("%d/%m/%Y")), "%d/%m/%Y")
+                source_expiration = parse_het_han(source_bot.get("het_han", ""))
+                if source_expiration is None:
+                    source_expiration = now
                 remaining_seconds = (source_expiration - now).total_seconds()
                 if remaining_seconds <= 0:
                     send_message(client, message_object, thread_id, thread_type, f"🚦 {source_name}, bot của bạn đã hết hạn, không thể chia sẻ!")
                     continue
-                if duration_seconds == "all":
+                if duration_str == "all":
                     duration_seconds = remaining_seconds
                 if duration_seconds > remaining_seconds:
                     send_message(client, message_object, thread_id, thread_type,
                         f"🚦 {source_name}, thời gian chia sẻ vượt quá thời gian còn lại của bot!")
                     continue
                 source_new_expiration = source_expiration - timedelta(seconds=duration_seconds)
-                target_expiration = datetime.strptime(target_bot.get("het_han", now.strftime("%d/%m/%Y")), "%d/%m/%Y")
+                target_expiration = parse_het_han(target_bot.get("het_han", ""))
+                if target_expiration is None:
+                    target_expiration = now
                 target_new_expiration = max(target_expiration, now) + timedelta(seconds=duration_seconds)
-                source_bot["het_han"] = source_new_expiration.strftime("%d/%m/%Y")
-                target_bot["het_han"] = target_new_expiration.strftime("%d/%m/%Y")
+                source_bot["het_han"] = source_new_expiration.strftime("%H:%M:%S %d/%m/%Y")
+                target_bot["het_han"] = target_new_expiration.strftime("%H:%M:%S %d/%m/%Y")
                 target_bot["status"] = True
                 save_config(config)
                 source_remaining = source_new_expiration - now
@@ -805,6 +1019,7 @@ def handle_thuebot_command(message, message_object, thread_id, thread_type, auth
             mention_text = f"@{user_name}"
             menu_text = "".join([
                 f"🤖 Tạo Bot ({client.prefix}thuebot create)\n"
+                f"📲 Đăng nhập Bot bằng mã QR ({client.prefix}thuebot login [prefix] hoặc {client.prefix}thuebot qr)\n"
                 f"🔄 Khởi động lại Bot ({client.prefix}thuebot rs)\n"
                 f"➡️ Danh sách Bot ({client.prefix}thuebot list)\n"
                 f"🔒 Khóa/Mở khóa Bot ({client.prefix}thuebot lock/unlock @bot)\n"
@@ -895,7 +1110,9 @@ def handle_thuebot_command(message, message_object, thread_id, thread_type, auth
             'info': handle_bot_info_command,
             'share': handle_share_command,
             'update': handle_update_command,
-            'setbox': handle_setbox_command
+            'setbox': handle_setbox_command,
+            'login': handle_login_qr_command,
+            'qr': handle_login_qr_command
         }
         if command in handlers:
             handlers[command](message, message_object, thread_id, thread_type, author_id, client)
@@ -1249,10 +1466,12 @@ txa = {
         "share": "Chia sẻ ngày dùng Bot",
         "update": "Cập nhật IMEI/Cookie",
         "setbox": "Cấu hình box quản lý",
-        "thuebot": "Menu thuê Bot"
+        "thuebot": "Menu thuê Bot",
+        "login": "Đăng nhập Bot bằng QR",
+        "qr": "Đăng nhập Bot bằng QR"
     },
     "author": "TXA",
-    "command": ['create', 'lock', 'unlock', 'list_bots', 'reset', 'change_prefix', 'active', 'bot_info', 'share', 'update', 'setbox', 'thuebot'],
+    "command": ['create', 'lock', 'unlock', 'list_bots', 'reset', 'change_prefix', 'active', 'bot_info', 'share', 'update', 'setbox', 'thuebot', 'login', 'qr'],
     "t-per": {
         "thuebot": "all",
         "create": "all",
@@ -1265,7 +1484,9 @@ txa = {
         "reset": "admin",
         "change_prefix": "admin",
         "active": "admin",
-        "update": "admin"
+        "update": "admin",
+        "login": "all",
+        "qr": "all"
     }
 }
 
@@ -1286,7 +1507,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         'share': handle_share_command,
         'update': handle_update_command,
         'setbox': handle_setbox_command,
-        'thuebot': handle_thuebot_command
+        'thuebot': handle_thuebot_command,
+        'login': handle_login_qr_command,
+        'qr': handle_login_qr_command
     }
     
     func = dispatch_map.get(cmd)

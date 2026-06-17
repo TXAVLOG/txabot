@@ -3,6 +3,12 @@ from aiohttp import payload
 import random
 import websockets
 import requests, json
+import uuid
+import hashlib
+import time
+import re
+import base64
+import traceback
 
 from .models import *
 from ._package import *
@@ -54,7 +60,234 @@ class ZaloAPI(object):
 			):
 				self.login(phone, password, imei, user_agent)
 		
-	
+	def loginWithQR(self, user_agent=None, qr_path="zalo_qr.png", on_qr_generated=None, on_qr_scanned=None):
+		"""Khởi tạo quá trình đăng nhập bằng mã QR.
+
+		Tham số:
+			user_agent (str, tùy chọn): User agent tùy chỉnh cho phiên đăng nhập.
+			qr_path (str, tùy chọn): Đường dẫn tệp để lưu ảnh mã QR được tạo.
+			on_qr_generated (callable, tùy chọn): Một hàm callback sẽ được thực thi
+												 ngay sau khi mã QR được lưu.
+												 Hàm này nhận 'qr_path' làm tham số duy nhất.
+			on_qr_scanned (callable, tùy chọn): Hàm callback được gọi sau khi QR được quét.
+												Hàm này nhận 'display_name' (str) và 'scan_info' (dict) làm tham số.
+		Lỗi có thể xảy ra:
+			ZaloLoginError: Nếu bất kỳ bước nào của quá trình đăng nhập QR thất bại.
+		"""
+		logger.info("Bắt đầu đăng nhập bằng mã QR...")
+		
+		session = self._state._session
+		
+		_user_agent = user_agent or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+		self._state._headers["User-Agent"] = _user_agent
+
+		try:
+			login_version = self._qr_load_login_page(session, _user_agent)
+			if not login_version:
+				raise ZaloLoginError("Không thể xác định phiên bản đăng nhập Zalo.")
+			logger.info(f"Đã lấy phiên bản đăng nhập: {login_version}")
+
+			self._qr_get_login_info(session, _user_agent, login_version)
+			self._qr_verify_client(session, _user_agent, login_version)
+
+			qr_data = self._qr_generate(session, _user_agent, login_version)
+			qr_code = qr_data.get("code")
+			qr_image_b64 = qr_data.get("image", "").replace("data:image/png;base64,", "")
+
+			if not (qr_code and qr_image_b64):
+				raise ZaloLoginError(f"Tạo mã QR thất bại. Phản hồi: {qr_data}")
+
+			with open(qr_path, "wb") as f:
+				f.write(base64.b64decode(qr_image_b64))
+			
+			if on_qr_generated:
+				try:
+					on_qr_generated(qr_path)
+				except Exception as cb_exc:
+					logger.error(f"Lỗi khi thực thi callback 'on_qr_generated': {cb_exc}")
+
+			scan_info = self._qr_wait_for_scan(session, _user_agent, login_version, qr_code)
+			display_name = scan_info.get("display_name", "Người dùng không xác định")
+			logger.info(f"Mã QR đã được quét bởi: {display_name}. Vui lòng xác nhận đăng nhập trên điện thoại của bạn.")
+			
+			if on_qr_scanned:
+				try:
+					on_qr_scanned(display_name, scan_info)
+				except Exception as cb_exc:
+					logger.error(f"Lỗi khi thực thi callback 'on_qr_scanned': {cb_exc}")
+
+			confirm_result = self._qr_wait_for_confirm(session, _user_agent, login_version, qr_code)
+			if confirm_result.get("error_code") == -13:
+				raise ZaloLoginError("Đăng nhập đã bị từ chối trên điện thoại.")
+			elif confirm_result.get("error_code") != 0:
+				 raise ZaloLoginError(f"Xác nhận đăng nhập thất bại. Phản hồi: {confirm_result}")
+
+			self._qr_check_session(session, _user_agent)
+			
+			user_info = self._qr_get_user_info(session, _user_agent)
+			if not user_info.get("data", {}).get("logged"):
+				raise ZaloLoginError("Kiểm tra phiên đăng nhập cuối cùng thất bại. Phiên không hợp lệ.")
+			
+			logger.login(f"Đăng nhập thành công với tư cách {user_info['data']['info']['name']}")
+			
+			self._finalize_login_session(session.cookies.get_dict(), _user_agent)
+			
+			self.onLoggedIn(self._state._config.get("phone_number"))
+
+			return {"status": "success", "userInfo": user_info['data']['info']}
+
+		except requests.exceptions.RequestException as e:
+			raise ZaloLoginError(f"Đã xảy ra lỗi mạng trong quá trình đăng nhập QR: {e}")
+		except ZaloLoginError as e:
+			logger.error(f"Lỗi Đăng nhập QR: {e}")
+			raise e
+		except Exception as e:
+			logger.error(f"Đã xảy ra lỗi không mong muốn trong quá trình đăng nhập QR: {e}")
+			traceback.print_exc()
+			raise ZaloLoginError(f"Đã xảy ra một lỗi không mong muốn: {e}")
+
+	def _qr_load_login_page(self, session, user_agent):
+		url = "https://id.zalo.me/account?continue=https%3A%2F%2Fchat.zalo.me%2F"
+		headers = {
+			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+			"Referer": "https://chat.zalo.me/",
+			"User-Agent": user_agent,
+		}
+		response = session.get(url, headers=headers)
+		response.raise_for_status()
+		
+		html = response.text
+		match = re.search(r"https:\/\/stc-zlogin\.zdn\.vn\/main-([\d.]+)\.js", html)
+		return match.group(1) if match else None
+
+	def _qr_get_login_info(self, session, user_agent, version):
+		url = "https://id.zalo.me/account/logininfo"
+		headers = self._get_qr_post_headers(user_agent)
+		data = {"continue": "https://zalo.me/pc", "v": version}
+		response = session.post(url, headers=headers, data=data)
+		response.raise_for_status()
+		return response.json()
+
+	def _qr_verify_client(self, session, user_agent, version):
+		url = "https://id.zalo.me/account/verify-client"
+		headers = self._get_qr_post_headers(user_agent)
+		data = {"type": "device", "continue": "https://zalo.me/pc", "v": version}
+		response = session.post(url, headers=headers, data=data)
+		response.raise_for_status()
+		return response.json()
+
+	def _qr_generate(self, session, user_agent, version):
+		url = "https://id.zalo.me/account/authen/qr/generate"
+		headers = self._get_qr_post_headers(user_agent)
+		data = {"continue": "https://zalo.me/pc", "v": version}
+		response = session.post(url, headers=headers, data=data)
+		response.raise_for_status()
+		result = response.json()
+		if result.get("error_code") != 0:
+			raise ZaloLoginError(f"Tạo QR thất bại: {result.get('error_message')}")
+		return result.get("data")
+
+	def _qr_wait_for_scan(self, session, user_agent, version, code, timeout=100):
+		url = "https://id.zalo.me/account/authen/qr/waiting-scan"
+		headers = self._get_qr_post_headers(user_agent)
+		data = {"code": code, "continue": "https://chat.zalo.me/", "v": version}
+		
+		start_time = time.time()
+		while time.time() - start_time < timeout:
+			response = session.post(url, headers=headers, data=data)
+			response.raise_for_status()
+			result = response.json()
+			
+			if result.get("error_code") == 0 and result.get("data"):
+				return result["data"]
+			elif result.get("error_code") != 8:
+				raise ZaloLoginError(f"Lỗi trong khi chờ quét mã: {result.get('error_message')}")
+			
+			time.sleep(1)
+		
+		raise ZaloLoginError("Hết thời gian chờ quét mã QR.")
+
+	def _qr_wait_for_confirm(self, session, user_agent, version, code, timeout=100):
+		url = "https://id.zalo.me/account/authen/qr/waiting-confirm"
+		headers = self._get_qr_post_headers(user_agent)
+		data = {
+			"code": code, "gToken": "", "gAction": "CONFIRM_QR", 
+			"continue": "https://chat.zalo.me/", "v": version
+		}
+		
+		start_time = time.time()
+		while time.time() - start_time < timeout:
+			response = session.post(url, headers=headers, data=data)
+			response.raise_for_status()
+			result = response.json()
+			
+			if result.get("error_code") != 8:
+				return result
+			
+			time.sleep(1)
+		
+		raise ZaloLoginError("Hết thời gian chờ xác nhận đăng nhập.")
+
+	def _qr_check_session(self, session, user_agent):
+		url = "https://id.zalo.me/account/checksession?continue=https%3A%2F%2Fchat.zalo.me%2Findex.html"
+		headers = {
+			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+			"Referer": "https://id.zalo.me/account?continue=https%3A%2F%2Fchat.zalo.me%2F",
+			"User-Agent": user_agent,
+		}
+		response = session.get(url, headers=headers)
+		response.raise_for_status()
+		return response
+
+	def _qr_get_user_info(self, session, user_agent):
+		url = "https://jr.chat.zalo.me/jr/userinfo"
+		headers = {
+			"Accept": "*/*",
+			"Referer": "https://chat.zalo.me/",
+			"User-Agent": user_agent,
+		}
+		response = session.get(url, headers=headers)
+		response.raise_for_status()
+		return response.json()
+
+	def _finalize_login_session(self, session_cookies, user_agent):
+		self._state.set_cookies(session_cookies)
+		
+		imei_uuid = str(uuid.uuid4())
+		imei_hash = hashlib.md5(user_agent.encode()).hexdigest()
+		imei = f"{imei_uuid}-{imei_hash}"
+
+		self._imei = imei
+		self._state.user_imei = imei
+
+		url = f"https://wpa.chat.zalo.me/api/login/getLoginInfo?imei={imei}&type=30&client_version=645&computer_name=Web&ts={_util.now()}"
+		
+		response = self._state._get(url)
+		response.raise_for_status()
+		data = response.json()
+
+		if data.get("error_code") == 0 and "data" in data:
+			login_data = data["data"]
+			self._state._config = {
+				"phone_number": login_data.get("phone_number"),
+				"secret_key": login_data.get("zpw_enk"),
+				"send2me_id": str(login_data.get("uid")),
+				"zpw_ws": login_data.get("zpw_ws"),
+			}
+			self.uid = self._state._config.get("send2me_id")
+			self._state.user_id = self.uid
+			self._state._loggedin = True
+		else:
+			raise ZaloLoginError(f"Không thể lấy thông tin phiên cuối cùng: {data.get('error_message')}")
+
+	def _get_qr_post_headers(self, user_agent):
+		return {
+			"Accept": "*/*",
+			"Content-Type": "application/x-www-form-urlencoded",
+			"Referer": "https://id.zalo.me/account?continue=https%3A%2F%2Fzalo.me%2Fpc",
+			"User-Agent": user_agent,
+		}
+
 	def uid(self):
 		"""The ID of the client."""
 		return self.uid

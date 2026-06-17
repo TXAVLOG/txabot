@@ -30,9 +30,16 @@ sys.dont_write_bytecode = True
 # ─── METADATA ─────────────────────────────────────────────────────────────────
 txa = {
     "name": "AI Chat",
-    "desc": "Chat với AI thông minh — học từ lịch sử hội thoại, xưng hô đúng vai vế",
+    "desc": {
+        "chat": "Trò chuyện với AI thông minh lưu lịch sử",
+        "c": "Chat nhanh với AI trợ lý",
+        "ai": "Hỏi đáp kiến thức cùng trí tuệ nhân tạo",
+        "noi": "Trò chuyện thân mật cùng AI",
+        "hoi": "Đặt câu hỏi nhanh cho trợ lý AI",
+        "talk": "Trò chuyện bằng tiếng Anh hoặc tự do với AI"
+    },
     "author": "TXA",
-    "command": ["chat", "c", "ai", "nói", "hỏi", "talk"]
+    "command": ["chat", "c", "ai", "noi", "hoi", "talk"]
 }
 
 # ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -42,6 +49,8 @@ INTIMACY_FILE    = "chat_intimacy.json"  # file lưu điểm thân thiết
 INTIMACY_CLOSE   = 30                  # ngưỡng "thân rồi"
 INTIMACY_VERY_CLOSE = 80               # ngưỡng "thân lắm rồi"
 RATE_LIMIT_SECONDS = 4                 # thời gian tối thiểu giữa 2 tin nhắn
+API_TIMEOUT_SECONDS = 12               # giới hạn delay khi gọi AI API
+MAX_API_HISTORY = 12                   # số lượt history tối đa đưa vào API
 
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
@@ -241,7 +250,7 @@ def _build_role_hint(role: dict, intimacy: int) -> str:
 
 def _read_api_config():
     try:
-        cfg_path = os.path.join(os.path.dirname(__file__), "..", "..", "txa.json")
+        cfg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
         if not os.path.exists(cfg_path):
             cfg_path = "txa.json"
         with open(cfg_path, "r", encoding="utf-8") as f:
@@ -254,23 +263,40 @@ def _read_api_config():
         return "https://kairobot.qzz.io", ""
 
 
+def _sanitize_history_for_api(history: list) -> list:
+    """Chuẩn history đúng schema API: chỉ giữ role/content hợp lệ."""
+    allowed_roles = {"user", "assistant"}
+    clean = []
+    for item in history[-MAX_API_HISTORY:]:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role", "")).strip()
+        content = str(item.get("content", "")).strip()
+        if role in allowed_roles and content:
+            clean.append({"role": role, "content": content})
+    if clean and clean[-1].get("role") != "assistant":
+        clean.append({"role": "assistant", "content": "Mình nghe rồi."})
+    return clean
+
+
 def _call_ai(base: str, key: str, content: str, history: list, system_hint: str, image_url: str = None) -> str:
     """
     POST /ai/chat
     Body: { style, content, model, history, url }
-    history = [ {role, content}, ... ] với role đặc biệt "system" cho system prompt
+    history = [ {role, content}, ... ]
     """
-    url = f"{base}/ai/chat?apikey={key}"
+    url = f"{base}/ai/chat"
+    params = {"apikey": key} if key else None
     headers = {
         "Content-Type": "application/json",
         "User-Agent": "TXABot/2.0",
     }
 
-    # Inject system prompt vào đầu history
-    full_history = [
+    # Inject system prompt vào đầu history, nhưng vẫn giữ đúng schema API.
+    full_history = _sanitize_history_for_api([
         {"role": "user",      "content": SYSTEM_PROMPT + system_hint},
         {"role": "assistant", "content": "Oke, mình hiểu rồi. Mình sẽ giữ đúng vai vế và phong cách nhé!"},
-    ] + history
+    ] + history)
 
     payload = {
         "style":   "chat",
@@ -283,12 +309,16 @@ def _call_ai(base: str, key: str, content: str, history: list, system_hint: str,
     if image_url:
         payload["url"] = image_url
 
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
+    r = requests.post(url, json=payload, params=params, headers=headers, timeout=API_TIMEOUT_SECONDS)
     
     if r.status_code == 401:
         raise Exception(f"API Key hết hạn hoặc không hợp lệ!\nAPI URL: {url}\nAPI Key: {key[:8]}...")
-    
-    r.raise_for_status()
+
+    if not r.ok:
+        raise requests.HTTPError(
+            f"{r.status_code} {r.reason}: {r.text[:300]}",
+            response=r
+        )
     data = r.json()
 
     # Normalize response — API có thể trả về nhiều format
@@ -451,9 +481,9 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
 
 def listener(bot, message_object, author_id, thread_id, thread_type, message_text):
     """
-    Auto-trigger when:
-    - User reply vào tin nhắn của bot
-    - User mention tên bot
+    Auto-trigger khi:
+    - User reply vào tin nhắn của bot với prefix 'learn'
+    - User mention tên bot với prefix 'learn'
     Không cần gõ *chat
     """
     from zlapi.models import Message, ThreadType
@@ -471,10 +501,29 @@ def listener(bot, message_object, author_id, thread_id, thread_type, message_tex
     if not (settings.get("chat", {}).get(thread_id, False)):
         return
 
-    # Kiểm tra mention tên bot
+    # Kiểm tra mention tên bot hoặc reply vào tin nhắn của bot.
     bot_name = getattr(bot, "_username", "txa").lower()
-    if bot_name and bot_name in message_text.lower():
-        # Bỏ mention name ra khỏi content
-        clean = re.sub(re.escape(bot_name), "", message_text, flags=re.IGNORECASE).strip()
-        if clean:
-            txa_command(bot, message_object, thread_id, thread_type, author_id, "chat " + clean)
+    prefix = getattr(bot, "prefix", "*")
+    normalized = message_text.strip()
+
+    # Không hijack các lệnh đã có prefix, tránh trường hợp tên bot nằm trong lệnh khác.
+    if normalized.lower().startswith(prefix):
+        return
+
+    is_reply_to_bot = bool(getattr(message_object, "quote", None))
+    is_mention = False
+    if bot_name:
+        is_mention = re.search(rf"(^|\W){re.escape(bot_name)}(\W|$)", normalized.lower()) is not None
+
+    if not is_reply_to_bot and not is_mention:
+        return
+
+    # CHỈ trigger khi có prefix 'learn' ở đầu tin nhắn
+    if not normalized.lower().startswith("learn"):
+        return
+
+    # Bỏ 'learn' và mention name ra khỏi content.
+    clean = normalized[5:].strip()  # Bỏ 'learn' (5 ký tự)
+    clean = re.sub(re.escape(bot_name), "", clean, flags=re.IGNORECASE).strip() if bot_name else clean
+    if clean:
+        txa_command(bot, message_object, thread_id, thread_type, author_id, "chat " + clean)

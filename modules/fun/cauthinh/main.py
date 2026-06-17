@@ -1,13 +1,37 @@
 ﻿import random
 import threading
 import requests
+import os
+import json
+import re
+import time
 from datetime import datetime, timedelta
 from core.bot_sys import is_admin, read_settings, write_settings
 from zlapi.models import Message, Mention
 
-geminiApiKey = 'AIzaSyDww-n_ftr3lLh3hOst62pGkod59tl-giI'
 user_contexts = {}
 last_message_times = {}
+last_gemini_call = {}  # Rate limiting for Gemini API
+
+def _read_gemini_api_key():
+    """Read Gemini API key from environment or config file."""
+    for key in ("GEMINI_API_KEY", "GEMINI_APIKEY"):
+        value = os.getenv(key)
+        if value:
+            return value.strip()
+
+    try:
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        bot_data = (config.get("data") or [{}])[0]
+        for key in ("gemini_api_key", "gemini_apikey", "apikey", "api_key"):
+            value = bot_data.get(key)
+            if value:
+                return str(value).strip()
+    except Exception:
+        pass
+    return ""
 
 THA_THINH_MAU = {
     "Nguyên": "Anh như nguyên tố quý, chỉ cần Nguyên để trái tim anh trọn vẹn.",
@@ -48,12 +72,16 @@ def generate_tha_thinh(ten):
         return THA_THINH_MAU[ten]
     else:
         templates = [
-            f"Anh là bài toán khó, chỉ cần {ten} là đáp án làm tim anh sáng tỏ.",
-            f"Trái tim anh là cánh cửa, chỉ có {ten} mới là chìa khóa mở ra tình yêu.",
-            f"Anh là bầu trời đêm, chỉ cần {ten} là ngôi sao làm tim anh lung linh.",
-            f"Trái tim anh như sa mạc, chỉ có {ten} mới là cơn mưa làm anh hồi sinh.",
-            f"Anh là ngọn lửa nhỏ, chỉ cần {ten} là đủ để tim anh cháy mãi không ngừng.",
-            f"Trái tim anh là câu đố, chỉ có {ten} mới giải được bằng tình yêu."
+            f"Người ta cần lý do để thích ai đó, còn anh gặp {ten} là thích luôn rồi.",
+            f"Nếu trái tim có mật khẩu thì chắc {ten} là dãy số duy nhất mở được tim anh.",
+            f"Anh từng nghĩ mình ổn một mình, cho tới khi gặp {ten}.",
+            f"Thời tiết hôm nay thế nào anh không biết, nhưng nhìn thấy {ten} là tim anh nắng rồi.",
+            f"Người khác mang đến cảm xúc, còn {ten} mang đến cảm giác muốn ở cạnh thật lâu.",
+            f"Anh không giỏi thả thính, nhưng đứng trước {ten} thì câu nào cũng thành lời tỏ tình.",
+            f"Có hàng nghìn cái tên đẹp, nhưng với anh {ten} vẫn là cái tên làm tim rung động nhất.",
+            f"Nếu được chọn lại từ đầu, anh vẫn muốn gặp {ten} sớm hơn một chút.",
+            f"Anh không tin yêu từ cái nhìn đầu tiên, cho tới khi nhìn thấy {ten}.",
+            f"Trên bản đồ có rất nhiều nơi để đến, còn trong tim anh chỉ có chỗ dành cho {ten}."
         ]
         return random.choice(templates)
 
@@ -67,14 +95,35 @@ def get_user_name_by_id(bot, author_id):
         return "Unknown User"
 
 def gemini_scrip(context_prompt, message_object, thread_id, thread_type, author_id, client):
+    # Check API key
+    api_key = _read_gemini_api_key()
+    if not api_key:
+        text_to_use = message_object.text if message_object.text else "bạn"
+        words = text_to_use.split() if text_to_use else ["bạn"]
+        tha_thinh_message = generate_tha_thinh(words[-1])
+        client.replyMessage(
+            Message(text=f"⚠️ Chưa cấu hình gemini_api_key trong txa.json!\n{tha_thinh_message}"),
+            thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
+        )
+        return
+
+    # Rate limiting - wait at least 2 seconds between API calls
+    current_time = datetime.now()
+    if author_id in last_gemini_call:
+        time_diff = current_time - last_gemini_call[author_id]
+        if time_diff < timedelta(seconds=2):
+            time.sleep(2 - time_diff.total_seconds())
+    last_gemini_call[author_id] = current_time
+
     headers = {'Content-Type': 'application/json'}
-    params = {'key': geminiApiKey}
+    params = {'key': api_key}
     json_data = {'contents': [{'parts': [{'text': context_prompt}]}]}
 
     try:
         response = requests.post(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-            params=params, headers=headers, json=json_data
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
+            params=params, headers=headers, json=json_data,
+            timeout=30
         )
         response.raise_for_status()
 
@@ -85,7 +134,9 @@ def gemini_scrip(context_prompt, message_object, thread_id, thread_type, author_
             if content and 'text' in content[0]:
                 response_text = content[0]['text'].replace('*', '')
                 if "tên trường" in response_text.lower() or not response_text.strip():
-                    response_text = generate_tha_thinh(message_object.text.split()[-1])
+                    text_to_use = message_object.text if message_object.text else "bạn"
+                    words = text_to_use.split() if text_to_use else ["bạn"]
+                    response_text = generate_tha_thinh(words[-1])
                 client.replyMessage(
                     Message(text=response_text),
                     thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
@@ -94,14 +145,19 @@ def gemini_scrip(context_prompt, message_object, thread_id, thread_type, author_
                     user_contexts[author_id] = {'chat_history': []}
                 user_contexts[author_id]['chat_history'][-1]['bot'] = response_text
                 return
-        tha_thinh_message = generate_tha_thinh(message_object.text.split()[-1])
+        text_to_use = message_object.text if message_object.text else "bạn"
+        words = text_to_use.split() if text_to_use else ["bạn"]
+        tha_thinh_message = generate_tha_thinh(words[-1])
         client.replyMessage(
             Message(text=tha_thinh_message),
             thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
         )
     except Exception as e:
         print(f"Error occurred: {str(e)}")
-        tha_thinh_message = generate_tha_thinh(message_object.text.split()[-1])
+        # Handle case where message_object.text is None
+        text_to_use = message_object.text if message_object.text else "bạn"
+        words = text_to_use.split() if text_to_use else ["bạn"]
+        tha_thinh_message = generate_tha_thinh(words[-1])
         client.replyMessage(
             Message(text=tha_thinh_message),
             thread_id=thread_id, thread_type=thread_type, replyMsg=message_object
@@ -201,14 +257,22 @@ def handle_tha_thinh_command(message, message_object, thread_id, thread_type, au
             user_contexts[author_id] = {'chat_history': []}
         user_contexts[author_id]['chat_history'].append({'user': user_message, 'bot': ''})
 
-        context_prompt = (
-            f"Tạo một câu thả thính ngắn gọn, sáng tạo, logic và mang tính tỏ tình, liên quan trực tiếp đến tên {ten}. "
-            f"Câu phải dùng tên {ten} để tạo sự gắn kết, không lạc đề, không triết lý, chỉ tập trung vào thả thính/tỏ tình. "
-            f"Ví dụ: 'Anh là đường tròn hoàn hảo, vì có Tâm là trung tâm của trái tim anh' hoặc "
-            f"'Trái tim anh là cánh cửa, chỉ có Duyên mới là chìa khóa mở ra tình yêu'. "
-            f"Tạo câu thả thính cho {ten} theo phong cách này, không yêu cầu thêm thông tin như 'tên trường' hay bất kỳ dữ liệu nào khác, "
-            f"chỉ dùng tên {ten} là đủ, không dài dòng."
-        )
+        context_prompt = f"""
+Hãy tạo 1 câu thả thính bằng tiếng Việt.
+
+Yêu cầu:
+- Dưới 30 từ.
+- Cực tự nhiên.
+- Văn phong Gen Z.
+- Không dùng mô típ bài toán, chìa khóa, cánh cửa, đường tròn.
+- Không triết lý.
+- Không hỏi thêm thông tin.
+- Không emoji.
+- Phải lồng tên "{ten}" vào câu.
+- Nghe như người thật đang tán tỉnh.
+
+Chỉ trả về duy nhất câu thả thính.
+"""
 
         threading.Thread(target=gemini_scrip, args=(context_prompt, message_object, thread_id, thread_type, author_id, client)).start()
 
@@ -233,38 +297,6 @@ txa = {
     "command": ['tha_thinh', 'thathinh', 'love']
 }
 
-def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
-    prefix = getattr(bot, 'prefix', '.')
-    cmd = message_text[len(prefix):].split()[0].lower()
-    
-    dispatch_map = {
-        'tha_thinh': handle_tha_thinh_command,
-        'thathinh': handle_tha_thinh_command,
-        'love': handle_tha_thinh_command
-    }
-    
-    func = dispatch_map.get(cmd)
-    if func:
-        import inspect
-        sig = inspect.signature(func)
-        args_map = {
-            'bot': bot,
-            'client': bot,
-            'message_object': message_object,
-            'thread_id': thread_id,
-            'thread_type': thread_type,
-            'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
-        }
-        args = []
-        for param_name in sig.parameters:
-            if param_name in args_map:
-                args.append(args_map[param_name])
-            else:
-                args.append(None)
-        func(*args)
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     prefix = getattr(bot, 'prefix', '.')
     cmd = message_text[len(prefix):].split()[0].lower()

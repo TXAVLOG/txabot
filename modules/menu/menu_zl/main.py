@@ -533,7 +533,10 @@ def handle_menu_zl_command(message, message_object, thread_id, thread_type, auth
 
 txa = {
     "name": "menu_zl",
-    "desc": "Menu Zé Lào hiển thị danh sách lệnh nhóm ZL với giao diện ảnh. Admin có thể bật/tắt tính năng.",
+    "desc": {
+        "menu_zl": "Menu Zé Lào hiển thị danh sách lệnh nhóm với giao diện ảnh",
+        "zl": "Xem nhanh danh sách lệnh Zé Lào và trạng thái"
+    },
     "author": "TXA",
     "command": ['menu_zl', 'zl']
 }
