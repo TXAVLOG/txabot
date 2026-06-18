@@ -1,16 +1,6 @@
 [
   {
     "role": "user",
-    "content": "Má bot ngu",
-    "ts": 1781523931
-  },
-  {
-    "role": "assistant",
-    "content": "Bị gọi \"mẹ\" à? Mình nghĩ có vẻ như bạn đang gọi mình là \"con\" phải không? \n\nVậy thì, mình sẽ xưng \"ba\" từ bây giờ!",
-    "ts": 1781523931
-  },
-  {
-    "role": "user",
     "content": "Cặc",
     "ts": 1781523944
   },
@@ -198,5 +188,15 @@
     "role": "assistant",
     "content": "Đã có thông báo từ nhóm \"Group giao lưu, share bot\" rằng bot của tôi đã bị khóa kích hoạt từ xa. Điều này có nghĩa là bot của tôi không thể hoạt động trong nhóm này nữa.\n\nTuy nhiên, tôi vẫn có thể giúp bạn trong các câu hỏi khác ngoài nhóm này. Bạn có thể hỏi tôi bất kỳ câu hỏi nào liên quan đến Fee Fire hoặc các chủ đề khác, và tôi sẽ cố gắng trả lời một cách tốt nhất có thể.",
     "ts": 1781612177
+  },
+  {
+    "role": "user",
+    "content": "Mày ngu tht hay mày giả vờ ngu vâyk",
+    "ts": 1781803180
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi xin lỗi nếu hành động của tôi đã khiến bạn cảm thấy phiền toái. Tôi là một mô hình AI được đào tạo để trả lời các câu hỏi và cung cấp thông tin một cách trung lập và khách quan.\n\nTôi không có ý định giả vờ ngu dốt hoặc cố tình gây khó chịu. Tôi chỉ cố gắng hiểu và trả lời câu hỏi của bạn một cách tốt nhất có thể.\n\nNếu bạn có bất kỳ câu hỏi nào khác hoặc cần giúp đỡ, tôi vẫn sẵn sàng hỗ trợ bạn.",
+    "ts": 1781803180
   }
 ]
