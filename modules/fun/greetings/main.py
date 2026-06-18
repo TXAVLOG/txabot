@@ -76,7 +76,7 @@ def _generate_greeting_card(greeting_type, avatar, username, bg, groupname, memb
 
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     parts = message_text.strip().split(None, 1)
-    cmd = parts[0].lstrip("*!./").lower() if parts else ""
+    cmd = parts[0].lstrip("*!./,").lower() if parts else ""
     arg_text = parts[1].strip() if len(parts) > 1 else ""
     
     # Xác định loại greeting

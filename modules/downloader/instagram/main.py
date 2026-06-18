@@ -326,7 +326,7 @@ def txa_command(bot, message_object, author_id, thread_id, thread_type, message)
         )
         return
 
-    cmd = parts[0].lstrip("!/\\.").lower()
+    cmd = parts[0].lstrip("!/\\.,").lower()
     query = parts[1].strip()
 
     if cmd == "iginfo":

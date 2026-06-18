@@ -188,7 +188,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     from zlapi.models import Message, ThreadType
 
     parts    = message_text.strip().split()
-    cmd      = parts[0].lstrip("*!./").lower() if parts else ""
+    cmd      = parts[0].lstrip("*!./,").lower() if parts else ""
     is_pixel = cmd in ("pixel", "pxl")
 
     # ── Lấy URL ảnh ──────────────────────────────────────────────────────
