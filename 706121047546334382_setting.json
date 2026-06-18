@@ -96,10 +96,10 @@
         },
         "6150866603217993790": {
             "word": {
-                "threshold": 3,
-                "duration": 30,
-                "action": "mute",
-                "enabled": true
+                "enabled": true,
+                "threshold": 5,
+                "duration": 3,
+                "action": "mute"
             },
             "image": {
                 "threshold": 3,
@@ -126,6 +126,14 @@
                 "threshold": 7,
                 "duration": 5,
                 "action": "mute"
+            }
+        },
+        "6757453907566220197": {
+            "word": {
+                "enabled": true,
+                "threshold": 10,
+                "duration": 10,
+                "action": "kick"
             }
         }
     },
@@ -334,7 +342,8 @@
         "1457116833705256282": "Nguyễn Quang Huy",
         "8708787945274501817": "Bùi Văn Cương",
         "1934642265051564731": "Tăng Xuân Kỳ",
-        "702602823514128546": "Nguyễn Ngọc Lam"
+        "702602823514128546": "Nguyễn Ngọc Lam",
+        "810412586667244893": "Danh"
     },
     "pin": {
         "6150866603217993790": true
