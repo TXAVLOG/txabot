@@ -15,6 +15,8 @@ import os
 import sys
 import json
 import requests
+import tempfile
+import time
 from PIL import Image
 from zlapi.models import Message
 
@@ -203,8 +205,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         cover_url = res.get("cover") or res.get("thumb") or ""
 
         if video_url:
-            import tempfile
-            import time
             try:
                 r_video = requests.get(video_url, stream=True, timeout=60)
                 r_video.raise_for_status()
