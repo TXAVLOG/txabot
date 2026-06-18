@@ -361,10 +361,379 @@ def setup_bot_on(bot, thread_id):
         return f"[🤖BOT {bot.me_name} {bot.version}]\n➜ Cấu hình thành công nội quy nhóm: {group.name} - ID: {thread_id} ✅\n➜ Hãy nhắn tin một cách văn minh lịch sự! ✨\n➜ Chúc bạn luôn may mắn! 🍀"
     else:
         return f"[🤖BOT {bot.me_name} {bot.version}]\n➜ Cấu hình thất bại cho nhóm: {group.name} - ID: {thread_id} ⚠️\n➜ Bạn không có quyền quản trị nhóm này! 🤧"
-        
+
+_undo_lock = threading.Lock()
+_qr_session_lock = threading.Lock()
+
+def save_undo_message(bot, message_object):
+    # Tránh lưu các tin nhắn thu hồi
+    if getattr(message_object, 'msgType', '') == 'chat.undo':
+        return
+
+    try:
+        msg_id = str(getattr(message_object, 'msgId', ''))
+        cli_msg_id = str(getattr(message_object, 'cliMsgId', ''))
+        msg_type = getattr(message_object, 'msgType', 'chat.text')
+        uid_from = getattr(message_object, 'uidFrom', '') or getattr(message_object, 'userId', '')
+
+        if not cli_msg_id:
+            return
+
+        content = {}
+        msg_text = get_content_message(message_object)
+
+        if msg_type == 'chat.text':
+            content['text'] = msg_text
+        elif msg_type in ('chat.image', 'chat.photo'):
+            msg_type = 'chat.image'
+            src_dict = getattr(message_object, 'content', {}) or getattr(message_object, 'attach', {})
+            if isinstance(src_dict, dict):
+                content['href'] = src_dict.get('href')
+                content['thumb'] = src_dict.get('thumb')
+        elif msg_type in ('chat.video', 'chat.video.msg'):
+            msg_type = 'chat.video'
+            src_dict = getattr(message_object, 'content', {}) or getattr(message_object, 'attach', {})
+            if isinstance(src_dict, dict):
+                content['href'] = src_dict.get('href')
+                content['thumb'] = src_dict.get('thumb')
+                content['params'] = src_dict.get('params') or getattr(message_object, 'params', '{}')
+        elif msg_type == 'chat.voice':
+            src_dict = getattr(message_object, 'content', {}) or getattr(message_object, 'attach', {})
+            if isinstance(src_dict, dict):
+                content['href'] = src_dict.get('href')
+        elif msg_type in ('chat.file', 'share.file'):
+            msg_type = 'chat.file'
+            src_dict = getattr(message_object, 'content', {}) or getattr(message_object, 'attach', {})
+            if isinstance(src_dict, dict):
+                content['href'] = src_dict.get('href')
+                file_name = src_dict.get('title') or src_dict.get('fileName')
+                if not file_name and isinstance(src_dict.get('params'), str):
+                    try:
+                        p = json.loads(src_dict['params'])
+                        file_name = p.get('fileName')
+                    except:
+                        pass
+                content['fileName'] = file_name or "file"
+        elif msg_type == 'chat.sticker':
+            src_dict = getattr(message_object, 'content', {}) or getattr(message_object, 'attach', {})
+            cat_id = None
+            sticker_id = None
+            if isinstance(src_dict, dict):
+                cat_id = src_dict.get('catId')
+                sticker_id = src_dict.get('id')
+            if not cat_id or not sticker_id:
+                params_str = getattr(message_object, 'params', '{}')
+                if isinstance(params_str, str):
+                    try:
+                        p = json.loads(params_str)
+                        cat_id = p.get('cateId') or p.get('catId')
+                        sticker_id = p.get('id') or p.get('stickerId')
+                    except:
+                        pass
+        else:
+            if msg_text:
+                msg_type = 'chat.text'
+                content['text'] = msg_text
+            else:
+                return
+
+        data = {
+            'msgId': msg_id,
+            'cliMsgId': cli_msg_id,
+            'msgType': msg_type,
+            'uidFrom': uid_from,
+            'content': content,
+        }
+        if msg_type == 'chat.sticker':
+            data['catId'] = cat_id
+            data['id'] = sticker_id
+
+        with _undo_lock:
+            undo_file = 'undo.json'
+            try:
+                if os.path.exists(undo_file):
+                    with open(undo_file, 'r', encoding='utf-8') as f:
+                        undo_data = json.load(f)
+                        if not isinstance(undo_data, list):
+                            undo_data = []
+                else:
+                    undo_data = []
+            except:
+                undo_data = []
+
+            if not any(msg.get('cliMsgId') == cli_msg_id for msg in undo_data):
+                undo_data.append(data)
+                if len(undo_data) > 500:
+                    undo_data = undo_data[-500:]
+                try:
+                    with open(undo_file, 'w', encoding='utf-8') as f:
+                        json.dump(undo_data, f, ensure_ascii=False, indent=2)
+                except Exception as e:
+                    print(f"[AntiUndo] Error writing to undo.json: {e}")
+
+    except Exception as e:
+        print(f"[AntiUndo] Error in save_undo_message: {e}")
+
+def save_qr_session(imei, cookies):
+    with _qr_session_lock:
+        try:
+            os.makedirs("modules/cache", exist_ok=True)
+            data = {"imei": imei, "cookies": cookies, "time": int(time.time())}
+            with open("modules/cache/qr_session.json", "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"[QRLogin] save_qr_session error: {e}")
+            return False
+
+def load_qr_session():
+    with _qr_session_lock:
+        try:
+            if os.path.exists("modules/cache/qr_session.json"):
+                with open("modules/cache/qr_session.json", "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[QRLogin] load_qr_session error: {e}")
+        return None
+
+def login_and_get_session_info(bot, thread_id, thread_type):
+    qr_dir = "modules/cache/qrlogin"
+    os.makedirs(qr_dir, exist_ok=True)
+    qr_file_path = os.path.join(qr_dir, f"qr_login_{thread_id}_{int(time.time())}.png")
+
+    try:
+        from zlapi import ZaloAPI
+        from zlapi._exception import ZaloLoginError
+
+        sent_messages = {
+            "init": None,
+            "qr_image": None,
+            "status": None
+        }
+
+        def delete_msg(msg_obj):
+            if not msg_obj:
+                return
+            try:
+                targets = bot._extract_sent_messages(msg_obj)
+                if targets:
+                    for target in targets:
+                        m_id = target.get("msgId")
+                        c_id = target.get("cliMsgId")
+                        o_id = target.get("ownerId") or target.get("uidFrom") or target.get("senderId") or bot.uid
+                        if m_id and c_id:
+                            if thread_type == ThreadType.GROUP:
+                                bot.deleteGroupMsg(m_id, o_id, c_id, thread_id)
+                            else:
+                                bot.undoMessage(m_id, c_id, thread_id, thread_type)
+            except Exception as e:
+                print(f"[QRLogin] delete_msg error: {e}")
+
+        sent_messages["init"] = bot.sendMessage(
+            Message(text="⏳ Đang khởi tạo mã QR đăng nhập..."),
+            thread_id,
+            thread_type,
+            ttl=30000
+        )
+
+        temp_client = ZaloAPI(phone=None, password=None, imei=None, auto_login=False)
+
+        def send_qr_to_user(path_to_qr):
+            if os.path.exists(path_to_qr):
+                sent_messages["qr_image"] = bot.sendLocalImage(
+                    imagePath=path_to_qr,
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    message=Message(text="🔐 Quét QR trong 100 giây để đăng nhập"),
+                    ttl=100000
+                )
+
+        def handle_scanned(display_name, scan_info):
+            sent_messages["status"] = bot.sendMessage(
+                f"👤 Mã QR đã được quét bởi: {display_name}.\nVui lòng xác nhận đăng nhập trên điện thoại của bạn.",
+                thread_id,
+                thread_type,
+                ttl=120000
+            )
+
+        temp_client.loginWithQR(
+            qr_path=qr_file_path,
+            on_qr_generated=send_qr_to_user,
+            on_qr_scanned=handle_scanned
+        )
+
+        if temp_client.isLoggedIn():
+            imei = temp_client._state.user_imei
+            cookies = temp_client.getSession()
+
+            save_qr_session(imei, cookies)
+
+            # Xóa các tin nhắn QR và trạng thái trước đó
+            delete_msg(sent_messages["init"])
+            delete_msg(sent_messages["qr_image"])
+            delete_msg(sent_messages["status"])
+
+            # Khởi tạo tạo ảnh Card Info đăng nhập thành công premium
+            from PIL import Image, ImageDraw, ImageOps, ImageFont, ImageFilter
+            from io import BytesIO
+            import requests
+            from glob import glob
+            import random
+
+            BACKGROUND_PATH = "background/"
+            images_bg = glob(BACKGROUND_PATH + "*.jpg") + glob(BACKGROUND_PATH + "*.png") + glob(BACKGROUND_PATH + "*.jpeg")
+            if images_bg:
+                bg_image_path = random.choice(images_bg)
+                bg = Image.open(bg_image_path).convert("RGBA").resize((1000, 550), Image.Resampling.LANCZOS)
+                bg = bg.filter(ImageFilter.GaussianBlur(radius=15))
+            else:
+                bg = Image.new("RGBA", (1000, 550), (30, 20, 50, 255))
+
+            draw = ImageDraw.Draw(bg)
+            # Vẽ hộp chứa kiểu kính (glass container)
+            draw.rounded_rectangle(
+                [(40, 40), (960, 510)],
+                radius=30,
+                fill=(15, 18, 30, 220),
+                outline=(255, 255, 255, 30),
+                width=2
+            )
+
+            avatar_url = None
+            display_name = "Unknown"
+            user_id_str = temp_client.uid
+
+            try:
+                user_info = temp_client.fetchUserInfo(temp_client.uid)
+                user = user_info.changed_profiles.get(temp_client.uid)
+                if user:
+                    avatar_url = getattr(user, 'avatar', None)
+                    display_name = getattr(user, 'displayName', 'Unknown')
+                    
+                    # Cập nhật cache tên hiển thị để tránh bị lệch tên cũ (như A Mẹ Nhung vs Xuân Anh)
+                    try:
+                        display_name_clean = re.sub(r'\s*\(.*?\)\s*$', '', display_name).strip()
+                        if not hasattr(bot, 'USER_NAME_CACHE'):
+                            bot.USER_NAME_CACHE = {}
+                        bot.USER_NAME_CACHE[str(temp_client.uid)] = display_name_clean
+                        
+                        settings = read_settings(bot.uid)
+                        user_names = settings.setdefault("user_names", {})
+                        user_names[str(temp_client.uid)] = display_name_clean
+                        settings["user_names"] = user_names
+                        write_settings(bot.uid, settings)
+                    except Exception as cache_err:
+                        print(f"[QRLogin] Lỗi cập nhật cache tên: {cache_err}")
+            except Exception as e:
+                print(f"[QRLogin] Error fetching user info for card: {e}")
+
+            avatar_center = (200, 275)
+            avatar_size = 220
+            
+            # Vẽ viền neon bao quanh avatar
+            draw.ellipse(
+                [(avatar_center[0] - 115, avatar_center[1] - 115), 
+                 (avatar_center[0] + 115, avatar_center[1] + 115)],
+                fill=None,
+                outline=(0, 229, 255, 255),
+                width=4
+            )
+
+            avatar_loaded = False
+            if avatar_url:
+                try:
+                    avatar_resp = requests.get(avatar_url, timeout=5)
+                    if avatar_resp.status_code == 200:
+                        avatar_img = Image.open(BytesIO(avatar_resp.content)).convert("RGBA")
+                        avatar_img = ImageOps.fit(avatar_img, (avatar_size, avatar_size), centering=(0.5, 0.5))
+                        
+                        avatar_mask = Image.new("L", (avatar_size, avatar_size), 0)
+                        avatar_mask_draw = ImageDraw.Draw(avatar_mask)
+                        avatar_mask_draw.ellipse((0, 0, avatar_size, avatar_size), fill=255)
+                        avatar_img.putalpha(avatar_mask)
+                        
+                        bg.paste(avatar_img, (avatar_center[0] - 110, avatar_center[1] - 110), avatar_img)
+                        avatar_loaded = True
+                except Exception as avatar_err:
+                    print("Lỗi tải avatar cho card login:", avatar_err)
+
+            if not avatar_loaded:
+                draw.ellipse(
+                    [(avatar_center[0] - 110, avatar_center[1] - 110), 
+                     (avatar_center[0] + 110, avatar_center[1] + 110)],
+                    fill=(80, 80, 80, 255)
+                )
+
+            font_path = "font/arial unicode ms.otf"
+            font_bold_path = "font/arial unicode ms bold.otf"
+            font_sf_path = "font/SF-Pro.ttf"
+            
+            if not os.path.exists(font_path): font_path = "arial.ttf"
+            if not os.path.exists(font_bold_path): font_bold_path = "arialbd.ttf"
+            if not os.path.exists(font_sf_path): font_sf_path = "arial.ttf"
+
+            f_title = ImageFont.truetype(font_bold_path, 34)
+            f_name = ImageFont.truetype(font_bold_path, 46)
+            f_info = ImageFont.truetype(font_path, 26)
+            f_sub = ImageFont.truetype(font_path, 22)
+
+            masked_imei = imei
+            if imei and len(imei) > 16:
+                masked_imei = f"{imei[:8]}...{imei[-8:]}"
+
+            draw.text((360, 90), "🔑 ĐĂNG NHẬP THÀNH CÔNG", fill=(0, 229, 255, 255), font=f_title)
+            draw.text((360, 150), display_name, fill=(255, 255, 255, 255), font=f_name)
+            draw.text((360, 230), f"Zalo ID: @{user_id_str}", fill=(180, 180, 180, 255), font=f_info)
+            draw.text((360, 290), "🟢 Trạng thái: Đang hoạt động (Session đã lưu)", fill=(46, 204, 113, 255), font=f_info)
+            draw.text((360, 350), f"Thiết bị: Zalo Web (IMEI: {masked_imei})", fill=(180, 180, 180, 255), font=f_info)
+            draw.text((360, 410), "💾 Session đã được lưu trữ an toàn để dùng nâng cấp cộng đồng.", fill=(150, 150, 150, 255), font=f_sub)
+
+            success_card_path = os.path.join(qr_dir, f"login_success_{thread_id}.png")
+            bg = bg.convert("RGB")
+            bg.save(success_card_path, quality=95)
+
+            caption = f"✅ Đăng nhập thành công vào nick {display_name}!"
+            bot.sendLocalImage(
+                imagePath=success_card_path,
+                thread_id=thread_id,
+                thread_type=thread_type,
+                width=1000,
+                height=550,
+                message=Message(text=caption),
+                ttl=120000
+            )
+
+            try:
+                os.remove(success_card_path)
+            except Exception:
+                pass
+
+    except ZaloLoginError as e:
+        if "Het thoi gian cho quet ma QR" in str(e) or "Hết thời gian chờ" in str(e):
+            error_msg = "⏰ Hết thời gian chờ, không ai quét QR hoặc chưa xác nhận đăng nhập."
+        else:
+            error_msg = f"❌ Lỗi đăng nhập QR: {str(e)[:200]}"
+        bot.sendMessage(error_msg, thread_id, thread_type, ttl=120000)
+
+    except Exception as e:
+        bot.sendMessage(f"❌ Đã xảy ra lỗi: {str(e)[:200]}", thread_id, thread_type, ttl=120000)
+
+    finally:
+        if os.path.exists(qr_file_path):
+            try:
+                os.remove(qr_file_path)
+            except:
+                pass
+
 def handle_undo_message(bot, message_object, thread_id, thread_type):
     settings = read_settings(bot.uid)
-    undo_enabled = settings.get('undo_enabled', {}).get(thread_id, True)
+    
+    # Kiểm tra cả chính sách nhóm mới và cấu hình cũ
+    p_config = settings.get("policies", {}).get(thread_id, {}).get("antiundo", {})
+    if "enabled" in p_config:
+        undo_enabled = p_config["enabled"]
+    else:
+        undo_enabled = settings.get('undo_enabled', {}).get(thread_id, True)
 
     # Nếu chưa bật tính năng undo → bỏ qua
     if not undo_enabled:
@@ -377,10 +746,11 @@ def handle_undo_message(bot, message_object, thread_id, thread_type):
     if not cli_msg_id:
         return
 
-    # Đọc dữ liệu undo từ file
+    # Đọc dữ liệu undo từ file dưới lock an toàn
     try:
-        with open('undo.json', 'r', encoding='utf-8') as f:
-            undo_data = json.load(f)
+        with _undo_lock:
+            with open('undo.json', 'r', encoding='utf-8') as f:
+                undo_data = json.load(f)
     except:
         undo_data = []
 
@@ -481,14 +851,45 @@ def get_allow_link_status(bot, thread_id):
     return settings.get('allow_link', {}).get(thread_id, False)
 
 def get_user_name_by_id(bot, author_id):
+    author_id_str = str(author_id)
+    # 1. Thử lấy từ cache của client
+    if hasattr(bot, 'USER_NAME_CACHE') and author_id_str in bot.USER_NAME_CACHE:
+        return bot.USER_NAME_CACHE[author_id_str]
+        
+    # 2. Thử lấy từ file setting
+    try:
+        settings = read_settings(bot.uid)
+        cached_name = settings.get("user_names", {}).get(author_id_str)
+        if cached_name:
+            if not hasattr(bot, 'USER_NAME_CACHE'):
+                bot.USER_NAME_CACHE = {}
+            bot.USER_NAME_CACHE[author_id_str] = cached_name
+            return cached_name
+    except:
+        pass
+
     try:
         user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
         name = user_info.zaloName or user_info.displayName or ""
-        # Xóa suffix trong ngoặc đơn ở cuối tên: "Nguyễn A (Biệt danh)" → "Nguyễn A"
         name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
-        return name or "Unknown User"
+        if name:
+            if not hasattr(bot, 'USER_NAME_CACHE'):
+                bot.USER_NAME_CACHE = {}
+            bot.USER_NAME_CACHE[author_id_str] = name
+            try:
+                settings = read_settings(bot.uid)
+                user_names = settings.setdefault("user_names", {})
+                user_names[author_id_str] = name
+                settings["user_names"] = user_names
+                write_settings(bot.uid, settings)
+            except:
+                pass
+            return name
     except Exception:
-        return "Unknown User"
+        pass
+        
+    return "Unknown User"
+
 
 def zalo_len(s):
     """Tính độ dài chuỗi theo UTF-16 code units (Zalo API dùng cách đếm này cho Mention offset/length).
@@ -3547,7 +3948,86 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         settings = read_settings(bot.uid)
         if not _is_banner_enabled(settings, thread_id, event_type):
             return None
+
+        # [V2 WELCOME HOOK] Kiểm tra xem nhóm có bật chế độ lời chào V2 (greetings2 API) hay không
+        welcome_type = settings.get("welcome_type", {}).get(thread_id, "welcome")
+        if welcome_type == "welcome2" and event_type in (GroupEventType.JOIN, GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
+            g_type = "welcome" if event_type == GroupEventType.JOIN else "goodbye"
+            g_bg = settings.get("welcome2_bg", {}).get(thread_id, "https://upload.satoru.click/files/4ff52a.jpg")
             
+            member_info = bot.fetchUserInfo(uid).changed_profiles.get(uid)
+            if member_info:
+                avatar_url = member_info.avatar if not avatar_url else avatar_url
+                user_name = getattr(member_info, 'zaloName', f"User{uid}")
+            else:
+                user_name = f"User{uid}"
+                avatar_url = avatar_url or "https://upload.satoru.click/files/fa5173.jpg"
+
+            group_info = bot.group_info_cache.get(thread_id, {})
+            group_name = group_info.get('name', "Nhóm không xác định") if not group_name else group_name
+            total_members = group_info.get('total_member', 0)
+            thread_type = ThreadType.GROUP
+
+            ow_name = ""
+            if event_data and hasattr(event_data, 'sourceId'):
+                try:
+                    ow_info = bot.fetchUserInfo(event_data.sourceId).changed_profiles.get(event_data.sourceId)
+                    ow_name = getattr(ow_info, 'zaloName', f"Admin{event_data.sourceId}") if ow_info else "Quản trị viên"
+                except:
+                    ow_name = "Quản trị viên"
+
+            prefix = getattr(bot, 'prefix', '!')
+            type_name = "nhóm"
+            welcome_caption = get_welcome_caption(bot, thread_id)
+            bye_caption = get_bye_caption(bot, thread_id)
+
+            join_msg = _format_caption(welcome_caption, user_name, group_name, total_members, type_name, ow_name)
+            leave_msg = _format_caption(bye_caption, user_name, group_name, total_members, type_name, ow_name)
+
+            if event_type == GroupEventType.JOIN:
+                msg_text = join_msg
+                mention = Mention(uid=uid, offset=len("Chào mừng, "), length=len(user_name))
+            else:
+                msg_text = leave_msg
+                mention = Mention(uid=uid, offset=len("Tạm biệt, "), length=len(user_name))
+
+            url = "https://apiwebfree.lovable.app/api/greetings2"
+            params = {
+                "type": g_type,
+                "avatar": avatar_url,
+                "username": user_name,
+                "bg": g_bg,
+                "groupname": group_name,
+                "member": str(total_members)
+            }
+            file_name = f"banner_{int(time.time())}.png"
+            try:
+                r = requests.get(url, params=params, timeout=25)
+                r.raise_for_status()
+                with open(file_name, "wb") as f:
+                    f.write(r.content)
+                
+                with Image.open(file_name) as img:
+                    w, h = img.size
+                
+                bot.sendMultiLocalImage(
+                    [file_name],
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    width=w,
+                    height=h,
+                    message=_styled_banner_msg(msg_text, mention=mention, event_type=event_type),
+                    ttl=60000 * 60
+                )
+                return file_name
+            except Exception as e:
+                print(f"[greetings2 API] Lỗi tạo ảnh: {e}, chuyển sang vẽ banner V1")
+            finally:
+                try:
+                    os.remove(file_name)
+                except:
+                    pass
+
         member_info = bot.fetchUserInfo(uid).changed_profiles.get(uid)
         if not member_info:
             print(f"[ERROR] Không tìm thấy thông tin user {uid}")
@@ -3936,16 +4416,22 @@ def handle_event(client, event_data, event_type):
     except Exception as e:
         print(f"Lỗi khi xử lý event {event_type}: {e}")
 
-def handle_welcome_on(bot, thread_id: str) -> str:
+def handle_welcome_on(bot, thread_id: str, version: str = "welcome") -> str:
     settings = read_settings(bot.uid)
     if "welcome" not in settings:
         settings["welcome"] = {}
     if "goodbye" not in settings:
         settings["goodbye"] = {}
+    if "welcome_type" not in settings:
+        settings["welcome_type"] = {}
     settings["welcome"][thread_id] = True
     settings["goodbye"][thread_id] = True
+    settings["welcome_type"][thread_id] = version
     write_settings(bot.uid, settings)
-    return f"🚦Chế độ welcome đã 🟢 Bật 🎉 (tạm biệt cũng được bật theo)"
+    if version == "welcome2":
+        return f"🚦Chế độ welcome2 (V2 - Trình tạo ảnh Card) đã 🟢 Bật 🎉"
+    else:
+        return f"🚦Chế độ welcome (V1 - Lời chào cũ) đã 🟢 Bật 🎉 (tạm biệt cũng được bật theo)"
 
 def handle_goodbye_on(bot, thread_id: str) -> str:
     settings = read_settings(bot.uid)

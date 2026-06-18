@@ -12,9 +12,9 @@ CONFIG = {
         "func_allan/main.py": {"emoji": "❖", "title": "Allan", "cmds": ["all", "lmao"]},
         "func_disbox/main.py": {"emoji": "❖", "title": "Disbox", "cmds": ["disbox"]},
         "func_kickall/main.py": {"emoji": "❖", "title": "Kickall", "cmds": ["kickall"]},
-        "func_leave/main.py": {"emoji": "❖", "title": "Leave", "cmds": ["leave_group"]},
+        "func_leave/main.py": {"emoji": "❖", "title": "Leave", "cmds": ["leave_group", "leave"]},
         "func_welcome/main.py": {"emoji": "👋", "title": "Welcome & Bye", "cmds": ["welcome", "bye"]},
-        "func_group_link/main.py": {"emoji": "🔗", "title": "Link nhóm", "cmds": ["link"]},
+        "func_group_link/main.py": {"emoji": "🔗", "title": "Link nhóm", "cmds": ["link", "changelink"]},
         "func_pin/main.py": {"emoji": "❖", "title": "Pinterest", "cmds": ["pin"]},
         "func_spamsms/main.py": {"emoji": "❖", "title": "Spamsms", "cmds": ["sms"]},
         "func_spam_call/main.py": {"emoji": "❖", "title": "Spamcall", "cmds": ["spamcall"]},
@@ -30,5 +30,7 @@ CONFIG = {
         "cmd/main.py": {"emoji": "📋", "title": "Command Manager", "cmds": ["cmd"]},
         "func_eval/main.py": {"emoji": "👑", "title": "Chạy lệnh", "cmds": ["eval"]},
         "upcommunity/main.py": {"emoji": "❖", "title": "Up community", "cmds": ["upcommunity", "upcom"]},
+        "qrlogin/main.py": {"emoji": "🔐", "title": "QR Login", "cmds": ["qrlogin"]},
+        "callgroup/main.py": {"emoji": "📞", "title": "Gọi nhóm", "cmds": ["callgroup"]}
     }
 }

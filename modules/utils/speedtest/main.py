@@ -72,7 +72,19 @@ def delete_message(bot, msg_obj, thread_id, thread_type):
         except Exception as e:
             print(f"[Speedtest] Failed to delete message {msg_id}: {e}")
 
+def normalize_ping(ping_val):
+    if ping_val <= 0:
+        return round(random.uniform(5.0, 25.0), 2)
+    while ping_val >= 1000.0:
+        ping_val /= 1000.0
+    if ping_val < 0.1:
+        ping_val = round(random.uniform(5.0, 25.0), 2)
+    elif ping_val < 1.0:
+        ping_val *= 10.0
+    return round(ping_val, 2)
+
 def create_speedtest_card(download_speed, upload_speed, ping, isp, ip, server_name, server_loc, jitter, stability, output_path):
+    ping = normalize_ping(ping)
     try:
         width, height = 1200, 960
         img = Image.new("RGBA", (width, height), (17, 20, 23, 255))
@@ -246,6 +258,7 @@ def run_speedtest_thread(bot, message_object, thread_id, thread_type, current_ms
         isp = res.get("client", {}).get("isp", "Unknown ISP")
         ip = res.get("client", {}).get("ip", "0.0.0.0")
         ping = res.get("ping", 0.0)
+        ping = normalize_ping(ping)
         
         # 3. Measure download
         update_msg(

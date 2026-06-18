@@ -2671,6 +2671,36 @@ class ZaloAPI(object):
 	END GROUP ACTION METHODS
 	"""
 	
+	def upgradeComunity(self, groupId):
+		"""Nâng cấp nhóm Zalo lên Cộng đồng (Community).
+		
+		Args:
+			groupId (int | str): ID của nhóm cần nâng cấp
+		
+		Returns:
+			dict: Kết quả API đã được giải mã khi thành công, hoặc phản hồi gốc khi thất bại.
+		"""
+		params = {
+			"zpw_ver": 655,
+			"zpw_type": 24,
+			"params": self._encode({
+				'grId': str(groupId), 
+				'language': 'vi'
+			})
+		}
+		
+		response = self._get("https://tt-group-wpa.chat.zalo.me/api/group/upgrade/community", params=params)
+		data = response.json()
+		logger.info(f"upgradeComunity response: {data}")
+		
+		results = data.get("data") if data.get("error_code") == 0 else None
+		if results:
+			results = self._decode(results)
+			logger.info(f"upgradeComunity decoded results: {results}")
+			return results
+			
+		return data
+	
 	"""
 	SEND METHODS
 	"""
@@ -2745,6 +2775,7 @@ class ZaloAPI(object):
 		else:
 			raise ZaloUserError("Thread type is invalid")
 		
+		client_id = payload.get("params", {}).get("clientId")
 		payload["params"] = self._encode(payload["params"])
 		
 		response = self._post(url, params=params, data=payload)
@@ -2762,11 +2793,16 @@ class ZaloAPI(object):
 				except:
 					results = {"error_code": 1337, "error_message": results}
 			
-			return (
+			res_obj = (
 				Group.fromDict(results, None) 
 				if thread_type == ThreadType.GROUP else 
 				User.fromDict(results, None)
 			)
+			if isinstance(res_obj, dict):
+				res_obj["cliMsgId"] = client_id
+				res_obj["clientId"] = client_id
+				res_obj["ownerId"] = self.uid
+			return res_obj
 			
 		error_code = data.get("error_code")
 		error_message = data.get("error_message") or data.get("data")
@@ -2830,6 +2866,7 @@ class ZaloAPI(object):
 		else:
 			raise ZaloUserError("Thread type is invalid")
 		
+		client_id = payload.get("params", {}).get("clientId")
 		payload["params"] = self._encode(payload["params"])
 		
 		response = self._post(url, params=params, data=payload)
@@ -2847,11 +2884,16 @@ class ZaloAPI(object):
 				except:
 					results = {"error_code": 1337, "error_message": results}
 			
-			return (
+			res_obj = (
 				Group.fromDict(results, None) 
 				if thread_type == ThreadType.GROUP else 
 				User.fromDict(results, None)
 			)
+			if isinstance(res_obj, dict):
+				res_obj["cliMsgId"] = client_id
+				res_obj["clientId"] = client_id
+				res_obj["ownerId"] = self.uid
+			return res_obj
 			
 		error_code = data.get("error_code")
 		error_message = data.get("error_message") or data.get("data")
@@ -3512,6 +3554,7 @@ class ZaloAPI(object):
 			else:
 				raise ZaloUserError("Thread type is invalid")
 		
+		client_id = payload.get("params", {}).get("clientId")
 		payload["params"] = self._encode(payload["params"])
 		
 		response = self._post(url, params=params, data=payload)
@@ -3529,11 +3572,16 @@ class ZaloAPI(object):
 				except:
 					results = {"error_code": 1337, "error_message": results}
 			
-			return (
+			res_obj = (
 				Group.fromDict(results, None) 
 				if thread_type == ThreadType.GROUP else 
 				User.fromDict(results, None)
 			)
+			if isinstance(res_obj, dict):
+				res_obj["cliMsgId"] = client_id
+				res_obj["clientId"] = client_id
+				res_obj["ownerId"] = self.uid
+			return res_obj
 			
 		error_code = data.get("error_code")
 		error_message = data.get("error_message") or data.get("data")
@@ -5050,4 +5098,35 @@ class ZaloAPI(object):
 		error_code = data.get("error_code")
 		error_message = data.get("error_message") or data.get("data")
 		raise ZaloAPIException(f"Error #{error_code} when leaving group: {error_message}")
+
+	def newlink(self, grid):
+		"""Tạo link mới cho nhóm (Reset group link).
+
+		Args:
+			grid (str): ID của nhóm cần đổi link
+
+		Returns:
+			dict: Decoded response status
+		"""
+		params_data = {
+			"grid": str(grid)
+		}
+		params = {
+			"zpw_ver": 650,
+			"zpw_type": 30,
+			"params": self._encode(params_data)
+		}
+		response = self._post("https://tt-group-wpa.chat.zalo.me/api/group/link/new", data=params)
+		data = response.json()
+
+		if data.get("error_code") == 0:
+			new_link_info = self._decode(data.get("data"))
+			if new_link_info and new_link_info.get("link"):
+				return {"success": True, "new_link": new_link_info.get("link")}
+			else:
+				return {"success": False, "error_code": 1337, "error_message": "Không tìm thấy liên kết mới."}
+		else:
+			error_code = data.get("error_code")
+			error_message = data.get("error_message", "Lỗi không xác định từ API.")
+			return {"success": False, "error_code": error_code, "error_message": error_message}
 

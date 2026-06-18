@@ -12,6 +12,7 @@ CONFIG = {
         "func_stkck/main.py": {"emoji": "💳", "title": "Banking QR", "cmds": ["bank"]},
         "ngl/main.py": {"emoji": "✉️", "title": "NGL", "cmds": ["ngl"]},
         "func_react/main.py": {"emoji": "🎭", "title": "React30", "cmds": ["react30"]},
-        "speedtest/main.py": {"emoji": "⚡", "title": "Speedtest", "cmds": ["speedtest", "sp", "speed"]}
+        "speedtest/main.py": {"emoji": "⚡", "title": "Speedtest", "cmds": ["speedtest", "sp", "speed"]},
+        "capweb/main.py": {"emoji": "📸", "title": "Chụp ảnh web", "cmds": ["capweb"]}
     }
 }

@@ -276,6 +276,10 @@ def create_details_image(bot, uptime_str: str, thread_id: str) -> str:
     settings = read_settings(bot.uid)
 
     def check_status(key: str, default=True) -> bool:
+        if key == "undo_enabled":
+            p_config = settings.get("policies", {}).get(thread_id, {}).get("antiundo", {})
+            if "enabled" in p_config:
+                return p_config["enabled"]
         val = settings.get(key)
         if isinstance(val, dict):
             return val.get(thread_id, default)

@@ -1,3 +1,6 @@
+from core.bot_sys import _format_caption
+from core.bot_sys import get_bye_caption
+from core.bot_sys import get_welcome_caption
 import config
 from core import bot_sys
 from glob import glob
@@ -70,6 +73,8 @@ BOT_SUB_COMMANDS = [
     {"name": "Thông tin Bot", "cmd": "{prefix}bot mybot", "desc": "🤖 Xem thông tin Bot của bạn", "oa": False},
     {"name": "Đổi Prefix", "cmd": "{prefix}bot prefix [ký tự]", "desc": "🔧 Đổi prefix lệnh Bot (admin)", "oa": False},
     {"name": "Khởi động lại Bot", "cmd": "{prefix}bot reset", "desc": "♻️ Khởi động lại Bot (admin)", "oa": False},
+    {"name": "Chống tin nhắn thu hồi", "cmd": "{prefix}bot antiundo on/off", "desc": "🚫 Bật / Tắt chức năng chống thu hồi tin nhắn", "oa": True},
+    {"name": "Đăng nhập QR", "cmd": "{prefix}mybot qr login", "desc": "🔐 Tạo mã QR đăng nhập để lưu session", "oa": False},
 ]
 
 
@@ -155,15 +160,17 @@ txa = {
     "name": "Bot Help & Settings",
     "desc": {
         "bot": "Xem hướng dẫn và cấu hình Bot",
+        "mybot": "Xem hướng dẫn và cấu hình Bot",
         "del": "Xóa tin nhắn gần nhất",
         "xoa": "Xóa tin nhắn nhanh",
         "delete": "Xóa tin nhắn",
         "help": "Xem hướng dẫn sử dụng lệnh"
     },
     "author": "TXA",
-    "command": ["bot", "del", "xoa", "delete", "help"],
+    "command": ["bot", "mybot", "del", "xoa", "delete", "help"],
     "t-per": {
         "bot": "s-admin",
+        "mybot": "s-admin",
         "del": "admin",
         "xoa": "admin",
         "delete": "admin",
@@ -886,14 +893,9 @@ def handle_check_profanity(bot, author_id, thread_id, message_object, thread_typ
     thread = threading.Thread(target=send_check_profanity_response)
     thread.start()
 
-def get_user_name_by_id(bot,author_id):
-    try:
-        user = bot.fetchUserInfo(author_id).changed_profiles[author_id].displayName
-        return user
-    except:
-        return "Unknown User"
-
-
+def get_user_name_by_id(bot, author_id):
+    from core.bot_sys import get_user_name_by_id as get_name
+    return get_name(bot, author_id)
 
 def print_muted_users_in_group(bot, thread_id):
     settings = read_settings()
@@ -2277,14 +2279,20 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                             
                                 if is_yes or is_no:
                                     pending_file = "cache/pending_bot_approvals.txt"
-                                    if not bot_sys.PENDING_BOT_STATE and os.path.exists(pending_file):
+                                    file_uids = []
+                                    if os.path.exists(pending_file):
                                         try:
                                             with open(pending_file, "r", encoding="utf-8") as f:
-                                                bot_sys.PENDING_BOT_STATE = [line.strip() for line in f if line.strip()]
+                                                file_uids = [line.strip() for line in f if line.strip()]
                                         except Exception as e:
                                             print(f"Error loading pending bot approvals: {e}")
                                             
-                                    uids_to_approve = list(bot_sys.PENDING_BOT_STATE)
+                                    merged_uids = list(bot_sys.PENDING_BOT_STATE)
+                                    for f_uid in file_uids:
+                                        if f_uid not in merged_uids:
+                                            merged_uids.append(f_uid)
+                                            
+                                    uids_to_approve = merged_uids
                                     if not uids_to_approve:
                                         response = "⚠️ Không có yêu cầu duyệt dùng bot nào đang chờ!"
                                     else:
@@ -2650,9 +2658,9 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         
                         write_settings(settings)
                 
-                elif action == 'welcome':
+                elif action in ('welcome', 'welcome2'):
                     if len(parts) < 3:
-                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {prefix}bot welcome 🤧\n➜ Ví dụ: {prefix}bot welcome on hoặc {prefix}bot welcome off ✅"
+                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {prefix}bot {action} 🤧\n➜ Ví dụ: {prefix}bot {action} on hoặc {prefix}bot {action} off ✅"
                     else:
                         settings = read_settings()
                         setup_action = parts[2].lower()
@@ -2662,7 +2670,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             elif thread_type != ThreadType.GROUP:
                                 response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
                             else:
-                                response = handle_welcome_on(bot, thread_id)
+                                response = handle_welcome_on(bot, thread_id, version=action)
                         elif setup_action == 'off':
                             if not is_admin(author_id):
                                 response = "❌Bạn không phải admin bot!"
@@ -2671,7 +2679,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             else:
                                 response = handle_welcome_off(bot, thread_id)
                         else:
-                            response = f"➜ Lệnh {prefix}bot welcome {setup_action} không được hỗ trợ 🤧"
+                            response = f"➜ Lệnh {prefix}bot {action} {setup_action} không được hỗ trợ 🤧"
 
                 elif action == 'goodbye':
                     if len(parts) < 3:
@@ -2694,6 +2702,66 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                                 response = handle_goodbye_off(bot, thread_id)
                         else:
                             response = f"➜ Lệnh {prefix}bot goodbye {setup_action} không được hỗ trợ 🤧"
+
+                elif action == 'antiundo':
+                    if len(parts) < 3:
+                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {prefix}bot antiundo 🤧\n➜ Ví dụ: {prefix}bot antiundo on hoặc {prefix}bot antiundo off ✅"
+                    else:
+                        setup_action = parts[2].lower()
+                        if setup_action == 'on':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                settings = read_settings()
+                                settings.setdefault("policies", {})
+                                settings["policies"].setdefault(thread_id, {})
+                                settings["policies"][thread_id]["antiundo"] = {
+                                    "enabled": True,
+                                    "threshold": 3,
+                                    "duration": 30,
+                                    "action": "warn"
+                                }
+                                settings.setdefault("undo_enabled", {})[thread_id] = True
+                                write_settings(settings)
+                                response = "✅ Chức năng chống thu hồi tin nhắn (antiundo) đã được BẬT ✅"
+                        elif setup_action == 'off':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                settings = read_settings()
+                                settings.setdefault("policies", {})
+                                settings["policies"].setdefault(thread_id, {})
+                                settings["policies"][thread_id]["antiundo"] = {
+                                    "enabled": False,
+                                    "threshold": 3,
+                                    "duration": 30,
+                                    "action": "warn"
+                                }
+                                settings.setdefault("undo_enabled", {})[thread_id] = False
+                                write_settings(settings)
+                                response = "⭕ Chức năng chống thu hồi tin nhắn (antiundo) đã được TẮT ⭕"
+                        else:
+                            response = f"➜ Lệnh {prefix}bot antiundo {setup_action} không được hỗ trợ 🤧"
+
+                elif action == 'qr':
+                    if trigger_word == "mybot":
+                        if len(parts) < 3 or parts[2].lower() != "login":
+                            response = f"⚠️ Vui lòng sử dụng cú pháp: {prefix}mybot qr login để đăng nhập!"
+                        elif not is_admin(author_id):
+                            response = "❌Bạn không phải admin bot!"
+                        else:
+                            threading.Thread(
+                                target=bot_sys.login_and_get_session_info,
+                                args=(bot, thread_id, thread_type),
+                                daemon=True
+                            ).start()
+                            response = "⏳ Đang khởi tạo luồng quét QR đăng nhập..."
+                    else:
+                        response = f"⚠️ Lệnh {prefix}bot qr đã được thay thế bằng {prefix}mybot qr login. Vui lòng sử dụng cú pháp mới! 🌸"
 
                 elif action == 'autoapprove':
                     if len(parts) < 3:
@@ -2845,7 +2913,8 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             "link": "🔗 Gửi link",
                             "sticker": "🎨 Spam sticker",
                             "image": "🖼️ Spam ảnh",
-                            "flood": "💬 Spam tin nhắn"
+                            "flood": "💬 Spam tin nhắn",
+                            "antiundo": "🚫 Đọc tin nhắn thu hồi"
                         }
                         
                         response = f"📋 Cấu hình Policy nhóm:\n"
@@ -2859,20 +2928,21 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             
                             action_text = {"mute": "😷 Khóa mõm", "kick": "💪 Kick", "warn": "⚠️ Cảnh báo"}.get(action_type, "😷 Khóa mõm")
                             response += f"   {p_name}: {status}\n"
-                            if enabled:
+                            if enabled and p_type != "antiundo":
                                 response += f"      Vi phạm {threshold} lần → {action_text} {duration}p\n"
                         
                         response += (
                             f"\n📖 HƯỚNG DẪN CẤU HÌNH POLICY\n"
                             f"1️⃣ Các loại vi phạm (Loại):\n"
                             f"   • word (Từ cấm), link (Gửi link), sticker (Spam sticker)\n"
-                            f"   • image (Spam ảnh), flood (Spam tin nhắn)\n"
+                            f"   • image (Spam ảnh), flood (Spam tin nhắn), antiundo (Đọc tin nhắn thu hồi)\n"
                             f"2️⃣ Bật/Tắt nhanh:\n"
                             f"   ➜ {prefix}bot policy [loại] [on/off]\n"
                             f"   VD: {prefix}bot policy link on\n"
+                            f"   VD: {prefix}bot policy antiundo on\n"
                             f"3️⃣ Cài đặt chi tiết hình phạt:\n"
                             f"   ➜ {prefix}bot policy [loại] [lần] [phút] [hành_động]\n"
-                            f"   Loại: word / link / sticker / image / flood\n"
+                            f"   Loại: word / link / sticker / image / flood / antiundo\n"
                             f"   Hành động: mute (Khóa mõm) / kick (Trục xuất) / warn (Cảnh báo)\n"
                             f"   • mute: xóa nội dung vi phạm và khóa mõm trong [phút]\n"
                             f"   • kick: xóa nội dung vi phạm và kick khi đủ [lần]\n"
@@ -2882,7 +2952,7 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         )
                     else:
                         policy_type = parts[2].lower()
-                        valid_policies = ["word", "link", "sticker", "image", "flood"]
+                        valid_policies = ["word", "link", "sticker", "image", "flood", "antiundo"]
                         
                         if policy_type not in valid_policies:
                             response = f"➜ Loại policy không hợp lệ 🤧\n➜ Chọn: {', '.join(valid_policies)}"
@@ -2905,9 +2975,13 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                             if parts[3].lower() == 'on':
                                 settings["policies"][thread_id][policy_type]["enabled"] = True
                                 response = f"✅ Policy [{policy_type}] đã BẬT cho nhóm này"
+                                if policy_type == "antiundo":
+                                    settings.setdefault("undo_enabled", {})[thread_id] = True
                             else:
                                 settings["policies"][thread_id][policy_type]["enabled"] = False
                                 response = f"⭕ Policy [{policy_type}] đã TẮT cho nhóm này"
+                                if policy_type == "antiundo":
+                                    settings.setdefault("undo_enabled", {})[thread_id] = False
                             
                             write_settings(settings)
                         elif len(parts) >= 5:
@@ -3469,11 +3543,9 @@ def interpolate_colors(colors, text_length, change_every):
     return gradient[:text_length]
 
 def get_user_name_by_id(bot, author_id):
-    try:
-        user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        return user_info.zaloName or user_info.displayName
-    except Exception as e:
-        return "Unknown User"
+    from core.bot_sys import get_user_name_by_id as get_name
+    return get_name(bot, author_id)
+
     
 font_path_emoji = os.path.join("font/NotoEmoji-Bold.ttf")
 font_path_arial = os.path.join("font/arial unicode ms.otf")
@@ -3598,7 +3670,86 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         settings = read_settings()
         if not settings.get("welcome", {}).get(thread_id, False):
             return None
+
+        # [V2 WELCOME HOOK] Kiểm tra xem nhóm có bật chế độ lời chào V2 (greetings2 API) hay không
+        welcome_type = settings.get("welcome_type", {}).get(thread_id, "welcome")
+        if welcome_type == "welcome2" and event_type in (GroupEventType.JOIN, GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
+            g_type = "welcome" if event_type == GroupEventType.JOIN else "goodbye"
+            g_bg = settings.get("welcome2_bg", {}).get(thread_id, "https://upload.satoru.click/files/4ff52a.jpg")
             
+            member_info = bot.fetchUserInfo(uid).changed_profiles.get(uid)
+            if member_info:
+                avatar_url = member_info.avatar if not avatar_url else avatar_url
+                user_name = getattr(member_info, 'zaloName', f"User{uid}")
+            else:
+                user_name = f"User{uid}"
+                avatar_url = avatar_url or "https://upload.satoru.click/files/fa5173.jpg"
+
+            group_info = bot.group_info_cache.get(thread_id, {})
+            group_name = group_info.get('name', "Nhóm không xác định") if not group_name else group_name
+            total_members = group_info.get('total_member', 0)
+            thread_type = ThreadType.GROUP
+
+            ow_name = ""
+            if event_data and hasattr(event_data, 'sourceId'):
+                try:
+                    ow_info = bot.fetchUserInfo(event_data.sourceId).changed_profiles.get(event_data.sourceId)
+                    ow_name = getattr(ow_info, 'zaloName', f"Admin{event_data.sourceId}") if ow_info else "Quản trị viên"
+                except:
+                    ow_name = "Quản trị viên"
+
+            prefix = getattr(bot, 'prefix', '!')
+            type_name = "nhóm"
+            welcome_caption = get_welcome_caption(bot, thread_id)
+            bye_caption = get_bye_caption(bot, thread_id)
+
+            join_msg = _format_caption(welcome_caption, user_name, group_name, total_members, type_name, ow_name)
+            leave_msg = _format_caption(bye_caption, user_name, group_name, total_members, type_name, ow_name)
+
+            if event_type == GroupEventType.JOIN:
+                msg_text = join_msg
+                mention = Mention(uid=uid, offset=12, length=len(user_name))
+            else:
+                msg_text = leave_msg
+                mention = None
+
+            url = "https://apiwebfree.lovable.app/api/greetings2"
+            params = {
+                "type": g_type,
+                "avatar": avatar_url,
+                "username": user_name,
+                "bg": g_bg,
+                "groupname": group_name,
+                "member": str(total_members)
+            }
+            file_name = f"banner_{int(time.time())}.png"
+            try:
+                r = requests.get(url, params=params, timeout=25)
+                r.raise_for_status()
+                with open(file_name, "wb") as f:
+                    f.write(r.content)
+                
+                with Image.open(file_name) as img:
+                    w, h = img.size
+                
+                bot.sendMultiLocalImage(
+                    [file_name],
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                    width=w,
+                    height=h,
+                    message=Message(text=msg_text, mention=mention),
+                    ttl=60000 * 60
+                )
+                return file_name
+            except Exception as e:
+                print(f"[greetings2 API] Lỗi tạo ảnh: {e}, chuyển sang vẽ banner V1")
+            finally:
+                try:
+                    os.remove(file_name)
+                except:
+                    pass
+
         member_info = bot.fetchUserInfo(uid).changed_profiles.get(uid)
         if not member_info:
             print(f"[ERROR] Không tìm thấy thông tin user {uid}")

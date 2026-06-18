@@ -4,10 +4,11 @@ from core.bot_sys import is_admin, admin_cao
 txa = {
     "name": "group_link",
     "desc": {
-        "link": "Bật/tắt hoặc đổi link nhóm (admin bot/phó nhóm)"
+        "link": "Bật/tắt hoặc đổi link nhóm (admin bot/phó nhóm)",
+        "changelink": "Đổi link nhóm mới (admin bot/phó nhóm)"
     },
     "author": "TXA",
-    "command": ["link"],
+    "command": ["link", "changelink"],
     "t-per": "s-admin"
 }
 
@@ -36,11 +37,15 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         return
 
     parts = message_text[len(prefix):].split(None, 2)
-    if len(parts) < 2:
-        bot.replyMessage(Message(text="❌ Thiếu tham số. Dùng: link on/off/reset"), message_object, thread_id, thread_type)
-        return
-
-    sub = parts[1].lower()
+    cmd = parts[0].lower()
+    
+    if cmd == "changelink":
+        sub = "reset"
+    else:
+        if len(parts) < 2:
+            bot.replyMessage(Message(text="❌ Thiếu tham số. Dùng: link on/off/reset"), message_object, thread_id, thread_type)
+            return
+        sub = parts[1].lower()
 
     if sub in ["on", "off"]:
         if not is_admin_or_mod(bot, author_id, thread_id, thread_type):
@@ -63,21 +68,12 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
             return
 
         try:
-            params = {
-                "params": bot._encode({
-                    "grid": str(thread_id),
-                    "imei": bot._imei,
-                    "clientLang": "vi"
-                }),
-                "zpw_ver": 685,
-                "zpw_type": 30
-            }
-            response = bot._post("https://tt-group-wpa.chat.zalo.me/api/group/link/create", params=params)
-            data = response.json()
-            if data.get("error_code") == 0:
-                bot.replyMessage(Message(text="✅ Đã đổi link nhóm thành công! Link cũ sẽ không còn hoạt động."), message_object, thread_id, thread_type)
+            res = bot.newlink(thread_id)
+            if res.get("success"):
+                new_link = res.get("new_link")
+                bot.replyMessage(Message(text=f"✅ Đã đổi link nhóm thành công!\n🔗 Link mới: {new_link}\n⚠️ Link cũ sẽ không còn hoạt động."), message_object, thread_id, thread_type)
             else:
-                err = data.get("error_message", "Unknown error")
+                err = res.get("error_message", "Unknown error")
                 bot.replyMessage(Message(text=f"❌ Không thể đổi link nhóm: {err}"), message_object, thread_id, thread_type)
         except Exception as e:
             print(f"[ERROR] reset link: {e}")

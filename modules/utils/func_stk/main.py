@@ -10,6 +10,7 @@ import os
 import sys
 import tempfile
 import requests
+import json
 from io import BytesIO
 from PIL import Image, ImageFilter, ImageEnhance, ImageDraw, ImageFont
 
@@ -36,20 +37,32 @@ def _get_image_url_from_message(message_object):
     quote = getattr(message_object, "quote", None)
     if quote:
         q_attach = getattr(quote, "attach", None)
-        if isinstance(q_attach, dict):
-            for key in ("hdUrl", "oriUrl", "normalUrl", "href"):
-                if q_attach.get(key):
-                    return q_attach[key]
+        if q_attach:
+            if isinstance(q_attach, str):
+                try:
+                    q_attach = json.loads(q_attach)
+                except Exception:
+                    pass
+            if isinstance(q_attach, dict):
+                for key in ("hdUrl", "oriUrl", "normalUrl", "href"):
+                    if q_attach.get(key):
+                        return q_attach[key]
         q_href = getattr(quote, "href", None) or getattr(quote, "attach_href", None)
         if q_href:
             return q_href
 
     # Tin nhắn hiện tại
     attach = getattr(message_object, "attach", None)
-    if isinstance(attach, dict):
-        for key in ("hdUrl", "oriUrl", "normalUrl", "href"):
-            if attach.get(key):
-                return attach[key]
+    if attach:
+        if isinstance(attach, str):
+            try:
+                attach = json.loads(attach)
+            except Exception:
+                pass
+        if isinstance(attach, dict):
+            for key in ("hdUrl", "oriUrl", "normalUrl", "href"):
+                if attach.get(key):
+                    return attach[key]
 
     return None
 

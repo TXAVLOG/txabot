@@ -170,7 +170,7 @@ def _draw_item_row(
     y_stats = bottom - card_pad - fonts["small"].size - 2 * scale
     draw_text_with_emoji(
         draw, stats_text, (text_x, y_stats), fonts["small"], fonts["small_emoji"],
-        COLORS["text_muted"], shadow_color=COLORS["shadow_light"], shadow_offset=(1, 1)
+        COLORS["text_secondary"], shadow_color=COLORS["shadow_light"], shadow_offset=(1, 1)
     )
 
     # Number badge

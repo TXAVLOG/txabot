@@ -3,8 +3,10 @@ import os
 sys.dont_write_bytecode = True
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
+import difflib
 import inspect
 import importlib
+import core.bot_sys as bot_sys
 import io
 import json
 import logging
@@ -1020,14 +1022,7 @@ def generate_menu_image(bot, author_id, thread_id, thread_type):
         return None
 
 def get_user_name_by_id(bot, author_id):
-    try:
-        user_info = bot.fetchUserInfo(author_id).changed_profiles[author_id]
-        name = user_info.zaloName or user_info.displayName or ""
-        # Xóa suffix trong ngoặc đơn ở cuối tên: "Nguyễn A (Biệt danh)" → "Nguyễn A"
-        name = re.sub(r'\s*\(.*?\)\s*$', '', name).strip()
-        return name or "Unknown User"
-    except Exception:
-        return "Unknown User"
+    return bot_sys.get_user_name_by_id(bot, author_id)
     
 def tim_kiem_yanhh3d(bot, message_object, author_id, thread_id, thread_type, message_lower, message):
     try:
@@ -2139,7 +2134,7 @@ class bot(ZaloAPI):
 
         targets = self._extract_sent_messages(result)
         if not targets:
-            print(f"[TTL] Không lấy được msgId/cliMsgId từ response để tự xóa sau {ttl}ms")
+            print(f"[TTL] Không lấy được msgId/cliMsgId từ response để tự xóa sau {ttl}ms. Result: {result}")
             return
 
         def delete_target(target):
@@ -2595,6 +2590,56 @@ class bot(ZaloAPI):
 
     def onMessage(self, mid, author_id, message, message_object, thread_id, thread_type):
         try:
+            # Cache sender's display name immediately
+            if message_object and author_id and str(author_id) != "0" and str(author_id) != str(self.uid):
+                sender_name = getattr(message_object, 'dName', None)
+                if not sender_name and isinstance(message_object, dict):
+                    sender_name = message_object.get('dName')
+                if sender_name:
+                    author_id_str = str(author_id)
+                    if not hasattr(self, 'USER_NAME_CACHE'):
+                        self.USER_NAME_CACHE = {}
+                    self.USER_NAME_CACHE[author_id_str] = sender_name
+                    try:
+                        settings = read_settings(self.uid)
+                        user_names = settings.setdefault("user_names", {})
+                        user_names[author_id_str] = sender_name
+                        settings["user_names"] = user_names
+                        write_settings(self.uid, settings)
+                    except Exception as cache_err:
+                        print(f"[ERROR] Cannot cache name: {cache_err}")
+
+                # Cache quoted user's name if present
+                quote = getattr(message_object, 'quote', None)
+                if not quote and isinstance(message_object, dict):
+                    quote = message_object.get('quote')
+                if quote and isinstance(quote, dict):
+                    q_owner = quote.get('ownerId')
+                    q_name = quote.get('fromD')
+                    if q_owner and q_name:
+                        q_owner_str = str(q_owner)
+                        if not hasattr(self, 'USER_NAME_CACHE'):
+                            self.USER_NAME_CACHE = {}
+                        self.USER_NAME_CACHE[q_owner_str] = q_name
+                        try:
+                            settings = read_settings(self.uid)
+                            user_names = settings.setdefault("user_names", {})
+                            user_names[q_owner_str] = q_name
+                            settings["user_names"] = user_names
+                            write_settings(self.uid, settings)
+                        except:
+                            pass
+
+            # Handle undo (recalled) message event
+            msg_type = getattr(message_object, 'msgType', '')
+            if msg_type == 'chat.undo':
+                threading.Thread(
+                    target=handle_undo_message,
+                    args=(self, message_object, thread_id, thread_type),
+                    daemon=True
+                ).start()
+                return
+
             # Check if this is a reaction event
             if isinstance(message, dict) and "rIcon" in message:
                 try:
@@ -2695,6 +2740,10 @@ class bot(ZaloAPI):
             if len(self.message_history[thread_id]) > 100:
                 self.message_history[thread_id].pop(0)
 
+            # Save message for anti-undo tracking if not sent by bot itself
+            if author_id != self.uid:
+                save_undo_message(self, message_object)
+
             is_delete_command = False
             for kw in ["!del", "!xoa", "!delete", ".del", ".xoa", ".delete"]:
                 if kw in message_lower.split():
@@ -2728,12 +2777,13 @@ class bot(ZaloAPI):
             )
             
             silver_users = settings.get("silver_users", [])
-            is_user_approved = (author_id in admin_bot or author_id in approved_users or author_id in silver_users)
+            is_user_approved = (author_id in admin_bot or author_id in approved_users or author_id in silver_users or author_id == self.uid)
             
             if thread_type == ThreadType.GROUP:
                 is_allowed = (
                     (thread_id in allowed_thread_ids and is_user_approved) or 
-                    (is_bot_on_cmd and (author_id in admin_bot or is_group_admin_or_creator(self, author_id, thread_id)))
+                    (is_bot_on_cmd and (author_id in admin_bot or is_group_admin_or_creator(self, author_id, thread_id))) or
+                    (author_id == self.uid)
                 )
             else:
                 is_allowed = is_user_approved
@@ -2756,6 +2806,12 @@ class bot(ZaloAPI):
 
             if not is_allowed:
                 if message_text.startswith(prefix):
+                    # Thả cảm xúc ❌
+                    try:
+                        self.sendReaction(message_object, "❌", thread_id, thread_type)
+                    except Exception as react_err:
+                        print(f"[ERROR] Lỗi gửi reaction ❌: {react_err}")
+
                     admin_names = []
                     for aid in admin_bot:
                         admin_names.append(f"Admin (ID: {aid})")
@@ -2893,6 +2949,9 @@ class bot(ZaloAPI):
                                 self.last_admin_notify[(author_id, 'bot')] = current_time_sec
                             except Exception as e:
                                 print(f"[ERROR] Không thể gửi thông báo yêu cầu duyệt bot cho Admin: {e}")
+                    return
+                else:
+                    return
 
             # Nhóm chưa kích hoạt: tắt log cho user thường, chỉ giữ log nếu Admin BOT nhắn.
             if not is_allowed and thread_type == ThreadType.GROUP and author_id != self.uid:
@@ -3568,14 +3627,57 @@ class bot(ZaloAPI):
                     return
 
                 # If none of the above hardcoded commands returned, and it wasn't a dynamic command
+                # ─── GỢI Ý LỆNH (COMMAND SUGGESTION) ───
                 try:
                     self.sendReaction(message_object, "❌", thread_id, thread_type)
                     self.sendReaction(message_object, "TBOT FAILED ❌", thread_id, thread_type)
                 except Exception as react_err:
                     print(f"[Main] Lỗi gửi reaction cho lệnh không hợp lệ: {react_err}")
                 
+                # Build pool of all valid commands for fuzzy matching
+                all_valid_commands = set(txacommand.loaded_commands.keys())
+                # Add hardcoded inline commands
+                inline_cmds = ["donghua", "group", "device", "platform", "ttl", "autodelete",
+                               "mp3", "zingmp3", "scl", "nhac", "nct", "nhaccuatui"]
+                all_valid_commands.update(inline_cmds)
+                
+                # Also load aliases for matching
+                aliases_file = r"c:\Users\TXA3099\Desktop\Bot\txabot\aliases.json"
+                alias_map = {}
+                if os.path.exists(aliases_file):
+                    try:
+                        with open(aliases_file, "r", encoding="utf-8") as f:
+                            alias_map = json.load(f)
+                        all_valid_commands.update(alias_map.keys())
+                    except Exception:
+                        pass
+                
+                # Find similar commands using difflib fuzzy matching
+                suggestions = difflib.get_close_matches(cmd_name, list(all_valid_commands), n=3, cutoff=0.5)
+                
+                if suggestions:
+                    suggestion_lines = []
+                    for i, s in enumerate(suggestions, 1):
+                        cmd_info = txacommand.loaded_commands.get(s)
+                        if cmd_info:
+                            desc = cmd_info.get('desc', '')
+                            suggestion_lines.append(f"  {i}. {used_prefix}{s} → {desc}")
+                        else:
+                            suggestion_lines.append(f"  {i}. {used_prefix}{s}")
+                    suggestion_text = "\n".join(suggestion_lines)
+                    reply_text = (
+                        f"❓ Lệnh [{used_prefix}{cmd_name}] không tồn tại! 🤧\n"
+                        f"\n🔍 Có phải bạn muốn gõ:\n{suggestion_text}\n"
+                        f"\n💡 Gõ {used_prefix}help để xem toàn bộ danh sách lệnh."
+                    )
+                else:
+                    reply_text = (
+                        f"➜ Lệnh [{used_prefix}{cmd_name}] không được hỗ trợ hoặc gõ sai cú pháp 🤧\n"
+                        f"➜ Gõ {used_prefix}bot hoặc {used_prefix}help để xem danh sách lệnh! ✅"
+                    )
+                
                 self.replyMessage(
-                    Message(text=f"➜ Lệnh [{used_prefix}{cmd_name}] không được hỗ trợ hoặc gõ sai cú pháp 🤧\n➜ Gõ {used_prefix}bot hoặc {used_prefix}help để xem danh sách lệnh! ✅"),
+                    Message(text=reply_text),
                     message_object, thread_id, thread_type, ttl=9000
                 )
                 return

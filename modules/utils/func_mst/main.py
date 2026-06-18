@@ -307,7 +307,8 @@ def handle_mst_off(bot, thread_id):
         return f"🚦Lệnh {bot.prefix}mst đã Tắt ⭕️ trong nhóm này ✅"
     return "🚦Nhóm chưa có thông tin cấu hình mst để ⭕️ Tắt 🤗"
 
-def mst(bot, message_object, author_id, thread_id, thread_type, command):
+def mst(bot, message_object, author_id, thread_id, thread_type, message):
+    command = message
     def send_utilities_response():
         settings = read_settings(bot.uid)
     

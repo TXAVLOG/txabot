@@ -7,6 +7,7 @@ import json
 import os
 import random
 import sys
+import unicodedata
 from typing import List, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import emoji
@@ -37,12 +38,13 @@ HIDDEN_MODULE_TOKENS = (
     "treo",
 )
 
-def chunk_list(items, size):
-    for i in range(0, len(items), size):
-        yield items[i:i + size]
+def no_accent(s):
+    if not s:
+        return ""
+    s = unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8')
+    return s.lower().strip()
 
 def handle_menu_commands(message, message_object, thread_id, thread_type, author_id, bot):
-    # Correct path calculation: modules/menu/pro_menu/main.py -> modules
     modules_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     txac_configs = {}
     
@@ -99,15 +101,6 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
             }
         modules_data[group_key]['commands'].add(cmd)
 
-    # Distribute categories into 4 columns
-    columns = [[], [], [], []]
-    column_mapping = {
-        "bot": 0,
-        "utils": 1, "downloader": 1, "ai": 1, "auto": 1,
-        "fun": 2, "images": 2, "videos": 2,
-        "game": 3, "music": 3, "news": 3, "menu": 3
-    }
-    
     category_titles = {
         "bot": ("🤖", "Hệ thống bot"),
         "utils": ("🔧", "Tiện ích"),
@@ -126,17 +119,18 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
     order_dirs = ["bot", "utils", "downloader", "ai", "auto", "fun", "images", "videos", "game", "music", "news", "menu"]
     prefix = getattr(bot, 'prefix', '!')
     
+    # 1. Thu thập tất cả các lệnh và phẳng hóa thành một danh sách
+    flat_commands = []
+    
     for parent_dir in order_dirs:
         parent_cfg = txac_configs.get(parent_dir)
         if not parent_cfg:
             continue
             
-        col_idx = column_mapping.get(parent_dir, 0)
         emoji_cat, title_cat = category_titles.get(parent_dir, ("❖", parent_dir.title()))
-        
         cat_cmds = []
+        
         if parent_cfg.get("group_by_parent", False):
-            # Grouped (e.g. game)
             group_key = f"group.{parent_dir}"
             if group_key in modules_data:
                 m_info = modules_data[group_key]
@@ -147,13 +141,25 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 if cmds:
                     main_cmd = cmds[0]
                     title = parent_cfg.get("title", parent_dir.title())
+                    
+                    t_per = 'all'
+                    cmd_info = txacommand.loaded_commands.get(main_cmd, {})
+                    if cmd_info:
+                        t_per = cmd_info.get('t-per', 'all')
+                    perm_suffix = ""
+                    if t_per == 'admin':
+                        perm_suffix = " (AD)"
+                    elif t_per in ['s-admin', 's-ad']:
+                        perm_suffix = " (S-AD)"
+                        
                     cat_cmds.append({
-                        "type": "cmd",
-                        "cmd": f"{prefix}{main_cmd}",
-                        "desc": title
+                        "cmd": f"{prefix}{main_cmd}{perm_suffix}",
+                        "desc": title,
+                        "parent_dir": parent_dir,
+                        "emoji_cat": emoji_cat,
+                        "title_cat": title_cat
                     })
         else:
-            # Individual modules
             for rel_file_path, sub_cfg in parent_cfg.get("modules", {}).items():
                 sub_parts = rel_file_path.replace(".py", "").split('/')
                 if len(sub_parts) < 2:
@@ -161,7 +167,6 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 sub_dir, file_name = sub_parts[0], sub_parts[1]
                 group_key = f"modules.{parent_dir}.{sub_dir}.{file_name}"
                 
-                # Exclude hidden/helper/dangerous modules from the public menu.
                 if any(h in group_key for h in HIDDEN_MODULE_TOKENS):
                     continue
                     
@@ -171,76 +176,161 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                     
                     if "cmds" in sub_cfg:
                         cmds = [c for c in cmds if c in sub_cfg["cmds"]]
-                        # Giữ nguyên thứ tự cmds như khai báo trong cấu hình
                         cmds.sort(key=lambda x: sub_cfg["cmds"].index(x))
                     else:
                         cmds = [cmds[0]] if cmds else []
                     
-                    if cmds:
+                    for cmd in cmds:
                         title = sub_cfg.get("title", m_info['name'])
-                        
-                        # Clean title
                         if title.startswith("pro_"):
                             title = title[4:]
                         title = title.replace("_", " ").title()
                         
-                        display_title = title
-
-                        for cmd in cmds:
-                            cmd_info = txacommand.loaded_commands.get(cmd, {})
-                            cmd_desc = cmd_info.get('desc', display_title)
+                        cmd_info = txacommand.loaded_commands.get(cmd, {})
+                        cmd_desc = cmd_info.get('desc', title)
+                        
+                        t_per = cmd_info.get('t-per', 'all')
+                        perm_suffix = ""
+                        if t_per == 'admin':
+                            perm_suffix = " (AD)"
+                        elif t_per in ['s-admin', 's-ad']:
+                            perm_suffix = " (S-AD)"
                             
-                            t_per = cmd_info.get('t-per', 'all')
-                            perm_suffix = ""
-                            if t_per == 'admin':
-                                perm_suffix = " (AD)"
-                            elif t_per in ['s-admin', 's-ad']:
-                                perm_suffix = " (S-AD)"
-                            
-                            cat_cmds.append({
-                                "type": "cmd",
-                                "cmd": f"{prefix}{cmd}{perm_suffix}",
-                                "desc": cmd_desc
-                            })
-                            
+                        cat_cmds.append({
+                            "cmd": f"{prefix}{cmd}{perm_suffix}",
+                            "desc": cmd_desc,
+                            "parent_dir": parent_dir,
+                            "emoji_cat": emoji_cat,
+                            "title_cat": title_cat
+                        })
         if cat_cmds:
-            columns[col_idx].append({
-                "type": "title",
-                "text": f"{emoji_cat} {title_cat} ({len(cat_cmds)} lệnh)".upper()
-            })
-            columns[col_idx].extend(cat_cmds)
+            flat_commands.extend(cat_cmds)
+
+    # 2. Xử lý các đối số đầu vào (trang hoặc lọc theo danh mục)
+    parts = message.strip().split()
+    arg = ""
+    if len(parts) > 1:
+        arg = " ".join(parts[1:]).strip()
+
+    current_page = 1
+    total_pages = (len(flat_commands) + 49) // 50
+    category_name = None
+    commands_to_draw = []
+
+    if not arg:
+        # Mặc định trang 1
+        commands_to_draw = flat_commands[0:50]
+    else:
+        # Kiểm tra xem có phải số trang không
+        try:
+            page = int(arg)
+            if page < 1 or page > total_pages:
+                bot.replyMessage(
+                    Message(text=f"⚠️ Số trang không hợp lệ! Vui lòng nhập số trang trong khoảng từ 1 đến {total_pages}."),
+                    message_object, thread_id, thread_type
+                )
+                return
+            current_page = page
+            commands_to_draw = flat_commands[(page - 1) * 50 : page * 50]
+        except ValueError:
+            # Không phải số trang, kiểm tra xem có phải tên danh mục không
+            matched_parent_dir = None
+            matched_title_cat = None
+            matched_emoji_cat = None
+            norm_arg = no_accent(arg)
+            
+            for parent_dir, (emoji_cat, title_cat) in category_titles.items():
+                if norm_arg == no_accent(parent_dir) or norm_arg == no_accent(title_cat):
+                    matched_parent_dir = parent_dir
+                    matched_title_cat = title_cat
+                    matched_emoji_cat = emoji_cat
+                    break
+                    
+            if matched_parent_dir:
+                commands_to_draw = [item for item in flat_commands if item["parent_dir"] == matched_parent_dir]
+                category_name = matched_title_cat
+                current_page = 1
+                total_pages = 1
+            else:
+                available_cats = ", ".join([title for _, title in category_titles.values()])
+                bot.replyMessage(
+                    Message(text=f"⚠️ Không tìm thấy danh mục nào tên \"{arg}\"!\n💡 Các danh mục khả dụng:\n👉 {available_cats}"),
+                    message_object, thread_id, thread_type
+                )
+                return
+
+    # 3. Phân chia đều các lệnh cần vẽ vào 4 cột
+    num_cmds = len(commands_to_draw)
+    columns = [[], [], [], []]
+    
+    if num_cmds > 0:
+        base_size = num_cmds // 4
+        remainder = num_cmds % 4
+        col_sizes = [base_size + (1 if i < remainder else 0) for i in range(4)]
+        
+        col_commands = []
+        idx = 0
+        for size in col_sizes:
+            col_commands.append(commands_to_draw[idx : idx + size])
+            idx += size
+            
+        for col_idx in range(4):
+            cmds_in_col = col_commands[col_idx]
+            last_parent_dir = None
+            for item_idx, item in enumerate(cmds_in_col):
+                pd = item["parent_dir"]
+                if pd != last_parent_dir:
+                    # Kiểm tra xem danh mục này có phải là phần tiếp theo của cột trước hay không
+                    is_continuation = False
+                    if col_idx > 0 and item_idx == 0:
+                        prev_col_cmds = col_commands[col_idx - 1]
+                        if prev_col_cmds and prev_col_cmds[-1]["parent_dir"] == pd:
+                            is_continuation = True
                             
+                    suffix = " (TIẾP)" if is_continuation else ""
+                    columns[col_idx].append({
+                        "type": "title",
+                        "text": f"{item['emoji_cat']} {item['title_cat']}{suffix}".upper()
+                    })
+                    last_parent_dir = pd
+                columns[col_idx].append({
+                    "type": "cmd",
+                    "cmd": item["cmd"],
+                    "desc": item["desc"]
+                })
+
+    # 4. Chuẩn bị caption văn bản gửi kèm ảnh
     user_name = get_user_name_by_id(bot, author_id)
     line1 = f"{user_name}\n"
-    line2 = "➜ 🤖 HỆ THỐNG MENU PHÍM TẮT TXABOT\n"
-    line3 = "(Danh sách phím tắt được thiết kế trực quan trên ảnh dưới đây)\n"
+    if category_name:
+        line2 = f"➜ 📁 DANH MỤC: {category_name.upper()}\n"
+        line3 = f"(Hiển thị danh sách toàn bộ các lệnh thuộc danh mục {category_name})\n"
+    else:
+        line2 = f"➜ 📖 HỆ THỐNG MENU - TRANG {current_page}/{total_pages}\n"
+        line3 = f"(Dùng {bot.prefix}menu <số> hoặc {bot.prefix}menu <tên danh mục> để chuyển)\n"
     line4 = f"➜ 💡 Dùng {bot.prefix}bot để xem thiết lập và hướng dẫn quản trị."
     
     command_names = line1 + line2 + line3 + line4
     
-    # Multicolored italic text styling using MultiMsgStyle
+    # Tính toán offset động cho styles
     styles_list = [
-        # Line 1: Bold + Italic + Cyan Neon
         MessageStyle(offset=0, length=len(line1), style="bold", auto_format=False),
         MessageStyle(offset=0, length=len(line1), style="italic", auto_format=False),
         MessageStyle(offset=0, length=len(line1), style="color", color="00e5ff", auto_format=False),
         
-        # Line 2: Bold + Italic + Pink Neon
         MessageStyle(offset=len(line1), length=len(line2), style="bold", auto_format=False),
         MessageStyle(offset=len(line1), length=len(line2), style="italic", auto_format=False),
         MessageStyle(offset=len(line1), length=len(line2), style="color", color="ff4081", auto_format=False),
         
-        # Line 3: Italic + Yellow Neon
         MessageStyle(offset=len(line1) + len(line2), length=len(line3), style="italic", auto_format=False),
         MessageStyle(offset=len(line1) + len(line2), length=len(line3), style="color", color="ffeb3b", auto_format=False),
         
-        # Line 4: Italic + Green Neon
         MessageStyle(offset=len(line1) + len(line2) + len(line3), length=len(line4), style="italic", auto_format=False),
         MessageStyle(offset=len(line1) + len(line2) + len(line3), length=len(line4), style="color", color="00e676", auto_format=False)
     ]
     multi_style = MultiMsgStyle(styles_list)
 
-    image_path = generate_menu_image(bot, author_id, thread_id, thread_type, columns)
+    image_path = generate_menu_image(bot, author_id, thread_id, thread_type, columns, current_page, total_pages, category_name)
     
     reactions = [
         "❌", "🤧", "🐞", "😊", "🔥", "👍", "💖", "🚀",
@@ -253,18 +343,16 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
     
     if image_path and os.path.exists(image_path):
         try:
-            # 1. Upload the image first to Zalo
             uploadImage = bot._uploadImage(image_path, thread_id, thread_type)
             if not uploadImage or "normalUrl" not in uploadImage:
                 raise Exception("Không thể upload ảnh menu lên Zalo")
                 
-            # 2. Build photo original send params with reply (quote) and mention/style attributes
             photo_params = {
                 "photoId": uploadImage.get("photoId", int(now() * 2)),
                 "clientId": uploadImage.get("clientFileId", int(now() - 1000)),
                 "desc": command_names,
-                "width": 1920,
-                "height": 1400,
+                "width": 1280,
+                "height": 933,
                 "rawUrl": uploadImage["normalUrl"],
                 "thumbUrl": uploadImage["thumbUrl"],
                 "hdUrl": uploadImage["hdUrl"],
@@ -277,11 +365,9 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 "imei": bot._imei
             }
             
-            # Mentions and style properties
             photo_params["mentionInfo"] = str(Mention(author_id, length=len(user_name), offset=0))
             photo_params["textProperties"] = str(multi_style)
             
-            # Message quoting properties for replyMsg representation
             photo_params["qmsgOwner"] = str(int(message_object.uidFrom) or bot.uid)
             photo_params["qmsgId"] = message_object.msgId
             photo_params["qmsgCliId"] = message_object.cliMsgId
@@ -291,7 +377,6 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
             photo_params["qmsgAttach"] = json.dumps(message_object.content.toDict()) if not isinstance(message_object.content, str) else json.dumps({})
             photo_params["qmsgTTL"] = 0
             
-            # Safe comparison for thread_type (Enum, integer, or custom objects)
             is_group = False
             if hasattr(thread_type, "value"):
                 is_group = (thread_type.value == ThreadType.GROUP.value)
@@ -309,14 +394,13 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
                 imagePath=image_path,
                 thread_id=thread_id,
                 thread_type=thread_type,
-                width=1920,
-                height=1400,
+                width=1280,
+                height=933,
                 custom_payload={"params": photo_params},
                 ttl=60000
             )
         except Exception as e:
             print(f"❌ Lỗi khi gửi ảnh menu qua custom_payload: {e}")
-            # Fallback to normal send message if custom payload fails
             bot.replyMessage(
                 Message(
                     text=command_names,
@@ -333,7 +417,6 @@ def handle_menu_commands(message, message_object, thread_id, thread_type, author
         except Exception as e:
             print(f"❌ Lỗi khi xóa ảnh: {e}")
     else:
-        # Fallback if image generation failed
         bot.replyMessage(
             Message(
                 text=command_names,
@@ -394,27 +477,61 @@ def download_avatar(avatar_url, save_path=os.path.join(CACHE_PATH, "user_avatar.
         print(f"❌ Lỗi tải avatar: {e}")
     return None
 
-def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
-    images = glob.glob(BACKGROUND_PATH + "*.jpg") + glob.glob(BACKGROUND_PATH + "*.png") + glob.glob(BACKGROUND_PATH + "*.jpeg")
-    if not images:
-        print("❌ Không tìm thấy ảnh trong thư mục background/")
-        return None  
-
-    image_path = random.choice(images)
+def generate_menu_image(self, author_id, thread_id, thread_type, columns=None, current_page=1, total_pages=1, category_name=None):
+    size = (1920, 1400)
+    final_size = (1280, 933)
+    
+    # 1. Tải ảnh nền anime ngẫu nhiên từ file anime.txt
+    bg_image = None
+    temp_bg_path = os.path.join(CACHE_PATH, f"temp_menu_bg_{random.randint(1000, 9999)}.jpg")
+    
+    anime_txt_path = "modules/data-send/anime.txt"
+    if os.path.exists(anime_txt_path):
+        try:
+            with open(anime_txt_path, "r", encoding="utf-8") as f:
+                urls = [line.strip() for line in f if line.strip().startswith("http")]
+            if urls:
+                for _ in range(3):
+                    url = random.choice(urls)
+                    try:
+                        resp = requests.get(url, timeout=3)
+                        if resp.status_code == 200:
+                            with open(temp_bg_path, "wb") as f_bg:
+                                f_bg.write(resp.content)
+                            with Image.open(temp_bg_path) as test_img:
+                                test_img.verify()
+                            bg_image = Image.open(temp_bg_path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
+                            break
+                    except Exception as e:
+                        print(f"[Menu BG] Lỗi khi tải ảnh từ URL {url}: {e}")
+                        if os.path.exists(temp_bg_path):
+                            try:
+                                os.remove(temp_bg_path)
+                            except:
+                                pass
+        except Exception as e:
+            print(f"[Menu BG] Lỗi đọc file anime.txt: {e}")
+            
+    if bg_image is None:
+        images = glob.glob(BACKGROUND_PATH + "*.jpg") + glob.glob(BACKGROUND_PATH + "*.png") + glob.glob(BACKGROUND_PATH + "*.jpeg")
+        if images:
+            image_path = random.choice(images)
+            bg_image = Image.open(image_path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
+        else:
+            bg_image = Image.new("RGBA", size, (15, 15, 15, 255))
 
     try:
-        size = (1920, 1400)
-        final_size = (1280, 933) # Proportional resize
-        bg_image = Image.open(image_path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
         bg_image = bg_image.filter(ImageFilter.GaussianBlur(radius=10))  
         overlay = Image.new("RGBA", size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
-        dominant_color = get_dominant_color(image_path)
+        # Trích xuất màu nổi bật để tính toán độ tương phản nếu cần
+        if os.path.exists(temp_bg_path):
+            dominant_color = get_dominant_color(temp_bg_path)
+        else:
+            dominant_color = (15, 15, 15)
         
-        # Transparent dark gray overlay box for superior text contrast
         box_color = (15, 15, 15, 185)
-
         box_x1, box_y1 = 80, 60
         box_x2, box_y2 = size[0] - 80, size[1] - 60
         draw.rounded_rectangle([(box_x1, box_y1), (box_x2, box_y2)], radius=50, fill=box_color)
@@ -442,7 +559,7 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
         formatted_time = vietnam_now.strftime("%H:%M")
         time_icon = "🌤️" if 6 <= hour < 18 else "🌙"
         time_text = f" {formatted_time}"
-        time_color = (255, 255, 255, 255) # Clear white for time
+        time_color = (255, 255, 255, 255)
 
         user_info = self.fetchUserInfo(author_id) if author_id else None
         user_name = "User"
@@ -506,27 +623,24 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
             font_greeting = ImageFont.load_default()
             font_sub_greeting = ImageFont.load_default()
             
-        greeting_color = (255, 215, 0, 255) # Bright Gold Neon color for user greeting
+        greeting_color = (255, 215, 0, 255)
         draw_text_with_shadow(draw, (greeting_x, greeting_y), greeting_text, font_greeting, greeting_color)
         draw.text((greeting_x, greeting_y + 52), sub_greeting_text, font=font_sub_greeting, fill=(200, 200, 200, 255))
 
-        # Header - Time & Date displaying (aligned vertically)
+        # Header - Time & Date
         time_x = box_x2 - 280
         time_y = box_y1 + 30
         try:
-            # Weather / moon icon
             draw_text_with_shadow(draw, (time_x - 65, time_y - 5), time_icon, font_icon, (255, 215, 0, 255))
-            # Clock time (H:i)
             draw.text((time_x, time_y), time_text, font=font_time, fill=time_color)
-            # Date (dd/MM/yyyy)
             formatted_date = vietnam_now.strftime("%d/%m/%Y")
             draw_text_with_shadow(draw, (time_x + 10, time_y + 58), formatted_date, font_date, (180, 180, 180, 255))
         except Exception as e:
             print(f"Error drawing time: {e}")
             
-        # Header - Small bot version info in neon green
+        # Header - Small bot version info
         bot_info_text = f" Bot: {self.me_name} | v{self.version}"
-        bot_info_color = (0, 230, 118, 255) # Cyberpunk Neon Green
+        bot_info_color = (0, 230, 118, 255)
         try:
             font_info_small = ImageFont.truetype(font_arial_path, 20)
         except:
@@ -551,7 +665,7 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
         # Draw total system commands count
         total_commands = len(txacommand.loaded_commands)
         total_commands_text = f" Tổng lệnh: {total_commands}"
-        total_commands_color = (255, 235, 59, 255) # Yellow Neon for high-visibility
+        total_commands_color = (255, 235, 59, 255)
         
         try:
             cmd_emoji_w = draw.textbbox((0, 0), "⚡", font=font_icon)[2]
@@ -592,12 +706,13 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                         first_item = False
                 max_col_height = max(max_col_height, col_h)
             
-            available_height = (box_y2 - 30) - y_start
+            # Để chừa không gian vẽ footer ở bottom
+            available_height = (box_y2 - 65) - y_start
             
             scale = 1.0
             if max_col_height > available_height:
                 scale = available_height / max_col_height
-                scale = max(0.5, scale)  # Limit scaling factor to prevent too small font
+                scale = max(0.5, scale)
                 
             title_font_size = max(12, int(28 * scale))
             cmd_font_size = max(11, int(22 * scale))
@@ -619,7 +734,7 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                 font_desc = ImageFont.load_default()
                 font_bullet = ImageFont.load_default()
 
-            # Beautiful neon palette for multi-colored design (distinct colors per category)
+            # Beautiful neon palette
             neon_palette = [
                 (0, 229, 255, 255),    # Cyan Neon
                 (255, 64, 129, 255),   # Pink Neon
@@ -631,14 +746,13 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
             ]
             color_idx = 0
             
-            desc_color = (235, 235, 235, 255)  # Soft white/gray for descriptions
+            desc_color = (235, 235, 235, 255)
             bullet_color = (180, 180, 180, 255)
 
             for col_idx, col_items in enumerate(columns):
                 x_pos = left_margin + col_idx * (col_width + spacing)
                 y_pos = y_start
                 
-                # Active colors for commands in this category
                 title_color = neon_palette[color_idx % len(neon_palette)]
                 cmd_color = title_color
                 
@@ -647,28 +761,23 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                         if y_pos > y_start:
                             y_pos += gap_step
                             
-                        # Change color dynamically for the next group
                         title_color = neon_palette[color_idx % len(neon_palette)]
                         cmd_color = title_color
                         color_idx += 1
                             
-                        # Split category emoji and draw with emoji font
                         parts = item["text"].split()
                         emoji_part = parts[0] if parts else "❖"
                         text_part = " " + " ".join(parts[1:]) if len(parts) > 1 else ""
                         
                         try:
-                            # Draw category emoji
                             draw.text((x_pos, y_pos), emoji_part, font=font_bullet, fill=title_color)
                             emoji_w = draw.textbbox((0, 0), emoji_part, font=font_bullet)[2]
-                            # Draw category text with spacing
                             current_x = x_pos + emoji_w + 5
                             for char in text_part:
                                 draw_text_with_shadow(draw, (current_x, y_pos), char, font_title, title_color)
                                 char_w = draw.textbbox((0, 0), char, font=font_title)[2]
                                 current_x += char_w + 1
                         except:
-                            # Fallback: draw entire title without per-char spacing
                             current_x = x_pos
                             for char in item["text"]:
                                 if emoji.emoji_count(char) > 0:
@@ -685,11 +794,9 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                         desc_str = f" - {item['desc']}"
                         char_spacing = 1
                         
-                        # Bullet drawing
                         draw.text((x_pos, y_pos), bullet, font=font_cmd, fill=bullet_color)
                         bullet_w = draw.textbbox((0, 0), bullet, font=font_cmd)[2]
                         
-                        # Cmd drawing with proper character spacing
                         current_x = x_pos + bullet_w
                         for char in cmd_str:
                             if emoji.emoji_count(char) > 0:
@@ -701,7 +808,6 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                             current_x += char_w + char_spacing
                         cmd_w = current_x - (x_pos + bullet_w)
                         
-                        # Description drawing (with auto-truncate to fit column, and spacing)
                         avail_width = col_width - bullet_w - cmd_w - 10
                         truncated_desc = desc_str
                         desc_w = 0
@@ -727,7 +833,6 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                                 if desc_w <= avail_width:
                                     break
                                     
-                        # Draw description with spacing
                         current_x = x_pos + bullet_w + cmd_w
                         for char in truncated_desc:
                             if emoji.emoji_count(char) > 0:
@@ -739,6 +844,23 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
                             current_x += char_w + char_spacing
                         y_pos += cmd_height_step
 
+        # 5. Vẽ footer căn giữa
+        if category_name:
+            footer_text = f"📂 Danh mục: {category_name} | CREATE BY TXA"
+        else:
+            footer_text = f"📖 Trang {current_page} / {total_pages} | CREATE BY TXA"
+            
+        try:
+            font_footer = ImageFont.truetype(font_arial_path, 24)
+        except:
+            font_footer = ImageFont.load_default()
+            
+        footer_w = draw.textbbox((0, 0), footer_text, font=font_footer)[2]
+        footer_x = box_x1 + (box_x2 - box_x1 - footer_w) // 2
+        footer_y = box_y2 - 55
+        
+        draw_text_with_shadow(draw, (footer_x, footer_y), footer_text, font_footer, (255, 235, 59, 255))
+
         final_image = Image.alpha_composite(bg_image, overlay)
         final_image = final_image.resize(final_size, Image.Resampling.LANCZOS)
         
@@ -749,12 +871,23 @@ def generate_menu_image(self, author_id, thread_id, thread_type, columns=None):
         final_image.close()
         overlay.close()
         
+        if os.path.exists(temp_bg_path):
+            try:
+                os.remove(temp_bg_path)
+            except:
+                pass
+                
         return OUTPUT_IMAGE_PATH
 
     except Exception as e:
         print(f"❌ Lỗi xử lý ảnh menu: {e}")
         import traceback
         traceback.print_exc()
+        if os.path.exists(temp_bg_path):
+            try:
+                os.remove(temp_bg_path)
+            except:
+                pass
         return None
 
 txa = {

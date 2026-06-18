@@ -150,9 +150,17 @@ def draw_text_with_emoji(
         except Exception:
             font_used = font
 
+        char_fill = fill
+        if char in ("❤", "❤️"):
+            char_fill = (255, 50, 80, 255)  # Trái tim đỏ
+        elif char == "🔁":
+            char_fill = (0, 210, 106, 255)  # Đăng lại (xanh lá CapCut)
+        elif char in ("👁", "👁️", "▶"):
+            char_fill = (0, 200, 255, 255)  # Lượt xem (xanh cyan)
+
         if shadow_color:
             draw.text((x + shadow_offset[0], y + shadow_offset[1]), char, font=font_used, fill=shadow_color)
-        draw.text((x, y), char, font=font_used, fill=fill)
+        draw.text((x, y), char, font=font_used, fill=char_fill)
         x += get_text_size(draw, char, font_used)[0]
     return x, y
 

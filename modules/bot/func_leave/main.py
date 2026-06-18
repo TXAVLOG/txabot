@@ -1,6 +1,7 @@
 import time
 from core.bot_sys import is_admin
 from zlapi.models import *
+from zlapi._exception import ZaloAPIException
 
 def handle_leave_group_command(message, message_object, thread_id, thread_type, author_id, client):
     if not is_admin(client, author_id):
@@ -32,7 +33,7 @@ txa = {
     "name": "pro_leave",
     "desc": "Bot rời khỏi nhóm (Chỉ admin cao). Gửi lời tạm biệt trước khi rời. Admin có thể bật/tắt tính năng.",
     "author": "TXA",
-    "command": ['leave_group'],
+    "command": ['leave_group', 'leave'],
     "t-per": "admin"
 }
 
@@ -41,7 +42,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
     
     dispatch_map = {
-        'leave_group': handle_leave_group_command
+        'leave_group': handle_leave_group_command,
+        'leave': handle_leave_group_command
     }
     
     func = dispatch_map.get(cmd)

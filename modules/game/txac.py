@@ -3,6 +3,7 @@ CONFIG = {
     "title": "Trò chơi",
     "group_by_parent": False,
     "modules": {
-        "freefire/main.py": {"emoji": "🔥", "title": "Free Fire", "cmds": ["ff", "freefire", "uid"]}
+        "freefire/main.py": {"emoji": "🔥", "title": "Free Fire", "cmds": ["ff", "freefire", "uid"]},
+        "lqacc/main.py": {"emoji": "🎮", "title": "LQ Acc", "cmds": ["lqacc"]}
     }
 }

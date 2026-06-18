@@ -1,6 +1,6 @@
-﻿import colorsys
+import colorsys
 from datetime import datetime
-import glob
+import glob, re
 from io import BytesIO
 import json
 import random
@@ -612,10 +612,10 @@ def create_new_txt(filename, content):
     except Exception as e:
         return False, f"Error creating file: {str(e)}"
 
-def handle_allwar_command(bot, message_object, author_id, thread_id, thread_type, command):
+def handle_allwar_command(bot, message_object, author_id, thread_id, thread_type, message):
     def send_response():
         try:
-            parts = command.split()
+            parts = message.split()
             if len(parts) == 1:
                 response = (
                     f"{get_user_name_by_id(bot, author_id)}\n"
@@ -835,33 +835,4 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
             else:
                 args.append(None)
         func(*args)
-def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
-    prefix = getattr(bot, 'prefix', '.')
-    cmd = message_text[len(prefix):].split()[0].lower()
-    
-    dispatch_map = {
-        'allwar': handle_allwar_command
-    }
-    
-    func = dispatch_map.get(cmd)
-    if func:
-        import inspect
-        sig = inspect.signature(func)
-        args_map = {
-            'bot': bot,
-            'client': bot,
-            'message_object': message_object,
-            'thread_id': thread_id,
-            'thread_type': thread_type,
-            'author_id': author_id,
-            'message': message_text,
-            'message_text': message_text,
-            'message_lower': message_text.lower()
-        }
-        args = []
-        for param_name in sig.parameters:
-            if param_name in args_map:
-                args.append(args_map[param_name])
-            else:
-                args.append(None)
-        func(*args)
+

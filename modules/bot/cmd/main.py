@@ -11,7 +11,8 @@ txa = {
     "name": "Command Manager",
     "desc": "Quản lý hệ thống lệnh, tìm kiếm lệnh và gán alias động.",
     "author": "TXA",
-    "command": "cmd"
+    "command": "cmd",
+    "t-per": "admin"
 }
 
 ALIASES_FILE = r"c:\Users\TXA3099\Desktop\Bot\txabot\aliases.json"
