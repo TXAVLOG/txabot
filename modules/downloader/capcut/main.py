@@ -18,7 +18,7 @@ import requests
 import tempfile
 import time
 from PIL import Image
-from zlapi.models import Message
+from zlapi.models import Message, ThreadType
 
 sys.dont_write_bytecode = True
 
@@ -185,12 +185,13 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                     w, h = img.size
                 bot.sendLocalImage(
                     image_path,
-                    message=Message(text=card_text),
+                    message=None,
                     thread_id=thread_id,
                     thread_type=thread_type,
                     width=w,
                     height=h,
                 )
+                bot.replyMessage(Message(text="✅ Video không watermark đang gửi…"), message_object, thread_id, thread_type)
             except Exception:
                 bot.replyMessage(Message(text=card_text), message_object, thread_id, thread_type)
             finally:
@@ -206,6 +207,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
 
         if video_url:
             try:
+                dl_msg = bot.replyMessage(Message(text="⏳ Bot đang tải video về máy chủ..."), message_object, thread_id, thread_type)
+                
                 r_video = requests.get(video_url, stream=True, timeout=60)
                 r_video.raise_for_status()
                 
@@ -217,8 +220,21 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                         if chunk:
                             f.write(chunk)
                 
+                if dl_msg:
+                    try:
+                        if thread_type == ThreadType.GROUP:
+                            bot.deleteGroupMsg(dl_msg.msgId, bot.uid, dl_msg.cliMsgId, thread_id)
+                        else:
+                            bot.undoMessage(dl_msg.msgId, dl_msg.cliMsgId, thread_id, thread_type)
+                    except:
+                        pass
+                
+                bot.replyMessage(Message(text="✅ Đã tải xong! Đang gửi video qua Zalo..."), message_object, thread_id, thread_type)
+                
+                caption = f"🎬 {res.get('title') or res.get('desc') or 'Video CapCut'}\n👤 @{res.get('author') or 'User'}"
                 bot.sendLocalVideo(
                     filePath=temp_video,
+                    message=Message(text=caption),
                     thread_id=thread_id,
                     thread_type=thread_type,
                 )
@@ -229,7 +245,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                     pass
             except Exception as e:
                 bot.replyMessage(
-                    Message(text=f"⚠️ Không gửi được trực tiếp.\n🔗 {video_url}"),
+                    Message(text=f"⚠️ Không gửi được trực tiếp. Lỗi: {e}\n🔗 {video_url}"),
                     message_object, thread_id, thread_type
                 )
         return
@@ -275,8 +291,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         video_url = res.get("video_url") or res.get("url") or res.get("video")
         if video_url:
             bot.replyMessage(Message(text="✅ Đã render thành công! Đang gửi video…"), message_object, thread_id, thread_type)
-            import tempfile
-            import time
             try:
                 r_video = requests.get(video_url, stream=True, timeout=60)
                 r_video.raise_for_status()
@@ -291,6 +305,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                             
                 bot.sendLocalVideo(
                     filePath=temp_video,
+                    message=Message(text="🎬 Render thành công"),
                     thread_id=thread_id,
                     thread_type=thread_type,
                 )
@@ -299,8 +314,8 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
                     os.remove(temp_video)
                 except:
                     pass
-            except Exception:
-                bot.replyMessage(Message(text=f"⚠️ Không gửi trực tiếp được video.\n🔗 {video_url}"), message_object, thread_id, thread_type)
+            except Exception as e:
+                bot.replyMessage(Message(text=f"⚠️ Không gửi trực tiếp được video. Lỗi: {e}\n🔗 {video_url}"), message_object, thread_id, thread_type)
         else:
             bot.replyMessage(Message(text=f"✅ Phản hồi API:\n{json.dumps(res, indent=2, ensure_ascii=False)}"), message_object, thread_id, thread_type)
         return

@@ -775,7 +775,7 @@ def send_tiktok_media(bot, video_url, is_voice_only, thread_id, thread_type, mes
                     print(f"[TikTok] Đang gửi Card hình ảnh...")
                     bot.sendLocalImage(
                         img_path,
-                        message=Message(text="✅ Video không watermark đang gửi…"),
+                        message=None,
                         thread_id=thread_id,
                         thread_type=thread_type,
                         width=w,
@@ -806,6 +806,8 @@ def send_tiktok_media(bot, video_url, is_voice_only, thread_id, thread_type, mes
                     
             try:
                 print(f"[TikTok] Đang tải video về local: {video_dl}")
+                dl_msg = bot.replyMessage(Message(text="⏳ Bot đang tải video về máy chủ..."), message_object, thread_id, thread_type)
+                
                 r_video = requests.get(video_dl, stream=True, timeout=60)
                 r_video.raise_for_status()
                 total_size = int(r_video.headers.get('content-length', 0))
@@ -826,9 +828,22 @@ def send_tiktok_media(bot, video_url, is_voice_only, thread_id, thread_type, mes
                                 print(f"\r[TikTok] Tiến trình tải video: {downloaded} bytes", end="", flush=True)
                 print("\n[TikTok] Đã tải xong video về local.")
                 
+                if dl_msg:
+                    try:
+                        if thread_type == ThreadType.GROUP:
+                            bot.deleteGroupMsg(dl_msg.msgId, bot.uid, dl_msg.cliMsgId, thread_id)
+                        else:
+                            bot.undoMessage(dl_msg.msgId, dl_msg.cliMsgId, thread_id, thread_type)
+                    except:
+                        pass
+                
                 print(f"[TikTok] Đang gửi video local qua Zalo...")
+                bot.replyMessage(Message(text="✅ Đã tải xong! Đang gửi video qua Zalo..."), message_object, thread_id, thread_type)
+                
+                caption = f"🎵 {title}\n👤 @{author}"
                 bot.sendLocalVideo(
                     filePath=temp_video,
+                    message=Message(text=caption),
                     thread_id=thread_id,
                     thread_type=thread_type,
                 )
