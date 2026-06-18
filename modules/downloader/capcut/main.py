@@ -203,15 +203,31 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         cover_url = res.get("cover") or res.get("thumb") or ""
 
         if video_url:
+            import tempfile
+            import time
             try:
-                bot.sendRemoteVideo(
-                    videoUrl=video_url,
-                    thumbnailUrl=cover_url,
-                    duration=0,
+                r_video = requests.get(video_url, stream=True, timeout=60)
+                r_video.raise_for_status()
+                
+                temp_dir = tempfile.gettempdir()
+                temp_video = os.path.join(temp_dir, f"capcut_video_{int(time.time())}.mp4")
+                
+                with open(temp_video, "wb") as f:
+                    for chunk in r_video.iter_content(chunk_size=16384):
+                        if chunk:
+                            f.write(chunk)
+                
+                bot.sendLocalVideo(
+                    filePath=temp_video,
                     thread_id=thread_id,
                     thread_type=thread_type,
                 )
-            except Exception:
+                
+                try:
+                    os.remove(temp_video)
+                except:
+                    pass
+            except Exception as e:
                 bot.replyMessage(
                     Message(text=f"⚠️ Không gửi được trực tiếp.\n🔗 {video_url}"),
                     message_object, thread_id, thread_type
@@ -259,14 +275,30 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         video_url = res.get("video_url") or res.get("url") or res.get("video")
         if video_url:
             bot.replyMessage(Message(text="✅ Đã render thành công! Đang gửi video…"), message_object, thread_id, thread_type)
+            import tempfile
+            import time
             try:
-                bot.sendRemoteVideo(
-                    videoUrl=video_url,
-                    thumbnailUrl="",
-                    duration=0,
+                r_video = requests.get(video_url, stream=True, timeout=60)
+                r_video.raise_for_status()
+                
+                temp_dir = tempfile.gettempdir()
+                temp_video = os.path.join(temp_dir, f"capcut_edit_{int(time.time())}.mp4")
+                
+                with open(temp_video, "wb") as f:
+                    for chunk in r_video.iter_content(chunk_size=16384):
+                        if chunk:
+                            f.write(chunk)
+                            
+                bot.sendLocalVideo(
+                    filePath=temp_video,
                     thread_id=thread_id,
                     thread_type=thread_type,
                 )
+                
+                try:
+                    os.remove(temp_video)
+                except:
+                    pass
             except Exception:
                 bot.replyMessage(Message(text=f"⚠️ Không gửi trực tiếp được video.\n🔗 {video_url}"), message_object, thread_id, thread_type)
         else:
