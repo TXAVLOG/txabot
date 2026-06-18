@@ -13,7 +13,8 @@
         "7319602975426033910",
         "8250562770876580893",
         "1374303912385398896",
-        "6357474793124342616"
+        "6357474793124342616",
+        "9050521661076614651"
     ],
     "welcome": {
         "9050521661076614651": true,
@@ -33,8 +34,8 @@
     "image_enabled": true,
     "rules": {
         "word": {
-            "threshold": 5,
-            "duration": 10
+            "threshold": 7,
+            "duration": 5
         }
     },
     "forbidden_words": [
@@ -117,6 +118,14 @@
                 "duration": 30,
                 "action": "mute",
                 "enabled": true
+            }
+        },
+        "6357474793124342616": {
+            "word": {
+                "enabled": true,
+                "threshold": 7,
+                "duration": 5,
+                "action": "mute"
             }
         }
     },
@@ -228,9 +237,7 @@
     "autosend_content": {
         "6150866603217993790": "vdgirl"
     },
-    "disabled_by_admin": [
-        "9050521661076614651"
-    ],
+    "disabled_by_admin": [],
     "auto_approve_members": {
         "6757453907566220197": true,
         "9050521661076614651": true,
@@ -331,5 +338,16 @@
     },
     "pin": {
         "6150866603217993790": true
+    },
+    "pending_cleanups": {
+        "1512279441003061662": [
+            {
+                "thread_id": "9050521661076614651",
+                "user_msg_id": "7951611468667",
+                "user_cli_msg_id": "1781797979696",
+                "warning_msg_id": 7951611489749,
+                "warning_cli_msg_id": 1781797980497
+            }
+        ]
     }
 }
