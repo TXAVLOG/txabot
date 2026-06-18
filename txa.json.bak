@@ -1,0 +1,28 @@
+{
+    "data": [
+        {
+            "prefix": ",",
+            "session_cookies": {
+                "_zlang": "vn",
+                "_ga": "GA1.2.1872066576.1781168265",
+                "_gid": "GA1.2.43816524.1781168265",
+                "_ga_3EM8ZPYYN3": "GS2.2.s1781168265$o1$g0$t1781168265$j60$l0$h0",
+                "zpsid": "vnD1.440357158.33.u5IKx8DltYMbFk4_Zs_U9VOSh16tN-qGj5xh7QaVs8vRmje8Wgcc3-bltYK",
+                "zpw_sek": "6cPz.440357158.a0.FZqCMvZ-nQY-h_gokVx5gEFSeCEwnEUU_AwfaScgbidDpw32qhAEx__7YV7lm_YAvTIrhZCcQAor_mFGifJ5g0",
+                "__zi": "3000.SSZzejyD6zOgdh2mtnLQWYQN_RAG01ICFjIXe9fEM8WwcUwXcKzUXN6PxA7KJr-5SvhihpGr.1",
+                "__zi-legacy": "3000.SSZzejyD6zOgdh2mtnLQWYQN_RAG01ICFjIXe9fEM8WwcUwXcKzUXN6PxA7KJr-5SvhihpGr.1",
+                "app.event.zalo.me": "1929088958951518796"
+            },
+            "imei": "56062459-fe84-4ab5-aac9-337b7df26510-90daa551604269dbcdcf237b5cc700f3",
+            "is_main_bot": true,
+            "username": "TXA",
+            "author_id": "195390386800941989",
+            "status": true,
+            "gemini_api_key": "AIzaSyByHEsPMvB6WF2QxCpA6ZXV8VeWhw6HuBE",
+            "gemini_model": "gemini-3.1-pro-preview",
+            "openweather_api_key": "a04afb351782e60364704c65d3ac1601",
+            "kairobot_api_key": "d7ae3f5ae66ab7b2b0f60e17c023b2",
+            "kairobot_base_url": "https://kairobot.qzz.io"
+        }
+    ]
+}
