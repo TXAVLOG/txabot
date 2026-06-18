@@ -187,8 +187,9 @@ def _send_as_zalo_sticker(bot, static_url: str, anim_url: str, thread_id, thread
 def txa_command(bot, message_object, thread_id, thread_type, author_id, message_text):
     from zlapi.models import Message, ThreadType
 
+    prefix   = getattr(bot, 'prefix', '.')
     parts    = message_text.strip().split()
-    cmd      = parts[0].lstrip("*!./,").lower() if parts else ""
+    cmd      = parts[0].lstrip(prefix).lower() if parts else ""
     is_pixel = cmd in ("pixel", "pxl")
 
     # ── Lấy URL ảnh ──────────────────────────────────────────────────────
