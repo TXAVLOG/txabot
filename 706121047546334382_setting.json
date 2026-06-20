@@ -81,5 +81,8 @@
     ],
     "auto_approve_members": {
         "6150866603217993790": true
+    },
+    "auto_lock_group": {
+        "6150866603217993790": true
     }
 }
