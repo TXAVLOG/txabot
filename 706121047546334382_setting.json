@@ -77,5 +77,8 @@
     },
     "disabled_by_admin": [
         "6757453907566220197"
-    ]
+    ],
+    "auto_approve_members": {
+        "6150866603217993790": true
+    }
 }

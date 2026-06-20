@@ -29,6 +29,7 @@ OUTPUT_IMAGE_PATH = os.path.join(CACHE_PATH, "bot.png")
 SETTING_FILE = 'setting.json'
 LOG_FILE = 'logs.json'
 MUTED_MESSAGES_FILE = 'muted_messages.json'
+processed_member_events = {}
 
 def get_random_user_agent():
     file_path = "user_agents.txt"
@@ -3981,6 +3982,27 @@ def _is_banner_enabled(settings, thread_id, event_type) -> bool:
 def create_banner(bot, uid: str, thread_id: str, group_name: str = None, 
                  avatar_url: str = None, event_type: str = None, 
                  event_data = None, background_dir: str = "background") -> str:
+    # Tránh xử lý trùng lặp sự kiện tham gia/rời nhóm do cuộc đua giữa Event và Check loop
+    if event_type:
+        now = time.time()
+        # Dọn dẹp các sự kiện cũ hơn 30 giây
+        for k in list(processed_member_events.keys()):
+            if now - processed_member_events[k] > 30:
+                del processed_member_events[k]
+                
+        action = None
+        if event_type == GroupEventType.JOIN:
+            action = "join"
+        elif event_type in (GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
+            action = "leave"
+            
+        if action:
+            event_key = (str(uid), str(thread_id), action)
+            if event_key in processed_member_events:
+                print(f"[create_banner] Bỏ qua sự kiện {action} trùng lặp cho {uid} trong nhóm {thread_id}")
+                return None
+            processed_member_events[event_key] = now
+
     try:
         settings = read_settings(bot.uid)
         if not _is_banner_enabled(settings, thread_id, event_type):
