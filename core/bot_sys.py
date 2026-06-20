@@ -3936,6 +3936,43 @@ def reset_bye_caption(bot, thread_id: str):
         del settings["bye_caption"][thread_id]
         write_settings(bot.uid, settings)
 
+def upload_local_bg() -> str:
+    background_dir = "background"
+    if not os.path.exists(background_dir):
+        return None
+    background_files = [os.path.join(background_dir, f) for f in os.listdir(background_dir) 
+                       if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    if not background_files:
+        return None
+    background_path = random.choice(background_files)
+    
+    # Try Catbox
+    try:
+        url = "https://catbox.moe/user/api.php"
+        with open(background_path, 'rb') as f:
+            files = {
+                'reqtype': (None, 'fileupload'),
+                'fileToUpload': (os.path.basename(background_path), f)
+            }
+            r = requests.post(url, files=files, timeout=10)
+            if r.status_code == 200 and r.text.strip().startswith("https://"):
+                return r.text.strip()
+    except Exception as e:
+        print(f"[upload_local_bg] Catbox error: {e}")
+        
+    # Try Uguuu as fallback
+    try:
+        url = "https://uguu.se/api.php?d=upload-tool"
+        with open(background_path, 'rb') as f:
+            files = {'files[]': f}
+            r = requests.post(url, files=files, timeout=10)
+            if r.status_code == 200:
+                return r.text.strip()
+    except Exception as e:
+        print(f"[upload_local_bg] Uguuu error: {e}")
+        
+    return None
+
 def _is_banner_enabled(settings, thread_id, event_type) -> bool:
     if event_type == GroupEventType.LEAVE:
         return settings.get("goodbye", {}).get(thread_id, False)
@@ -3953,7 +3990,15 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         welcome_type = settings.get("welcome_type", {}).get(thread_id, "welcome")
         if welcome_type == "welcome2" and event_type in (GroupEventType.JOIN, GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
             g_type = "welcome" if event_type == GroupEventType.JOIN else "goodbye"
-            g_bg = settings.get("welcome2_bg", {}).get(thread_id, "https://upload.satoru.click/files/4ff52a.jpg")
+            
+            # Select random local bg and upload it
+            uploaded_bg = None
+            try:
+                uploaded_bg = upload_local_bg()
+            except Exception as bg_err:
+                print(f"[greetings2 API] Lỗi upload ảnh nền local: {bg_err}")
+                
+            g_bg = uploaded_bg if uploaded_bg else settings.get("welcome2_bg", {}).get(thread_id, "https://upload.satoru.click/files/4ff52a.jpg")
             
             member_info = bot.fetchUserInfo(uid).changed_profiles.get(uid)
             if member_info:
@@ -4010,15 +4055,29 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 with Image.open(file_name) as img:
                     w, h = img.size
                 
+                # Define child greeting (lời chào con)
+                if event_type == GroupEventType.JOIN:
+                    sub_text = f"🎉 Chào mừng {user_name} đã đến với nhóm! 👋"
+                    sub_mention = Mention(uid=uid, offset=len("🎉 Chào mừng "), length=len(user_name))
+                elif event_type in (GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
+                    sub_text = f"👋 Tạm biệt {user_name}! Hẹn gặp lại. ✨"
+                    sub_mention = Mention(uid=uid, offset=len("👋 Tạm biệt "), length=len(user_name))
+                else:
+                    sub_text = f"📢 Thông báo thành viên: {user_name}"
+                    sub_mention = Mention(uid=uid, offset=len("📢 Thông báo thành viên: "), length=len(user_name))
+
                 bot.sendMultiLocalImage(
                     [file_name],
                     thread_id=thread_id,
                     thread_type=thread_type,
                     width=w,
                     height=h,
-                    message=_styled_banner_msg(msg_text, mention=mention, event_type=event_type),
+                    message=Message(text=sub_text, mention=sub_mention),
                     ttl=60000 * 60
                 )
+                
+                bot.send(_styled_banner_msg(msg_text, mention=mention, event_type=event_type), thread_id, thread_type)
+                
                 return file_name
             except Exception as e:
                 print(f"[greetings2 API] Lỗi tạo ảnh: {e}, chuyển sang vẽ banner V1")
@@ -4282,15 +4341,28 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
         try:
             banner.convert('RGB').save(file_name, quality=95)
             if event_type:
+                # Define child greeting (lời chào con)
+                if event_type == GroupEventType.JOIN:
+                    sub_text = f"🎉 Chào mừng {user_name} đã đến với nhóm! 👋"
+                    sub_mention = Mention(uid=uid, offset=len("🎉 Chào mừng "), length=len(user_name))
+                elif event_type in (GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
+                    sub_text = f"👋 Tạm biệt {user_name}! Hẹn gặp lại. ✨"
+                    sub_mention = Mention(uid=uid, offset=len("👋 Tạm biệt "), length=len(user_name))
+                else:
+                    sub_text = f"📢 Thông báo thành viên: {user_name}"
+                    sub_mention = Mention(uid=uid, offset=len("📢 Thông báo thành viên: "), length=len(user_name))
+
                 bot.sendMultiLocalImage(
                     [file_name],
                     thread_id=thread_id,
                     thread_type=thread_type,
                     width=banner_width,
                     height=banner_height,
-                    message=_styled_banner_msg(config['msg'], mention=config.get('mention'), event_type=event_type),
+                    message=Message(text=sub_text, mention=sub_mention),
                     ttl=60000 * 60
                 )
+                
+                bot.send(_styled_banner_msg(config['msg'], mention=config.get('mention'), event_type=event_type), thread_id, thread_type)
         except Exception as e:
             print(f"[ERROR] Lỗi khi lưu/gửi banner: {e}")
             return None

@@ -119,7 +119,17 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     # Nhận các tham số với giá trị mặc định được yêu cầu
     avatar = args.get("avatar") or DEFAULT_AVATAR
     username = args.get("username") or DEFAULT_USERNAME
-    bg = args.get("bg") or DEFAULT_BG
+    
+    bg = args.get("bg")
+    if not bg:
+        try:
+            from core.bot_sys import upload_local_bg
+            uploaded_bg = upload_local_bg()
+            bg = uploaded_bg or DEFAULT_BG
+        except Exception as bg_err:
+            print(f"[greetings] Lỗi tải ảnh nền ngẫu nhiên: {bg_err}")
+            bg = DEFAULT_BG
+            
     groupname = args.get("groupname") or DEFAULT_GROUPNAME
     member = args.get("member") or DEFAULT_MEMBER
     
