@@ -16,7 +16,25 @@
         "5766287098679073895": "Toàn Cntt",
         "7549092920976433825": "Tran Anh Quan",
         "5788812850506714167": "Bách Đinh",
-        "702602823514128546": "Nguyễn Ngọc Lam"
+        "702602823514128546": "Nguyễn Ngọc Lam",
+        "2119560608273677832": "Cảnh",
+        "3340562458080328510": "Vu Van Chien",
+        "7681529985443969528": "Hoàng Ngọc Huy",
+        "1299910007340159336": "Nghĩa",
+        "5492677747416382555": "Sĩ Được",
+        "2161361901467216540": "Hoang",
+        "1425455773563884202": "Xuân Hòa",
+        "1988681664926338043": "E S P",
+        "2331470837601481273": "Khó Vẽ Nụ Cười",
+        "4056080028939336488": "Trần Thiên Bảo",
+        "2919890755089753319": "Mew Mew",
+        "197926473777247453": "Thitu",
+        "1466547040693978936": "Ng Tm",
+        "8879647066201065560": "Xuan Nam",
+        "3012080912840994223": "Tuấn",
+        "8531458390169115143": "Chí Thành",
+        "1457116833705256282": "Nguyễn Quang Huy",
+        "2885968044600945775": "Nguyễn Duy Phong"
     },
     "pending_cleanups": {
         "1512279441003061662": [
@@ -40,6 +58,20 @@
                 "user_cli_msg_id": "1781945127705",
                 "warning_msg_id": 7957243164599,
                 "warning_cli_msg_id": 1781945128752
+            },
+            {
+                "thread_id": "6757453907566220197",
+                "user_msg_id": "7957374153901",
+                "user_cli_msg_id": "1781947501055",
+                "warning_msg_id": 7957374246573,
+                "warning_cli_msg_id": 1781947502793
+            },
+            {
+                "thread_id": "9050521661076614651",
+                "user_msg_id": "7957889738437",
+                "user_cli_msg_id": "1781957368539",
+                "warning_msg_id": 7957889776070,
+                "warning_cli_msg_id": 1781957369489
             }
         ]
     },
@@ -52,7 +84,9 @@
         "1512279441003061662"
     ],
     "allowed_thread_ids": [
-        "6150866603217993790"
+        "6150866603217993790",
+        "6757453907566220197",
+        "9050521661076614651"
     ],
     "autodown_enabled": [
         "6150866603217993790"
@@ -76,13 +110,62 @@
         "6757453907566220197": "Chúc mừng em {user} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!",
         "6150866603217993790": "Chúc mừng em {user} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!"
     },
-    "disabled_by_admin": [
-        "6757453907566220197"
-    ],
+    "disabled_by_admin": [],
     "auto_approve_members": {
-        "6150866603217993790": true
+        "6150866603217993790": true,
+        "6757453907566220197": true
     },
     "auto_lock_group": {
-        "6150866603217993790": true
+        "6150866603217993790": true,
+        "6757453907566220197": false
+    },
+    "policies": {
+        "6150866603217993790": {
+            "antiundo": {
+                "enabled": false,
+                "threshold": 3,
+                "duration": 30,
+                "action": "warn"
+            }
+        },
+        "6757453907566220197": {
+            "antiundo": {
+                "enabled": false,
+                "threshold": 3,
+                "duration": 30,
+                "action": "warn"
+            }
+        }
+    },
+    "undo_enabled": {
+        "6150866603217993790": false,
+        "6757453907566220197": false
+    },
+    "autosend": {
+        "9050521661076614651": true
+    },
+    "autosend_schedule": {
+        "9050521661076614651": [
+            "00:00",
+            "01:00",
+            "02:30",
+            "04:00",
+            "05:30",
+            "07:00",
+            "08:30",
+            "10:06",
+            "11:30",
+            "13:00",
+            "14:30",
+            "16:00",
+            "17:30",
+            "19:00",
+            "20:30",
+            "22:06",
+            "23:30"
+        ]
+    },
+    "autosend_content": {
+        "9050521661076614651": "music"
     }
 }
