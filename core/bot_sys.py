@@ -4406,6 +4406,50 @@ def handle_event(client, event_data, event_type):
         thread_id = event_data.groupId
         thread_type = ThreadType.GROUP
         
+        # Xử lý tự động duyệt thành viên yêu cầu vào nhóm
+        if event_type == GroupEventType.JOIN_REQUEST:
+            settings = read_settings(client.uid)
+            auto_approve = settings.get("auto_approve_members", {}).get(thread_id, False)
+            if auto_approve:
+                try:
+                    member_ids = set()
+                    
+                    # 1. Thu thập từ event_data.updateMembers (nếu có)
+                    if hasattr(event_data, 'updateMembers') and event_data.updateMembers:
+                        for member in event_data.updateMembers:
+                            m_id = member.get('id') or member.get('uid') if isinstance(member, dict) else getattr(member, 'id', None) or getattr(member, 'uid', None)
+                            if m_id:
+                                member_ids.add(str(m_id))
+                    
+                    # 2. Thu thập từ các thuộc tính trực tiếp của event_data
+                    for attr in ['sourceId', 'uid', 'src', 'userId']:
+                        if hasattr(event_data, attr):
+                            val = getattr(event_data, attr)
+                            if val:
+                                member_ids.add(str(val))
+                                
+                    # 3. Lấy thêm từ viewGroupPending để đảm bảo không bỏ sót bất kỳ ai đang chờ duyệt
+                    try:
+                        pending = client.viewGroupPending(thread_id)
+                        if pending and hasattr(pending, 'users') and pending.users:
+                            for user in pending.users:
+                                m_id = user.get('uid') or user.get('id') if isinstance(user, dict) else getattr(user, 'uid', None) or getattr(user, 'id', None)
+                                if m_id:
+                                    member_ids.add(str(m_id))
+                    except Exception as pending_err:
+                        print(f"⚠️ Không thể lấy danh sách pending từ viewGroupPending: {pending_err}")
+
+                    # 4. Thực hiện duyệt toàn bộ danh sách thu thập được
+                    for member_id in member_ids:
+                        try:
+                            client.handleGroupPending(member_id, thread_id, isApprove=True)
+                            print(f"✅ Auto-approved member {member_id} for group {thread_id}")
+                        except Exception as approve_err:
+                            print(f"❌ Lỗi auto-approve member {member_id}: {approve_err}")
+                except Exception as check_err:
+                    print(f"❌ Lỗi kiểm tra/duyệt tự động group {thread_id}: {check_err}")
+            return
+
         # Check if event is one that triggers auto lock
         auto_lock_events = [
             GroupEventType.LEAVE,
