@@ -3,7 +3,20 @@
         "6361744959361538091": "Cái Lùm Mía",
         "4015829236921288153": "Hơi Bá Vì Chơi Đá",
         "1512279441003061662": "Xuân Anh",
-        "2116605080385817405": "Alex"
+        "2116605080385817405": "Alex",
+        "7915710820644388536": "Mác Lê Nin",
+        "1957860543817480521": "Lý Văn Nam",
+        "4443675077821554633": "Thanh Phong",
+        "4253677041175525994": "Thân Trọng",
+        "8150062413646537336": "Nguyễn Ngọc Bảo",
+        "4382866498263066289": "Adonis",
+        "810412586667244893": "Danh",
+        "7323499089132785344": "Huỳnh Đức Thiện",
+        "9016436804881224770": "Trịnh Hưng",
+        "5766287098679073895": "Toàn Cntt",
+        "7549092920976433825": "Tran Anh Quan",
+        "5788812850506714167": "Bách Đinh",
+        "702602823514128546": "Nguyễn Ngọc Lam"
     },
     "pending_cleanups": {
         "1512279441003061662": [
@@ -20,6 +33,13 @@
                 "user_cli_msg_id": "1781810285817",
                 "warning_msg_id": 7951792046558,
                 "warning_cli_msg_id": 1781810287693
+            },
+            {
+                "thread_id": "6757453907566220197",
+                "user_msg_id": "7957243109180",
+                "user_cli_msg_id": "1781945127705",
+                "warning_msg_id": 7957243164599,
+                "warning_cli_msg_id": 1781945128752
             }
         ]
     },
@@ -36,5 +56,26 @@
     ],
     "autodown_enabled": [
         "6150866603217993790"
+    ],
+    "weather": {
+        "6150866603217993790": true
+    },
+    "welcome": {
+        "6150866603217993790": true,
+        "6757453907566220197": true
+    },
+    "goodbye": {
+        "6150866603217993790": true,
+        "6757453907566220197": true
+    },
+    "welcome_type": {
+        "6150866603217993790": "welcome",
+        "6757453907566220197": "welcome"
+    },
+    "welcome_caption": {
+        "6757453907566220197": "Chúc mừng em {{user}} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!"
+    },
+    "disabled_by_admin": [
+        "6757453907566220197"
     ]
 }
