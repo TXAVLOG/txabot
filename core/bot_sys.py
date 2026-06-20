@@ -4045,6 +4045,9 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
 
             prefix = getattr(bot, 'prefix', '!')
             type_name = "nhóm"
+            def len_utf16(s: str) -> int:
+                return len(s.encode('utf-16-le')) // 2
+
             welcome_caption = get_welcome_caption(bot, thread_id)
             bye_caption = get_bye_caption(bot, thread_id)
 
@@ -4053,10 +4056,25 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
 
             if event_type == GroupEventType.JOIN:
                 msg_text = join_msg
-                mention = Mention(uid=uid, offset=len("Chào mừng, "), length=len(user_name))
+                # Tìm vị trí của {user} trong caption gốc để tính offset chính xác
+                idx = welcome_caption.find("{user}")
+                if idx != -1:
+                    prefix_text = welcome_caption[:idx]
+                    prefix_formatted = _format_caption(prefix_text, "", group_name, total_members, type_name, ow_name)
+                    mention_offset = len_utf16(prefix_formatted)
+                else:
+                    mention_offset = len_utf16("Chào mừng ")
+                mention = Mention(uid=uid, offset=mention_offset, length=len_utf16(user_name))
             else:
                 msg_text = leave_msg
-                mention = Mention(uid=uid, offset=len("Tạm biệt, "), length=len(user_name))
+                idx = bye_caption.find("{user}")
+                if idx != -1:
+                    prefix_text = bye_caption[:idx]
+                    prefix_formatted = _format_caption(prefix_text, "", group_name, total_members, type_name, ow_name)
+                    mention_offset = len_utf16(prefix_formatted)
+                else:
+                    mention_offset = len_utf16("Tạm biệt ")
+                mention = Mention(uid=uid, offset=mention_offset, length=len_utf16(user_name))
 
             url = "https://apiwebfree.lovable.app/api/greetings2"
             params = {
@@ -4080,13 +4098,13 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 # Define child greeting (lời chào con)
                 if event_type == GroupEventType.JOIN:
                     sub_text = f"🎉 Chào mừng {user_name} đã đến với nhóm! 👋"
-                    sub_mention = Mention(uid=uid, offset=len("🎉 Chào mừng "), length=len(user_name))
+                    sub_mention = Mention(uid=uid, offset=len_utf16("🎉 Chào mừng "), length=len_utf16(user_name))
                 elif event_type in (GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
                     sub_text = f"👋 Tạm biệt {user_name}! Hẹn gặp lại. ✨"
-                    sub_mention = Mention(uid=uid, offset=len("👋 Tạm biệt "), length=len(user_name))
+                    sub_mention = Mention(uid=uid, offset=len_utf16("👋 Tạm biệt "), length=len_utf16(user_name))
                 else:
                     sub_text = f"📢 Thông báo thành viên: {user_name}"
-                    sub_mention = Mention(uid=uid, offset=len("📢 Thông báo thành viên: "), length=len(user_name))
+                    sub_mention = Mention(uid=uid, offset=len_utf16("📢 Thông báo thành viên: "), length=len_utf16(user_name))
 
                 bot.sendMultiLocalImage(
                     [file_name],
@@ -4135,11 +4153,33 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
 
         prefix = getattr(bot, 'prefix', '!')
         type_name = "nhóm"
+        
+        def len_utf16(s: str) -> int:
+            return len(s.encode('utf-16-le')) // 2
+
         welcome_caption = get_welcome_caption(bot, thread_id)
         bye_caption = get_bye_caption(bot, thread_id)
 
         join_msg = _format_caption(welcome_caption, user_name, group_name, total_members, type_name, ow_name)
         leave_msg = _format_caption(bye_caption, user_name, group_name, total_members, type_name, ow_name)
+
+        # Tính offset động cho JOIN
+        join_idx = welcome_caption.find("{user}")
+        if join_idx != -1:
+            join_prefix = welcome_caption[:join_idx]
+            join_prefix_formatted = _format_caption(join_prefix, "", group_name, total_members, type_name, ow_name)
+            join_mention_offset = len_utf16(join_prefix_formatted)
+        else:
+            join_mention_offset = len_utf16("Chào mừng ")
+
+        # Tính offset động cho LEAVE
+        leave_idx = bye_caption.find("{user}")
+        if leave_idx != -1:
+            leave_prefix = bye_caption[:leave_idx]
+            leave_prefix_formatted = _format_caption(leave_prefix, "", group_name, total_members, type_name, ow_name)
+            leave_mention_offset = len_utf16(leave_prefix_formatted)
+        else:
+            leave_mention_offset = len_utf16("Tạm biệt ")
 
         event_config = {
             GroupEventType.JOIN: {
@@ -4148,7 +4188,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 'credit_text': f"Được duyệt bởi {ow_name}" if ow_name else "Đã được duyệt vào nhóm",
                 'banner_sub': f"Thành viên thứ {total_members} • Gõ {prefix}menu để xem",
                 'msg': join_msg,
-                'mention': Mention(uid=uid, offset=len("Chào mừng, "), length=len(user_name))
+                'mention': Mention(uid=uid, offset=join_mention_offset, length=len_utf16(user_name))
             },
             GroupEventType.LEAVE: {
                 'main_text': f'Tạm biệt, {user_name}',
@@ -4156,7 +4196,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 'credit_text': "Đã rời khỏi nhóm",
                 'banner_sub': f"Nhóm còn {total_members} thành viên",
                 'msg': leave_msg,
-                'mention': Mention(uid=uid, offset=len("Tạm biệt, "), length=len(user_name))
+                'mention': Mention(uid=uid, offset=leave_mention_offset, length=len_utf16(user_name))
             },
             GroupEventType.ADD_ADMIN: {
                 'main_text': f'{user_name}',
@@ -4177,7 +4217,7 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 'group_name_text': group_name,
                 'credit_text': f"Bị kick khỏi nhóm bởi {ow_name}" if ow_name else "Đã bị kick khỏi nhóm",
                 'msg': f"{user_name} đã bị loại khỏi nhóm '{group_name}'." if ow_name else f"{user_name} đã bị loại khỏi nhóm '{group_name}'.",
-                'mention': Mention(uid=uid, offset=0, length=len(user_name))
+                'mention': Mention(uid=uid, offset=0, length=len_utf16(user_name))
             },
             GroupEventType.JOIN_REQUEST: {
                 'main_text': f'Yêu cầu tham gia ',
@@ -4366,13 +4406,13 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                 # Define child greeting (lời chào con)
                 if event_type == GroupEventType.JOIN:
                     sub_text = f"🎉 Chào mừng {user_name} đã đến với nhóm! 👋"
-                    sub_mention = Mention(uid=uid, offset=len("🎉 Chào mừng "), length=len(user_name))
+                    sub_mention = Mention(uid=uid, offset=len_utf16("🎉 Chào mừng "), length=len_utf16(user_name))
                 elif event_type in (GroupEventType.LEAVE, GroupEventType.REMOVE_MEMBER):
                     sub_text = f"👋 Tạm biệt {user_name}! Hẹn gặp lại. ✨"
-                    sub_mention = Mention(uid=uid, offset=len("👋 Tạm biệt "), length=len(user_name))
+                    sub_mention = Mention(uid=uid, offset=len_utf16("👋 Tạm biệt "), length=len_utf16(user_name))
                 else:
                     sub_text = f"📢 Thông báo thành viên: {user_name}"
-                    sub_mention = Mention(uid=uid, offset=len("📢 Thông báo thành viên: "), length=len(user_name))
+                    sub_mention = Mention(uid=uid, offset=len_utf16("📢 Thông báo thành viên: "), length=len_utf16(user_name))
 
                 bot.sendMultiLocalImage(
                     [file_name],
