@@ -4521,44 +4521,47 @@ def handle_event(client, event_data, event_type):
         ]
         
         if event_type in auto_lock_events:
-            def lock_then_unlock():
-                try:
-                    # Check if bot itself is admin/creator in this group
-                    is_bot_admin = False
+            settings = read_settings(client.uid)
+            auto_lock = settings.get("auto_lock_group", {}).get(thread_id, False)
+            if auto_lock:
+                def lock_then_unlock():
                     try:
-                        group_info = client.fetchGroupInfo(thread_id)
-                        if group_info and hasattr(group_info, 'gridInfoMap'):
-                            grid_info = group_info.gridInfoMap.get(thread_id, {})
-                            if not grid_info:
-                                grid_info = group_info.gridInfoMap.get(str(thread_id), {})
-                            admins = [str(x) for x in grid_info.get('adminIds', [])]
-                            creator = str(grid_info.get('creatorId', ''))
-                            bot_uid = str(client.uid)
-                            if bot_uid in admins or bot_uid == creator:
-                                is_bot_admin = True
-                    except Exception as ex:
-                        print(f"Lỗi kiểm tra quyền admin của bot: {ex}")
+                        # Check if bot itself is admin/creator in this group
+                        is_bot_admin = False
+                        try:
+                            group_info = client.fetchGroupInfo(thread_id)
+                            if group_info and hasattr(group_info, 'gridInfoMap'):
+                                grid_info = group_info.gridInfoMap.get(thread_id, {})
+                                if not grid_info:
+                                    grid_info = group_info.gridInfoMap.get(str(thread_id), {})
+                                admins = [str(x) for x in grid_info.get('adminIds', [])]
+                                creator = str(grid_info.get('creatorId', ''))
+                                bot_uid = str(client.uid)
+                                if bot_uid in admins or bot_uid == creator:
+                                    is_bot_admin = True
+                        except Exception as ex:
+                            print(f"Lỗi kiểm tra quyền admin của bot: {ex}")
+                            
+                        if not is_bot_admin:
+                            return
+                            
+                        # Lock the group with Zalo API
+                        client.changeGroupSetting(thread_id, lockSendMsg=1)
+                        # Announce lock
+                        client.send(Message(text="🔒 Nhóm đã được khóa tạm thời (60 giây) do có sự thay đổi thành viên/admin!"), thread_id, thread_type)
                         
-                    if not is_bot_admin:
-                        return
+                        # Wait 60 seconds
+                        time.sleep(60)
                         
-                    # Lock the group with Zalo API
-                    client.changeGroupSetting(thread_id, lockSendMsg=1)
-                    # Announce lock
-                    client.send(Message(text="🔒 Nhóm đã được khóa tạm thời (60 giây) do có sự thay đổi thành viên/admin!"), thread_id, thread_type)
-                    
-                    # Wait 60 seconds
-                    time.sleep(60)
-                    
-                    # Unlock the group with Zalo API
-                    client.changeGroupSetting(thread_id, lockSendMsg=0)
-                    # Announce unlock
-                    client.send(Message(text="🔓 Nhóm đã được mở khóa trở lại!"), thread_id, thread_type)
-                except Exception as e:
-                    print(f"Lỗi khi khóa/mở khóa nhóm auto: {e}")
-            
-            # Run in a new thread so we don't block
-            threading.Thread(target=lock_then_unlock, daemon=True).start()
+                        # Unlock the group with Zalo API
+                        client.changeGroupSetting(thread_id, lockSendMsg=0)
+                        # Announce unlock
+                        client.send(Message(text="🔓 Nhóm đã được mở khóa trở lại!"), thread_id, thread_type)
+                    except Exception as e:
+                        print(f"Lỗi khi khóa/mở khóa nhóm auto: {e}")
+                
+                # Run in a new thread so we don't block
+                threading.Thread(target=lock_then_unlock, daemon=True).start()
         
         # Continue with original banner logic
         settings = read_settings(client.uid)

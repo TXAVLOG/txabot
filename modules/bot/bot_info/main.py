@@ -2795,6 +2795,38 @@ def handle_bot_command(bot, message_object, author_id, thread_id, thread_type, c
                         else:
                             response = f"➜ Lệnh {prefix}bot autoapprove {setup_action} không được hỗ trợ 🤧"
 
+                elif action == 'autolock':
+                    if len(parts) < 3:
+                        response = f"➜ Vui lòng nhập [on/off] sau lệnh: {prefix}bot autolock 🤧\n➜ Ví dụ: {prefix}bot autolock on hoặc {prefix}bot autolock off ✅"
+                    else:
+                        setup_action = parts[2].lower()
+                        if setup_action == 'on':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                settings = read_settings()
+                                if 'auto_lock_group' not in settings:
+                                    settings['auto_lock_group'] = {}
+                                settings['auto_lock_group'][thread_id] = True
+                                write_settings(settings)
+                                response = "✅ Tự động khóa nhóm khi thay đổi thành viên/admin đã được BẬT ✅"
+                        elif setup_action == 'off':
+                            if not is_admin(author_id):
+                                response = "❌Bạn không phải admin bot!"
+                            elif thread_type != ThreadType.GROUP:
+                                response = "➜ Lệnh này chỉ khả thi trong nhóm 🤧"
+                            else:
+                                settings = read_settings()
+                                if 'auto_lock_group' not in settings:
+                                    settings['auto_lock_group'] = {}
+                                settings['auto_lock_group'][thread_id] = False
+                                write_settings(settings)
+                                response = "⭕ Tự động khóa nhóm khi thay đổi thành viên/admin đã được TẮT ⭕"
+                        else:
+                            response = f"➜ Lệnh {prefix}bot autolock {setup_action} không được hỗ trợ 🤧"
+
                 elif action == 'block':
                       
                     if len(parts) < 3:
