@@ -40,7 +40,12 @@
         "7410745482261002170": "Nguyễn Bùi Bảo Nguyên",
         "8630536998585662375": "Ng Trung Nghĩa",
         "6381007415823506671": "Phùng Thế Duyệt",
-        "1934642265051564731": "Tăng Xuân Kỳ"
+        "1934642265051564731": "Tăng Xuân Kỳ",
+        "4515723644874153161": "Giang Trần",
+        "1368599183166219676": "Rao By Tuấn Ank",
+        "1661186671700169583": "Tý Nguyễn",
+        "6224531103864815107": "Tiến Nam",
+        "180463663042677475": "Thành Vinh"
     },
     "pending_cleanups": {
         "1512279441003061662": [
@@ -166,10 +171,10 @@
                 "action": "warn"
             },
             "word": {
-                "threshold": 3,
-                "duration": 30,
-                "action": "mute",
-                "enabled": true
+                "enabled": true,
+                "threshold": 5,
+                "duration": 999999,
+                "action": "kick"
             }
         },
         "9050521661076614651": {
@@ -218,7 +223,11 @@
         "chó",
         "Súc vật",
         "Nhầm",
-        "nhầm"
+        "nhầm",
+        "cac",
+        "dmm",
+        "dcm",
+        "dm"
     ],
     "approved_users_expiry": {
         "1934642265051564731": 1782945310.383775,
@@ -234,5 +243,11 @@
     "chat": {
         "9050521661076614651": true,
         "6150866603217993790": true
+    },
+    "rules": {
+        "word": {
+            "threshold": 3,
+            "duration": 5
+        }
     }
 }
