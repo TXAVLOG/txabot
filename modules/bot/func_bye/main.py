@@ -1,9 +1,9 @@
 from core.bot_sys import (
     is_admin,
     read_settings,
-    get_welcome_caption,
-    set_welcome_caption,
-    reset_welcome_caption,
+    get_bye_caption,
+    set_bye_caption,
+    reset_bye_caption,
 )
 from zlapi.models import Message, ThreadType, MessageStyle, MultiMsgStyle
 
@@ -68,7 +68,7 @@ def _send_styled_reply(client, message_object, text, thread_id, thread_type, col
     client.replyMessage(_styled_msg(text, colors), message_object, thread_id=thread_id, thread_type=thread_type, ttl=100000)
 
 
-def handle_welcome_command(message_object, thread_id, thread_type, author_id, client):
+def handle_bye_command(message_object, thread_id, thread_type, author_id, client):
     if not is_admin_or_silver(client, author_id):
         _send_styled_reply(client, message_object, "❌ Bạn không phải Admin Bot hoặc Key Bạc!", thread_id, thread_type)
         return
@@ -78,7 +78,7 @@ def handle_welcome_command(message_object, thread_id, thread_type, author_id, cl
     if len(parts) < 2:
         _send_styled_reply(
             client, message_object,
-            "❌ Thiếu tham số!\n💡 Dùng: welcome set/show/default",
+            "❌ Thiếu tham số!\n💡 Dùng: bye set/show/default",
             thread_id, thread_type
         )
         return
@@ -97,25 +97,25 @@ def handle_welcome_command(message_object, thread_id, thread_type, author_id, cl
                 client, message_object,
                 "❌ Thiếu caption!\n"
                 "💡 Cách dùng:\n"
-                "• Gõ: welcome set <nội dung>\n"
-                "• Hoặc reply tin nhắn rồi gõ: welcome set",
+                "• Gõ: bye set <nội dung>\n"
+                "• Hoặc reply tin nhắn rồi gõ: bye set",
                 thread_id, thread_type
             )
             return
 
-        set_welcome_caption(client, thread_id, caption)
+        set_bye_caption(client, thread_id, caption)
         _send_styled_reply(
             client, message_object,
-            "[ 🎉 CẬP NHẬT THÀNH CÔNG ]\n"
-            "> Caption chào mừng đã được lưu!\n"
-            "> Gõ welcome show để xem.",
+            "[ 👋 CẬP NHẬT THÀNH CÔNG ]\n"
+            "> Caption tạm biệt đã được lưu!\n"
+            "> Gõ bye show để xem.",
             thread_id, thread_type
         )
 
     elif sub == "show":
-        caption = get_welcome_caption(client, thread_id)
+        caption = get_bye_caption(client, thread_id)
         text = (
-            "[ 🎉 CẤU HÌNH CHÀO MỪNG ]\n"
+            "[ 👋 CẤU HÌNH TẠM BIỆT ]\n"
             f"> Caption: {caption}\n"
             ">\n"
             "> 🔮 Biến hỗ trợ:\n"
@@ -128,11 +128,11 @@ def handle_welcome_command(message_object, thread_id, thread_type, author_id, cl
         _send_styled_reply(client, message_object, text, thread_id, thread_type)
 
     elif sub == "default":
-        reset_welcome_caption(client, thread_id)
+        reset_bye_caption(client, thread_id)
         _send_styled_reply(
             client, message_object,
             "[ 🔄 ĐẶT LẠI MẶC ĐỊNH ]\n"
-            "> Caption chào mừng đã được\n"
+            "> Caption tạm biệt đã được\n"
             "> khôi phục về mặc định!",
             thread_id, thread_type
         )
@@ -140,18 +140,18 @@ def handle_welcome_command(message_object, thread_id, thread_type, author_id, cl
     else:
         _send_styled_reply(
             client, message_object,
-            "❌ Tham số không hợp lệ!\n💡 Dùng: welcome set/show/default",
+            "❌ Tham số không hợp lệ!\n💡 Dùng: bye set/show/default",
             thread_id, thread_type
         )
 
 
 txa = {
-    "name": "pro_welcome",
+    "name": "pro_bye",
     "desc": {
-        "welcome": "Quản lý caption chào mừng (Key Bạc)"
+        "bye": "Quản lý caption tạm biệt (Key Bạc)"
     },
     "author": "TXA",
-    "command": ['welcome'],
+    "command": ['bye'],
     "t-per": "s-ad"
 }
 
@@ -161,7 +161,7 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     cmd = message_text[len(prefix):].split()[0].lower()
 
     dispatch_map = {
-        'welcome': handle_welcome_command,
+        'bye': handle_bye_command,
     }
 
     func = dispatch_map.get(cmd)
