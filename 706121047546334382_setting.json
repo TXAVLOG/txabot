@@ -80,7 +80,36 @@
         "6625604981720572048": "Linh Cộng Tác Viên Tuyển Sinh Tdu",
         "6953659527008561634": "Tùng Jun",
         "8269404191633799584": "Dan",
-        "9188981906282001383": "Đệ Tuấn Ank"
+        "9188981906282001383": "Đệ Tuấn Ank",
+        "397487342334789862": "Phan Văn Anh",
+        "8837716127070230215": "Di",
+        "8262367256961815243": "Nguyễn Khánh",
+        "5149556134607878164": "Nguyễn Mạnh Long",
+        "5434269424901908488": "Mr Supermin",
+        "656160105986022265": "Lov Vyy Cutee",
+        "1460635379560814631": "Cry",
+        "6430428308122381663": "Nct",
+        "483923854000814293": "Nguyễn Hoàng Hà",
+        "4830947811020374120": "Trọng Nghĩa",
+        "8334016529764192970": "Thế Bảo",
+        "8559326276523751338": "Nguyễn Cương",
+        "7537989109257158142": "Meanwhile",
+        "4345269965875001391": "Bán Hma",
+        "3267795750713834811": "Chiến",
+        "8768607360908722386": "Tamaco",
+        "1660466035811767657": "Triệu Vỹ",
+        "6434484963447102249": "Tran Van Trung",
+        "2642073194431334344": "Nguyễn Phan Hoàng Sơn",
+        "6479262443224332936": "Alex Qminh",
+        "5069481743002457400": "Hạo Thiên",
+        "2624897957240373263": "Nguyễn Văn Linh",
+        "2538795183481508185": "Nguyễn Phước Thuận",
+        "6087731291944412697": "Bảo",
+        "1048563812058417903": "Linh Le",
+        "7840289063417703340": "Duy Live",
+        "2294076751113027764": "Zino",
+        "2493027683416503035": "Quang Ninh",
+        "5518423570063757559": "Ẻm Sụp Bót Lốc Sì To"
     },
     "pending_cleanups": {
         "1512279441003061662": [
@@ -186,28 +215,35 @@
     },
     "welcome": {
         "6150866603217993790": true,
-        "6757453907566220197": true
+        "6757453907566220197": true,
+        "9181399110809181192": true
     },
     "goodbye": {
         "6150866603217993790": true,
-        "6757453907566220197": true
+        "6757453907566220197": true,
+        "9181399110809181192": false
     },
     "welcome_type": {
         "6150866603217993790": "welcome",
-        "6757453907566220197": "welcome"
+        "6757453907566220197": "welcome",
+        "9181399110809181192": "welcome"
     },
     "welcome_caption": {
         "6757453907566220197": "Chúc mừng em {user} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!",
-        "6150866603217993790": "Chúc mừng em {user} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!"
+        "6150866603217993790": "Chúc mừng em {user} đã gia nhập băng đảng {type} {group} của bọn anh. Trong đây hội tụ rất nhiều anh lớn chị lớn mê phim đến dại người, trên tinh thần hòa đồng và chia sẻ kinh nghiệm nên em cứ yên tâm. Em là thành viên thứ {member} đc boss {admin} duyệt để gia nhập tính tới thời điểm hiện tại. Đã vào băng đảng phải có trách nhiệm vs các anh/chị và chủ động giới thiệu người khác gia nhập băng đảng của chúng ta nha em!\nTrân trọng!",
+        "9050521661076614651": "Chào mừng {name} đến với {type} {group}!\nChúc bạn có những trải nghiệm tốt",
+        "9181399110809181192": "Chào mừng {name} đến với {type} {group}!\nChúc bạn có những trải nghiệm tốt"
     },
     "disabled_by_admin": [],
     "auto_approve_members": {
         "6150866603217993790": true,
-        "6757453907566220197": true
+        "6757453907566220197": true,
+        "9181399110809181192": true
     },
     "auto_lock_group": {
         "6150866603217993790": true,
-        "6757453907566220197": false
+        "6757453907566220197": false,
+        "9181399110809181192": false
     },
     "policies": {
         "6150866603217993790": {
@@ -245,11 +281,20 @@
                 "action": "mute",
                 "enabled": true
             }
+        },
+        "9181399110809181192": {
+            "antiundo": {
+                "enabled": false,
+                "threshold": 3,
+                "duration": 30,
+                "action": "warn"
+            }
         }
     },
     "undo_enabled": {
         "6150866603217993790": false,
-        "6757453907566220197": false
+        "6757453907566220197": false,
+        "9181399110809181192": false
     },
     "autosend": {
         "9050521661076614651": true
