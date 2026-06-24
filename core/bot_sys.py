@@ -3937,6 +3937,43 @@ def reset_bye_caption(bot, thread_id: str):
         del settings["bye_caption"][thread_id]
         write_settings(bot.uid, settings)
 
+DEFAULT_WELCOME_IMAGE = True
+DEFAULT_BYE_IMAGE = True
+
+def get_welcome_image(bot, thread_id: str) -> bool:
+    settings = read_settings(bot.uid)
+    return settings.get("welcome_image", {}).get(thread_id, DEFAULT_WELCOME_IMAGE)
+
+def set_welcome_image(bot, thread_id: str, enabled: bool):
+    settings = read_settings(bot.uid)
+    if "welcome_image" not in settings:
+        settings["welcome_image"] = {}
+    settings["welcome_image"][thread_id] = enabled
+    write_settings(bot.uid, settings)
+
+def reset_welcome_image(bot, thread_id: str):
+    settings = read_settings(bot.uid)
+    if "welcome_image" in settings and thread_id in settings["welcome_image"]:
+        del settings["welcome_image"][thread_id]
+        write_settings(bot.uid, settings)
+
+def get_bye_image(bot, thread_id: str) -> bool:
+    settings = read_settings(bot.uid)
+    return settings.get("bye_image", {}).get(thread_id, DEFAULT_BYE_IMAGE)
+
+def set_bye_image(bot, thread_id: str, enabled: bool):
+    settings = read_settings(bot.uid)
+    if "bye_image" not in settings:
+        settings["bye_image"] = {}
+    settings["bye_image"][thread_id] = enabled
+    write_settings(bot.uid, settings)
+
+def reset_bye_image(bot, thread_id: str):
+    settings = read_settings(bot.uid)
+    if "bye_image" in settings and thread_id in settings["bye_image"]:
+        del settings["bye_image"][thread_id]
+        write_settings(bot.uid, settings)
+
 def upload_local_bg() -> str:
     background_dir = "background"
     if not os.path.exists(background_dir):

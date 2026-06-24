@@ -2,8 +2,8 @@
 """
 Module: greetings.py
 Lệnh: welcome2, goodbye2, chao2, tambiet2
-- welcome2 avatar=<url> username=<name> bg=<url> groupname=<name> member=<number> → Tạo ảnh chào mừng V2
-- goodbye2 avatar=<url> username=<name> bg=<url> groupname=<name> member=<number> → Tạo ảnh tạm biệt V2
+- welcome2 avatar=<url> username=<name> bg=<url> groupname=<name> member=<number> image=<true/false> → Tạo ảnh chào mừng V2
+- goodbye2 avatar=<url> username=<name> bg=<url> groupname=<name> member=<number> image=<true/false> → Tạo ảnh tạm biệt V2
 """
 
 import os
@@ -13,6 +13,7 @@ import re
 import tempfile
 from PIL import Image
 from zlapi.models import Message
+from core.bot_sys import get_welcome_caption, get_bye_caption
 
 sys.dont_write_bytecode = True
 
@@ -87,13 +88,42 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
         greeting_type = "goodbye"
     else:
         greeting_type = "welcome"
+    
+    # Nếu không có tham số, hiển thị hướng dẫn
+    if not arg_text:
+        help_text = f"""📖 Hướng dẫn sử dụng {cmd}:
+━━━━━━━━━━━━━━━━━━
+• Cách dùng cơ bản:
+  {prefix}{cmd} avatar=<url> username=<name> bg=<url> groupname=<name> member=<number> image=<true/false>
+
+• Ví dụ:
+  {prefix}{cmd} avatar=https://example.com/avatar.jpg username=NguyenVanA groupname=MyGroup member=100
+  {prefix}{cmd} image=false username=NguyenVanA
+
+• Tham số:
+  - avatar: URL ảnh đại diện (mặc định: ảnh mặc định)
+  - username: Tên thành viên (mặc định: Satoru)
+  - bg: URL ảnh nền (mặc định: ảnh ngẫu nhiên)
+  - groupname: Tên nhóm (mặc định: Satoru HQ)
+  - member: Số thành viên (mặc định: 57)
+  - image: true/false - Bật/tắt gửi kèm ảnh (mặc định: true)
+
+• Lưu ý:
+  - Nếu image=false, sẽ gửi text theo caption từ welcome/bye v1
+  - Các tham số có thể viết theo dạng key=value hoặc phân tách bằng | hoặc khoảng trắng
+"""
+        bot.replyMessage(
+            Message(text=help_text),
+            message_object, thread_id, thread_type
+        )
+        return
         
     args = {}
     
     if arg_text:
         # 1. Phân tích dạng đặt tên key=value bằng regex (hỗ trợ khoảng trắng trong value)
         if "=" in arg_text:
-            pattern = r'(avatar|username|bg|groupname|member)\s*=\s*(.*?)(?=\s*(?:avatar|username|bg|groupname|member)\s*=|$)'
+            pattern = r'(avatar|username|bg|groupname|member|image)\s*=\s*(.*?)(?=\s*(?:avatar|username|bg|groupname|member|image)\s*=|$)'
             matches = re.findall(pattern, arg_text, re.IGNORECASE)
             for k, v in matches:
                 args[k.lower().strip()] = v.strip()
@@ -133,12 +163,31 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     groupname = args.get("groupname") or DEFAULT_GROUPNAME
     member = args.get("member") or DEFAULT_MEMBER
     
+    # Kiểm tra tham số image (mặc định là true)
+    send_image = args.get("image", "true").lower() in ["true", "1", "yes", "on"]
+    
     # Chuẩn hóa member count
     try:
         member = int(member)
     except (ValueError, TypeError):
         member = 57
 
+    # Nếu không gửi ảnh, chỉ gửi text
+    if not send_image:
+        if greeting_type == "welcome":
+            caption = get_welcome_caption(bot, thread_id)
+        else:
+            caption = get_bye_caption(bot, thread_id)
+        
+        # Format caption với các biến
+        greeting_text = caption.replace("{user}", username).replace("{group}", groupname).replace("{member}", str(member)).replace("{type}", "nhóm").replace("{admin}", "")
+        
+        bot.replyMessage(
+            Message(text=greeting_text),
+            message_object, thread_id, thread_type
+        )
+        return
+    
     # Gửi tin nhắn đang xử lý
     bot.replyMessage(
         Message(text=f"⏳ Đang tạo ảnh {greeting_type} V2…"),

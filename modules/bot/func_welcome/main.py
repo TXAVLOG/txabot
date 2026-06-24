@@ -4,6 +4,9 @@ from core.bot_sys import (
     get_welcome_caption,
     set_welcome_caption,
     reset_welcome_caption,
+    get_welcome_image,
+    set_welcome_image,
+    reset_welcome_image,
 )
 from zlapi.models import Message, ThreadType, MessageStyle, MultiMsgStyle
 
@@ -73,17 +76,80 @@ def handle_welcome_command(message_object, thread_id, thread_type, author_id, cl
         _send_styled_reply(client, message_object, "❌ Bạn không phải Admin Bot hoặc Key Bạc!", thread_id, thread_type)
         return
 
+    prefix = getattr(client, 'prefix', '.')
     content = getattr(message_object, 'content', '') or ''
     parts = content.split(None, 2)
     if len(parts) < 2:
-        _send_styled_reply(
-            client, message_object,
-            "❌ Thiếu tham số!\n💡 Dùng: welcome set/show/default",
-            thread_id, thread_type
-        )
+        help_text = f"""📖 Hướng dẫn lệnh welcome:
+━━━━━━━━━━━━━━━━━━
+• {prefix}welcome set <nội dung> - Đặt caption chào mừng
+• {prefix}welcome show - Xem caption hiện tại
+• {prefix}welcome default - Đặt lại caption mặc định
+• {prefix}welcome image on/off - Bật/tắt gửi kèm ảnh
+• {prefix}welcome image show - Xem trạng thái ảnh
+• {prefix}welcome image default - Đặt lại ảnh mặc định
+
+💡 Biến hỗ trợ trong caption:
+  • {{user}}  → Tên thành viên
+  • {{group}} → Tên nhóm
+  • {{member}}→ Số thành viên
+  • {{type}}  → Loại (nhóm)
+  • {{admin}} → Người duyệt/kick"""
+        _send_styled_reply(client, message_object, help_text, thread_id, thread_type)
         return
 
     sub = parts[1].lower()
+
+    if sub == "image":
+        if len(parts) < 3:
+            _send_styled_reply(
+                client, message_object,
+                f"❌ Thiếu tham số!\n💡 Dùng: {prefix}welcome image on/off/show/default",
+                thread_id, thread_type
+            )
+            return
+        
+        image_sub = parts[2].lower()
+        if image_sub == "on":
+            set_welcome_image(client, thread_id, True)
+            _send_styled_reply(
+                client, message_object,
+                "[ 🖼️ BẬT ẢNH ]\n"
+                "> Đã bật gửi kèm ảnh cho welcome!",
+                thread_id, thread_type
+            )
+        elif image_sub == "off":
+            set_welcome_image(client, thread_id, False)
+            _send_styled_reply(
+                client, message_object,
+                "[ 🖼️ TẮT ẢNH ]\n"
+                "> Đã tắt gửi kèm ảnh cho welcome!",
+                thread_id, thread_type
+            )
+        elif image_sub == "show":
+            enabled = get_welcome_image(client, thread_id)
+            status = "Bật" if enabled else "Tắt"
+            _send_styled_reply(
+                client, message_object,
+                f"[ 🖼️ TRẠNG THÁI ẢNH ]\n"
+                f"> Gửi kèm ảnh welcome: {status}",
+                thread_id, thread_type
+            )
+        elif image_sub == "default":
+            reset_welcome_image(client, thread_id)
+            _send_styled_reply(
+                client, message_object,
+                "[ 🔄 ĐẶT LẠI MẶC ĐỊNH ]\n"
+                "> Cài đặt ảnh đã khôi phục mặc định!",
+                thread_id, thread_type
+            )
+        else:
+            _send_styled_reply(
+                client, message_object,
+                f"❌ Tham số không hợp lệ!\n💡 Dùng: {prefix}welcome image on/off/show/default",
+                thread_id, thread_type
+            )
+        return
 
     if sub == "set":
         caption = None
