@@ -608,6 +608,106 @@ def send_chart_music_content(bot, thread_id, message):
 
     return False
 
+def extract_gdrive_id(url):
+    patterns = [
+        r'/file/d/([a-zA-Z0-9_-]+)',
+        r'id=([a-zA-Z0-9_-]+)',
+        r'/open\?id=([a-zA-Z0-9_-]+)',
+        r'/uc\?.*id=([a-zA-Z0-9_-]+)',
+        r'/folders/([a-zA-Z0-9_-]+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
+
+def is_gdrive_url(url):
+    return 'drive.google.com' in url or 'docs.google.com' in url
+
+def download_from_gdrive(url, output_path):
+    file_id = extract_gdrive_id(url)
+    if not file_id:
+        raise ValueError(f"Khong the trich xuat Google Drive file ID tu: {url}")
+
+    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    session = requests.Session()
+    response = session.get(download_url, stream=True, headers=REQUEST_HEADERS, timeout=30)
+    response.raise_for_status()
+
+    for key, value in session.cookies.items():
+        if key.startswith('download_warning'):
+            download_url += f"&confirm={value}"
+            response = session.get(download_url, stream=True, headers=REQUEST_HEADERS, timeout=300)
+            break
+
+    response.raise_for_status()
+    with open(output_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    return output_path
+
+def send_gdrive_video_content(bot, thread_id, message):
+    try:
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data-send")
+        gdrive_file = os.path.join(data_dir, "vd1a.txt")
+        
+        if not os.path.exists(gdrive_file) or os.path.getsize(gdrive_file) == 0:
+            print("[Autosend GDrive] File vd1a.txt khong ton tai hoac rong")
+            return False
+        
+        links = read_url_file(gdrive_file)
+        if not links:
+            return False
+        
+        video_url = random.choice(links)
+        print(f"[Autosend GDrive] Chon link: {video_url[:100]}...")
+        
+        if is_gdrive_url(video_url):
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            temp_video = os.path.join(temp_dir, f"gdrive_video_{int(time.time())}.mp4")
+            
+            print(f"[Autosend GDrive] Dang tai video tu Google Drive...")
+            download_from_gdrive(video_url, temp_video)
+            file_size = os.path.getsize(temp_video)
+            print(f"[Autosend GDrive] Da tai xong, kich thuoc: {file_size} bytes")
+            
+            from core.bot_sys import upload_file
+            print(f"[Autosend GDrive] Dang upload len Catbox...")
+            upload_url = upload_file(temp_video, "video/mp4")
+            
+            try:
+                os.remove(temp_video)
+            except:
+                pass
+            
+            if not upload_url:
+                print("[Autosend GDrive] Khong the upload video len Catbox")
+                return False
+        else:
+            upload_url = video_url
+        
+        if message:
+            bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP)
+
+        bot.sendRemoteVideo(
+            upload_url,
+            DEFAULT_VIDEO_THUMB_URL,
+            duration='1000',
+            message=None,
+            thread_id=thread_id,
+            thread_type=ThreadType.GROUP,
+            width=1080,
+            height=1920
+        )
+        return True
+        
+    except Exception as e:
+        print(f"[Autosend GDrive] Loi: {type(e).__name__}: {e}")
+        return False
+
 def send_content(bot, thread_id, content_type, message, allow_fallback=True):
     try:
         content_type = normalize_content_type(content_type)
@@ -654,9 +754,11 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
                 return send_fallback_video_content(bot, thread_id, message) if allow_fallback else False
 
         if config["type"] == "video":
-            # Use TikTok EDM remix search instead of random video
-            print(f"[Autosend] type=video: Sử dụng TikTok EDM remix search")
-            return send_tiktok_edm_content(bot, thread_id, message)
+            print(f"[Autosend] type=video: Random chọn nguồn video...")
+            if random.choice([True, False]):
+                return send_tiktok_edm_content(bot, thread_id, message)
+            else:
+                return send_gdrive_video_content(bot, thread_id, message)
         
         elif config["type"] == "random_video":
             return send_content(bot, thread_id, random.choice(VIDEO_CONTENT_TYPES), message, allow_fallback=allow_fallback)
