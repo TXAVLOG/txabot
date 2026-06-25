@@ -5,16 +5,18 @@ import tempfile
 import threading
 import requests
 import random
+import time
 from urllib.parse import urlparse
 from zlapi.models import Message
+from zlapi import ThreadType
 
-KAIROBOT_BASE_URL = os.getenv("KAIROBOT_BASE_URL", "https://kairobot.qzz.io").rstrip("/")
-CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
+CACHE_PATH = "modules/cache/"
+os.makedirs(CACHE_PATH, exist_ok=True)
 
 txa = {
     "name": "Auto Download",
     "desc": {
-        "autodown": "Bật/tắt tự động tải video TikTok khi phát hiện link"
+        "autodown": "Bat/tat tu dong tai video khi phat hien link YouTube, TikTok, Douyin, Facebook"
     },
     "author": "TXA",
     "command": ["autodown"],
@@ -32,24 +34,136 @@ txa = {
             ],
             "notes": [
                 "Bat auto download cho tung nhom rieng biet.",
-                "Khi da bat, bot gap link TikTok se tu dong tai va gui media."
+                "Khi da bat, bot gap link YouTube/TikTok/Douyin/Facebook se tu dong tai va gui media.",
+                "Khi bot tat cho nhom, chi admin bot moi co the su dung autodown."
             ]
         }
     }
 }
 
-# Regex tìm link TikTok
-TIKTOK_REGEX = re.compile(
-    r"https?://(?:www\.|m\.|vm\.|t\.)?tiktok\.com/\S+|https?://vt\.tiktok\.com/\S+",
-    re.IGNORECASE
-)
+PLATFORM_REGEX = {
+    'tiktok': re.compile(
+        r'https?://(?:www\.|m\.|vm\.|t\.)?tiktok\.com/\S+|https?://vt\.tiktok\.com/\S+',
+        re.IGNORECASE
+    ),
+    'youtube': re.compile(
+        r'(?:https?://)?(?:www\.|m\.)?(?:youtube\.com|youtu\.be)'
+        r'(?:/watch\?v=|/embed/|/shorts/|/)([a-zA-Z0-9_-]{11,})',
+        re.IGNORECASE
+    ),
+    'douyin': re.compile(
+        r'(?:https?://)?(?:www\.)?(?:douyin\.com|iesdouyin\.com)'
+        r'(?:/video/|/share/video/|/)(\d+)',
+        re.IGNORECASE
+    ),
+    'facebook': re.compile(
+        r'(?:https?://)?(?:www\.|m\.|mbasic\.)?'
+        r'(?:facebook\.com|fb\.watch|fb\.com)'
+        r'(?:/(?:watch/?\?v=|reel/|video/|share/|plugins/|(?:[^/]+/videos/)))?'
+        r'\S*',
+        re.IGNORECASE
+    ),
+}
+
+PLATFORM_LABELS = {
+    'tiktok': 'TikTok',
+    'youtube': 'YouTube',
+    'douyin': 'Douyin',
+    'facebook': 'Facebook',
+}
+
+_processed_message_ids = set()
+_reacted_message_ids = set()
+
+def detect_platform(url: str):
+    for platform, regex in PLATFORM_REGEX.items():
+        if regex.search(url):
+            return platform
+    return None
+
+def extract_urls_from_message(message_text, message_object):
+    urls = set()
+    url_pattern = re.compile(
+        r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[^\s<>"\'()\[\]{}]*',
+        re.IGNORECASE
+    )
+    if message_text:
+        for m in url_pattern.finditer(message_text):
+            urls.add(m.group(0).rstrip('.,;:!?)'))
+    if message_object:
+        obj_dict = None
+        if hasattr(message_object, '__dict__'):
+            obj_dict = vars(message_object)
+        elif isinstance(message_object, dict):
+            obj_dict = message_object
+        if obj_dict:
+            def _walk(val, depth=0):
+                if depth > 4:
+                    return
+                if isinstance(val, str):
+                    for m in url_pattern.finditer(val):
+                        urls.add(m.group(0).rstrip('.,;:!?)'))
+                elif isinstance(val, dict):
+                    for v in val.values():
+                        _walk(v, depth + 1)
+                elif isinstance(val, (list, tuple)):
+                    for v in val:
+                        _walk(v, depth + 1)
+            _walk(obj_dict)
+    return list(urls)
+
+def read_settings(uid):
+    settings_file = f"{uid}_setting.json"
+    try:
+        with open(settings_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def is_admin(bot, author_id):
+    settings = read_settings(bot.uid)
+    admin_bot = settings.get("admin_bot", [])
+    return author_id in admin_bot
+
+def is_bot_on_for_thread(bot, thread_id):
+    settings = read_settings(bot.uid)
+    allowed = settings.get('allowed_thread_ids', [])
+    return thread_id in allowed
+
+def send_reaction_once(bot, message_object, thread_id, thread_type, reaction):
+    msg_id = None
+    if hasattr(message_object, 'msgId'):
+        msg_id = message_object.msgId
+    if msg_id and msg_id in _reacted_message_ids:
+        return
+    try:
+        bot.sendReaction(message_object, reaction, thread_id, thread_type)
+        if msg_id:
+            _reacted_message_ids.add(msg_id)
+            if len(_reacted_message_ids) > 1000:
+                _reacted_message_ids.clear()
+    except Exception as e:
+        print(f"[AutoDown] Reaction error: {e}")
+
+def fmt_size(bytes_val):
+    if bytes_val >= 1_000_000_000:
+        return f"{bytes_val/1_000_000_000:.2f} GB"
+    if bytes_val >= 1_000_000:
+        return f"{bytes_val/1_000_000:.2f} MB"
+    if bytes_val >= 1_000:
+        return f"{bytes_val/1_000:.2f} KB"
+    return f"{bytes_val} B"
+
+# ─── TIKTOK (uses KaiRobot API) ─────────────────────────────────────────────
+
+KAIROBOT_BASE_URL = os.getenv("KAIROBOT_BASE_URL", "https://kairobot.qzz.io").rstrip("/")
+CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../txa.json"))
 
 def _read_api_key():
     for key in ("KAIROBOT_APIKEY", "KAIROBOT_API_KEY", "TXA_APIKEY", "TXA_API_KEY"):
         value = os.getenv(key)
         if value:
             return value.strip()
-
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             config = json.load(f)
@@ -58,266 +172,205 @@ def _read_api_key():
             value = bot_data.get(key)
             if value:
                 return str(value).strip()
-    except Exception:
+    except:
         pass
     return ""
 
 def _api_get(path, params):
     api_key = _read_api_key()
     if not api_key:
-        raise RuntimeError("Thiếu API key KaiRobot.")
-
+        raise RuntimeError("Thieu API key KaiRobot.")
     payload = dict(params)
     payload["apikey"] = api_key
-    response = requests.get(f"{KAIROBOT_BASE_URL}{path}", params=payload, timeout=30)
-    try:
-        data = response.json()
-    except Exception:
-        data = {"raw": response.text}
-
-    if response.status_code == 401:
-        msg = data.get("message") if isinstance(data, dict) else None
-        raise RuntimeError(msg or "API key KaiRobot không hợp lệ.")
-    response.raise_for_status()
+    resp = requests.get(f"{KAIROBOT_BASE_URL}{path}", params=payload, timeout=30)
+    data = resp.json() if resp.text else {}
+    if resp.status_code == 401:
+        raise RuntimeError(data.get("message", "API key khong hop le."))
+    resp.raise_for_status()
     if isinstance(data, dict) and data.get("success") is False:
-        raise RuntimeError(data.get("message") or data.get("error") or "API trả về trạng thái thất bại.")
+        raise RuntimeError(data.get("message") or data.get("error", "API that bai."))
     return data
 
-def _send_text(bot, thread_id, thread_type, text, reply_to=None):
-    if reply_to:
-        bot.replyMessage(Message(text=text), reply_to, thread_id=thread_id, thread_type=thread_type)
-    else:
-        bot.send(Message(text=text), thread_id=thread_id, thread_type=thread_type)
-
-def _send_video(bot, video_url, thread_id, thread_type, caption):
-    bot.sendRemoteVideo(
-        videoUrl=video_url,
-        thumbnailUrl="https://i.imgur.com/f3nK6z5.jpeg",
-        duration=0,
-        thread_id=thread_id,
-        thread_type=thread_type,
-        width=1080,
-        height=1920,
-        message=Message(text=caption)
-    )
-
-def _send_image(bot, img_url, thread_id, thread_type, caption):
-    path = os.path.join(tempfile.gettempdir(), f"tt_image_{thread_id}_{os.getpid()}.jpeg")
+def download_tiktok_media(bot, url, thread_id, thread_type, message_object):
     try:
-        img_resp = requests.get(img_url, timeout=15)
-        img_resp.raise_for_status()
-        with open(path, "wb") as f:
-            f.write(img_resp.content)
-        bot.sendLocalImage(
-            path,
-            message=Message(text=caption),
-            thread_id=thread_id,
-            thread_type=thread_type,
-            width=1200,
-            height=1200
-        )
-    finally:
-        try:
-            if os.path.exists(path):
-                os.remove(path)
-        except Exception:
-            pass
-
-def _try_send_reaction(bot, message_object, thread_id, thread_type, reaction):
-    # Get message ID
-    message_id = None
-    if hasattr(message_object, 'msgId'):
-        message_id = message_object.msgId
-    elif hasattr(message_object, 'id'):
-        message_id = message_object.id
-    
-    # Only send reaction once per message
-    if message_id and message_id in _reacted_message_ids:
-        return
-        
-    try:
-        bot.sendReaction(message_object, reaction, thread_id, thread_type)
-        if message_id:
-            _reacted_message_ids.add(message_id)
-            # Keep set from growing too large
-            if len(_reacted_message_ids) > 1000:
-                _reacted_message_ids.clear()
-    except Exception:
-        pass
-
-def download_tiktok(bot, message_object, thread_id, thread_type, url):
-    """Tải và gửi video/ảnh TikTok về nhóm."""
-    try:
-        # Gửi reaction chờ
-        _try_send_reaction(bot, message_object, thread_id, thread_type, "⏳")
+        print(f"[AutoDown-TikTok] Dang goi API lay link: {url}")
         data = _api_get("/tiktok/download", {"url": url})
         inner = data.get("data", data) or {}
 
-        # 1) Trường hợp có video_url
-        video_url = (
-            inner.get("video_url")
-            or inner.get("url")
-            or inner.get("download_url")
-        )
+        video_url = (inner.get("video_url") or inner.get("url") or inner.get("download_url"))
         if not video_url and isinstance(inner.get("video"), dict):
             video_url = inner["video"].get("url") or inner["video"].get("play")
 
-        # Check if video_url is actually an image URL
-        is_image_url = False
         if video_url:
-            try:
-                parsed_url = urlparse(video_url)
-                path_lower = parsed_url.path.lower()
-                image_extensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".jxl"]
-                if any(path_lower.endswith(ext) for ext in image_extensions):
-                    is_image_url = True
-            except Exception:
-                pass
-
-        if video_url and not is_image_url:
-            _send_video(bot, video_url, thread_id, thread_type, "🎬 Video TikTok")
-            # Gửi reaction thành công
-            _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
-            return
-
-        # 2) Trường hợp là bài đăng dạng ảnh
-        images = inner.get("images") or inner.get("medias") or []
-        if images:
-            for i, img in enumerate(images):
-                img_url = img.get("url") if isinstance(img, dict) else img
-                if not img_url:
-                    continue
-                _send_image(bot, img_url, thread_id, thread_type,
-                            f"📸 Ảnh TikTok [{i+1}/{len(images)}]")
-            # Gửi reaction thành công
-            _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
-            return
-
-        # Fallback if video_url was identified as an image, but images list is empty
-        if video_url and is_image_url:
-            _send_image(bot, video_url, thread_id, thread_type, "📸 Ảnh TikTok")
-            _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-            _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
-            return
-
-        # 3) Một số API trả về play/hd_play/no_watermark
-        for key in ("play", "hd_play", "no_watermark", "wmplay"):
-            if inner.get(key):
-                fallback_url = inner[key]
-                is_fb_image = False
-                try:
-                    from urllib.parse import urlparse
-                    parsed_url = urlparse(fallback_url)
-                    path_lower = parsed_url.path.lower()
-                    if any(path_lower.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".jxl"]):
-                        is_fb_image = True
-                except Exception:
-                    pass
-
-                if is_fb_image:
-                    _send_image(bot, fallback_url, thread_id, thread_type, "📸 Ảnh TikTok")
-                else:
-                    _send_video(bot, fallback_url, thread_id, thread_type, "🎬 Video TikTok")
-                _try_send_reaction(bot, message_object, thread_id, thread_type, random.choice(["👍", "❤️", "😆", "😮", "🎉", "🔥", "🤩", "✅"]))
-                _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT ✅")
+            parsed = urlparse(video_url)
+            is_img = any(parsed.path.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"])
+            if not is_img:
+                send_reaction_once(bot, message_object, thread_id, thread_type, "Da")
+                print(f"[AutoDown-TikTok] Gui video...")
+                bot.sendRemoteVideo(videoUrl=video_url, thumbnailUrl="", duration=0,
+                                    thread_id=thread_id, thread_type=thread_type,
+                                    width=1080, height=1920, message=Message(text="🎬 TikTok"))
+                print(f"[AutoDown-TikTok] Hoan tat.")
                 return
 
-        raise RuntimeError("Không tìm thấy tệp phương tiện nào để tải xuống.")
+        images = inner.get("images") or inner.get("medias") or []
+        if images:
+            send_reaction_once(bot, message_object, thread_id, thread_type, "Da")
+            for i, img_item in enumerate(images):
+                img_url = img_item.get("url") if isinstance(img_item, dict) else img_item
+                if img_url:
+                    try:
+                        r = requests.get(img_url, timeout=15)
+                        p = os.path.join(tempfile.gettempdir(), f"ttimg_{thread_id}_{i}_{int(time.time())}.jpeg")
+                        with open(p, "wb") as f:
+                            f.write(r.content)
+                        bot.sendLocalImage(p, message=Message(text=f"📸 TikTok [{i+1}/{len(images)}]"),
+                                           thread_id=thread_id, thread_type=thread_type)
+                        try:
+                            os.remove(p)
+                        except:
+                            pass
+                    except:
+                        pass
+            print(f"[AutoDown-TikTok] Da gui {len(images)} anh.")
+            return
+
+        for key in ("play", "hd_play", "no_watermark", "wmplay"):
+            if inner.get(key):
+                fb_url = inner[key]
+                parsed = urlparse(fb_url)
+                is_img = any(parsed.path.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"])
+                send_reaction_once(bot, message_object, thread_id, thread_type, "Da")
+                if is_img:
+                    try:
+                        r = requests.get(fb_url, timeout=15)
+                        p = os.path.join(tempfile.gettempdir(), f"ttimg_{int(time.time())}.jpeg")
+                        with open(p, "wb") as f:
+                            f.write(r.content)
+                        bot.sendLocalImage(p, message=None, thread_id=thread_id, thread_type=thread_type)
+                        try:
+                            os.remove(p)
+                        except:
+                            pass
+                    except:
+                        pass
+                else:
+                    bot.sendRemoteVideo(videoUrl=fb_url, thumbnailUrl="", duration=0,
+                                        thread_id=thread_id, thread_type=thread_type,
+                                        width=1080, height=1920, message=Message(text="🎬 TikTok"))
+                print(f"[AutoDown-TikTok] Hoan tat.")
+                return
+
+        raise RuntimeError("Khong tim thay media.")
     except Exception as e:
-        _send_text(bot, thread_id, thread_type,
-                   f"❌ Lỗi tải xuống TikTok: {str(e)}", message_object)
-        _try_send_reaction(bot, message_object, thread_id, thread_type, "❌")
-        _try_send_reaction(bot, message_object, thread_id, thread_type, "TBOT FAILED ❌")
+        print(f"[AutoDown-TikTok] Loi: {e}")
+        try:
+            send_reaction_once(bot, message_object, thread_id, thread_type, "❌")
+        except:
+            pass
 
-# Store processed message IDs to avoid duplicates
-_processed_message_ids = set()
-# Store messages we've already reacted to
-_reacted_message_ids = set()
+# ─── YT-DLP BASED (YouTube, Douyin, Facebook) ────────────────────────────────
 
-def _extract_all_links(message_text, message_object):
-    """Extract link từ cả message_text và message_object (embed, etc.)"""
-    links = set()
-    # 1) Lấy từ message_text
-    if message_text:
-        links.update(TIKTOK_REGEX.findall(message_text))
-    # 2) Lấy từ message_object: title, desc, hay bất cứ trường nào chứa text
-    if message_object:
-        # Kiểm tra dict nếu có
-        if hasattr(message_object, '__dict__'):
-            obj_dict = vars(message_object)
-            # Duyệt qua các giá trị trong dict
-            for k, v in obj_dict.items():
-                if isinstance(v, str):
-                    links.update(TIKTOK_REGEX.findall(v))
-                elif isinstance(v, dict):
-                    for sk, sv in v.items():
-                        if isinstance(sv, str):
-                            links.update(TIKTOK_REGEX.findall(sv))
-                elif isinstance(v, list):
-                    for item in v:
-                        if isinstance(item, str):
-                            links.update(TIKTOK_REGEX.findall(item))
-    # Trả về danh sách unique links
-    return list(links)
+from modules.utils.ytdlp_downloader import (
+    detect_platform as dl_detect, get_video_info,
+    download_video, _progress_hook_factory, _fmt_size
+)
 
-def _read_settings(uid):
-    """Đọc settings đúng cách dùng từ core.bot_sys"""
-    settings_file = f"{uid}_setting.json"
+def download_with_ytdlp(bot, url, platform, thread_id, thread_type, message_object):
+    label = platform.capitalize()
     try:
-        with open(settings_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+        print(f"[AutoDown-{label}] Dang lay thong tin: {url}")
+        info = get_video_info(url)
+        if not info:
+            print(f"[AutoDown-{label}] Khong lay duoc info.")
+            return
+        title = info.get('title', '') or info.get('description', '') or f"Video {label}"
+        print(f"[AutoDown-{label}] Info: {title[:60]}")
+
+        send_reaction_once(bot, message_object, thread_id, thread_type, "Da")
+
+        out = os.path.join(CACHE_PATH, f"autodown_{platform}_%(id)s.%(ext)s")
+        path = download_video(url, out)
+        if not path or not os.path.exists(path):
+            print(f"[AutoDown-{label}] Tai that bai.")
+            return
+
+        size = os.path.getsize(path)
+        free = 0
+        try:
+            import psutil
+            free = psutil.disk_usage(os.path.abspath('.')).free
+        except:
+            free = size * 2
+        if free < size:
+            print(f"[AutoDown-{label}] Khong du dung luong. Con {_fmt_size(free)}, can {_fmt_size(size)}")
+            try:
+                os.remove(path)
+            except:
+                pass
+            return
+
+        print(f"[AutoDown-{label}] Dang gui video ({_fmt_size(size)})...")
+        caption = f"🎬 {title[:80]}" if platform != 'douyin' else f"🎵 {title[:80]}"
+        bot.sendLocalVideo(filePath=path, message=Message(text=caption),
+                           thread_id=thread_id, thread_type=thread_type)
+
+        try:
+            os.remove(path)
+        except:
+            pass
+        print(f"[AutoDown-{label}] Hoan tat.")
+    except Exception as e:
+        print(f"[AutoDown-{label}] Loi: {e}")
+
+# ─── MAIN LISTENER ───────────────────────────────────────────────────────────
 
 def autodown_listener(bot, message_object, author_id, thread_id, thread_type, message_text):
-    """Listener chính được gọi từ txa.py"""
-    # Get message ID to avoid duplicates
-    message_id = None
+    msg_id = None
     if hasattr(message_object, 'msgId'):
-        message_id = message_object.msgId
-    elif hasattr(message_object, 'id'):
-        message_id = message_object.id
-    
-    # If we have a message ID and we've already processed it, skip
-    if message_id and message_id in _processed_message_ids:
+        msg_id = message_object.msgId
+    if msg_id and msg_id in _processed_message_ids:
         return
-    
-    # Đọc settings
-    settings = _read_settings(bot.uid)
-    enabled_threads = settings.get("autodown_enabled", [])
 
-    # Kiểm tra xem thread hiện tại có enable không
+    settings = read_settings(bot.uid)
+    enabled_threads = settings.get("autodown_enabled", [])
     if thread_id not in enabled_threads:
         return
 
-    # Extract link
-    links = _extract_all_links(message_text, message_object)
-    if not links:
+    bot_on = is_bot_on_for_thread(bot, thread_id)
+    if not bot_on and not is_admin(bot, author_id):
         return
-    
-    # Mark this message as processed if we have an ID
-    if message_id:
-        _processed_message_ids.add(message_id)
-        # Keep the set from growing too large (clean up old entries after 1000 messages)
+
+    urls = extract_urls_from_message(message_text, message_object)
+    if not urls:
+        return
+
+    found_platforms = []
+    for url in urls:
+        platform = detect_platform(url)
+        if platform:
+            found_platforms.append((url, platform))
+            print(f"[AutoDown] >>> Phat hien link {platform}: {url[:80]}...")
+
+    if not found_platforms:
+        return
+
+    if msg_id:
+        _processed_message_ids.add(msg_id)
         if len(_processed_message_ids) > 1000:
-            # Remove oldest half of the set
             _processed_message_ids.clear()
 
-    # Tải từng link (dùng thread để không block)
-    for link in links:
-        threading.Thread(
-            target=download_tiktok,
-            args=(bot, message_object, thread_id, thread_type, link),
-            daemon=True
-        ).start()
+    for url, platform in found_platforms:
+        if platform == 'tiktok':
+            t = threading.Thread(target=download_tiktok_media,
+                                 args=(bot, url, thread_id, thread_type, message_object), daemon=True)
+            t.start()
+        elif platform in ('youtube', 'douyin', 'facebook'):
+            t = threading.Thread(target=download_with_ytdlp,
+                                 args=(bot, url, platform, thread_id, thread_type, message_object), daemon=True)
+            t.start()
 
 def txa_command(bot, message_object, author_id, thread_id, thread_type, message):
-    """
-    Lệnh autodown dùng để bật/tắt cờ autodown cho thread hiện tại.
-    Khi bật, mọi tin nhắn chứa link TikTok sẽ được bot tự tải.
-    """
     settings_file = f"{bot.uid}_setting.json"
     try:
         with open(settings_file, "r", encoding="utf-8") as f:
@@ -329,37 +382,35 @@ def txa_command(bot, message_object, author_id, thread_id, thread_type, message)
     parts = (message or "").strip().split()
     prefix = getattr(bot, "prefix", "")
 
-    # Nếu chỉ gọi lệnh không kèm on/off -> hiển thị trạng thái
     stripped_cmd = (parts[0][len(prefix):] if parts and prefix and parts[0].startswith(prefix) else (parts[0] if parts else "")).lower()
     if len(parts) == 1 and stripped_cmd in ("autodown",):
-        status = "BẬT" if thread_id in enabled_threads else "TẮT"
-        _send_text(
-            bot, thread_id, thread_type,
-            f"🤖 Auto Download hiện đang: {status}\n"
-            f"➜ Dùng `{prefix}autodown on` để bật\n"
-            f"➜ Dùng `{prefix}autodown off` để tắt"
-        )
+        status = "BAT" if thread_id in enabled_threads else "TAT"
+        text = (f"🤖 Auto Download hien dang: {status}\n"
+                f"➜ Dung `{prefix}autodown on` de bat\n"
+                f"➜ Dung `{prefix}autodown off` de tat\n"
+                f"{'─'*20}\n"
+                f"💡 Ho tro: YouTube, TikTok, Douyin, Facebook")
+        bot.send(Message(text=text), thread_id=thread_id, thread_type=thread_type)
         return
 
     action = parts[-1].lower()
     if action == "on":
         if thread_id in enabled_threads:
-            # Đã bật rồi
-            _send_text(bot, thread_id, thread_type, "✅ Auto download TikTok đã BẬT từ trước rồi cho nhóm này!")
+            bot.send(Message(text="✅ Auto download da BAT tu truoc!"), thread_id=thread_id, thread_type=thread_type)
             return
         enabled_threads.append(thread_id)
         settings["autodown_enabled"] = enabled_threads
         with open(settings_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=4)
-        _send_text(bot, thread_id, thread_type, "✅ Đã BẬT auto download TikTok cho nhóm này.")
+        bot.send(Message(text="✅ Da BAT auto download cho nhom nay (YT/TT/DY/FB)."), thread_id=thread_id, thread_type=thread_type)
     elif action == "off":
         if thread_id not in enabled_threads:
-            _send_text(bot, thread_id, thread_type, "✅ Auto download TikTok đã TẮT từ trước rồi cho nhóm này!")
+            bot.send(Message(text="✅ Auto download da TAT tu truoc!"), thread_id=thread_id, thread_type=thread_type)
             return
         enabled_threads.remove(thread_id)
         settings["autodown_enabled"] = enabled_threads
         with open(settings_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=4)
-        _send_text(bot, thread_id, thread_type, "✅ Đã TẮT auto download TikTok cho nhóm này.")
+        bot.send(Message(text="✅ Da TAT auto download cho nhom nay."), thread_id=thread_id, thread_type=thread_type)
     else:
-        _send_text(bot, thread_id, thread_type, "❓ Dùng: autodown on / autodown off")
+        bot.send(Message(text="❓ Dung: autodown on / autodown off"), thread_id=thread_id, thread_type=thread_type)

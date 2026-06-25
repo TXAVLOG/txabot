@@ -3,6 +3,6 @@ CONFIG = {
     "title": "Tự động",
     "group_by_parent": False,
     "modules": {
-        "autodown/main.py": {"emoji": "🎵", "title": "Auto Download TikTok", "cmds": ["autodown"]}
+        "autodown/main.py": {"emoji": "🎵", "title": "Auto Download (YT/TT/DY/FB)", "cmds": ["autodown"]}
     }
 }
