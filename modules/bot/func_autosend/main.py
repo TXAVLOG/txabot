@@ -413,6 +413,104 @@ def send_fallback_video_content(bot, thread_id, message, excluded_type=None):
             return True
     return False
 
+def send_tiktok_edm_content(bot, thread_id, message):
+    """Search TikTok EDM remix, download first result and send"""
+    try:
+        from modules.downloader.tiktok.main import _search_tiktok, _download_tiktok, _normalize_items
+        from core.bot_sys import upload_file
+        import tempfile
+    except Exception as e:
+        print(f"❌ Không import được module TikTok: {e}")
+        return False
+
+    print(f"[Autosend TikTok] Đang search TikTok EDM remix...")
+    
+    try:
+        # Search TikTok EDM remix
+        search_result = _search_tiktok("edm remix", content_type="video", count=5)
+        items = _normalize_items(search_result)
+        
+        if not items:
+            print("❌ Không tìm thấy kết quả TikTok EDM remix")
+            return False
+            
+        # Get first item
+        first_item = items[0]
+        video_url = first_item.get("playUrl") or first_item.get("play") or first_item.get("hdplay") or first_item.get("video_url_no_watermark")
+        
+        if not video_url:
+            print("❌ Không tìm thấy URL video trong kết quả TikTok")
+            return False
+            
+        print(f"[Autosend TikTok] Đã tìm thấy video: {first_item.get('title', 'No title')[:50]}")
+        print(f"[Autosend TikTok] Đang tải video từ TikTok...")
+        
+        # Download video
+        download_result = _download_tiktok(video_url)
+        inner = download_result.get("data") if isinstance(download_result, dict) else download_result
+        
+        if not inner:
+            print("❌ Không thể tải video từ TikTok")
+            return False
+            
+        video_download_url = inner.get("play") or inner.get("hdplay") or inner.get("video_url_no_watermark")
+        
+        if not video_download_url:
+            print("❌ Không tìm thấy URL tải video")
+            return False
+            
+        # Download video file
+        print(f"[Autosend TikTok] Đang tải file video: {video_download_url}")
+        video_response = requests.get(video_download_url, headers=REQUEST_HEADERS, timeout=30)
+        video_response.raise_for_status()
+        
+        # Save to temp file
+        temp_dir = tempfile.gettempdir()
+        temp_video = os.path.join(temp_dir, f"autosend_tiktok_{int(time.time())}.mp4")
+        with open(temp_video, "wb") as f:
+            f.write(video_response.content)
+            
+        print(f"[Autosend TikTok] Đã tải video, kích thước: {len(video_response.content)} bytes")
+        
+        # Upload video
+        print(f"[Autosend TikTok] Đang upload video lên server...")
+        upload_url = upload_file(temp_video, "video/mp4")
+        
+        # Cleanup temp file
+        try:
+            os.remove(temp_video)
+        except:
+            pass
+            
+        if not upload_url:
+            print("❌ Không thể upload video lên server")
+            return False
+            
+        print(f"[Autosend TikTok] Upload thành công: {upload_url}")
+        
+        # Send greeting message FIRST
+        if message:
+            bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP)
+        
+        # Send video
+        bot.sendRemoteVideo(
+            upload_url,
+            DEFAULT_VIDEO_THUMB_URL,
+            duration='1000',
+            message=None,
+            thread_id=thread_id,
+            thread_type=ThreadType.GROUP,
+            width=1080,
+            height=1920
+        )
+        
+        print(f"[Autosend TikTok] ✅ Đã gửi video TikTok EDM remix thành công")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Lỗi khi gửi TikTok EDM content: {e}")
+        return False
+
 def send_chart_music_content(bot, thread_id, message):
     try:
         from modules.music.nhac_zingmp3.main import (
@@ -469,10 +567,9 @@ def send_chart_music_content(bot, thread_id, message):
                     width=width,
                     height=height,
                     message=caption,
-                    ttl=600000,
                 )
             else:
-                bot.send(caption if isinstance(caption, Message) else Message(text=caption), thread_id, ThreadType.GROUP, ttl=600000)
+                bot.send(caption if isinstance(caption, Message) else Message(text=caption), thread_id, ThreadType.GROUP)
         except Exception as msg_err:
             print(f"❌ Lỗi gửi ảnh/lời chúc autosend music: {msg_err}")
             if song_image_path and os.path.exists(song_image_path):
@@ -496,7 +593,6 @@ def send_chart_music_content(bot, thread_id, message):
                     voiceUrl=upload_url,
                     thread_id=thread_id,
                     thread_type=ThreadType.GROUP,
-                    ttl=600000,
                 )
             else:
                 print("❌ Không thể upload audio lên uguu cho autosend music.")
@@ -519,71 +615,48 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
         
         if config["type"] == "remote_video":
             try:
-                video_urls = extract_urls(get_json_with_ssl_fallback(REMOTE_VIDEO_LIST_URL))
-                if not video_urls:
-                    raise ValueError("Danh sách video trống")
-
-                try:
-                    thumb_urls = extract_urls(get_json_with_ssl_fallback(REMOTE_THUMB_LIST_URL))
-                except Exception as thumb_error:
-                    print(f"⚠️ Không tải được thumbnail remote, dùng thumb mặc định: {thumb_error}")
-                    thumb_urls = []
-                thumbnail_url = choose_reachable_url(thumb_urls) or DEFAULT_VIDEO_THUMB_URL
-                video_url = choose_reachable_url(video_urls)
-                if not video_url:
-                    raise ValueError("Không tìm thấy video URL hợp lệ")
-
+                # Send local video 1a.mp4
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+                local_video_path = os.path.join(project_root, "1a.mp4")
+                if not os.path.exists(local_video_path):
+                    raise ValueError(f"File video local không tồn tại: {local_video_path}")
+                
+                # Upload local video
+                from core.bot_sys import upload_file
+                print(f"[Autosend RemoteVD] Đang upload video local: {local_video_path}")
+                upload_url = upload_file(local_video_path, "video/mp4")
+                
+                if not upload_url:
+                    raise ValueError("Không thể upload video local lên server")
+                
+                print(f"[Autosend RemoteVD] Upload thành công: {upload_url}")
+                
                 # Send greeting message FIRST
                 if message:
-                    bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP, ttl=600000)
+                    bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP)
 
                 bot.sendRemoteVideo(
-                    video_url,
-                    thumbnail_url,
+                    upload_url,
+                    DEFAULT_VIDEO_THUMB_URL,
                     duration='1000',
                     message=None,
                     thread_id=thread_id,
                     thread_type=ThreadType.GROUP,
                     width=1080,
-                    height=1920,
-                    ttl=3600000
+                    height=1920
                 )
                 return True
             except Exception as e:
-                print(f"❌ Không tải được video remote ({type(e).__name__}): {e}")
+                print(f"❌ Không gửi được video local ({type(e).__name__}): {e}")
                 if allow_fallback:
                     set_content_type_setting(bot, thread_id, "vdgirl")
                     print("⏩ Nguồn remotevd lỗi, đã chuyển cấu hình autosend của nhóm sang 'vdgirl'.")
                 return send_fallback_video_content(bot, thread_id, message) if allow_fallback else False
 
         if config["type"] == "video":
-            data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data-send")
-            video_file = os.path.join(data_dir, f"{content_type}.txt")
-            urls = read_url_file(video_file)
-            if urls:
-                video_url = choose_reachable_url(urls)
-                if not video_url:
-                    print(f"❌ Không tìm thấy URL video hợp lệ trong {video_file}")
-                    return send_fallback_video_content(bot, thread_id, message, excluded_type=content_type) if allow_fallback else False
-                    
-                # Send greeting message FIRST
-                if message:
-                    bot.send(message if isinstance(message, Message) else Message(text=message), thread_id, ThreadType.GROUP, ttl=600000)
-
-                bot.sendRemoteVideo(
-                    video_url,
-                    DEFAULT_VIDEO_THUMB_URL,
-                    duration='1000000',
-                    message=None,
-                    thread_id=thread_id,
-                    thread_type=ThreadType.GROUP,
-                    width=1080,
-                    height=1920,
-                    ttl=3600000
-                )
-                return True
-            print(f"❌ File video trống hoặc không có URL hợp lệ: {video_file}")
-            return send_fallback_video_content(bot, thread_id, message, excluded_type=content_type) if allow_fallback else False
+            # Use TikTok EDM remix search instead of random video
+            print(f"[Autosend] type=video: Sử dụng TikTok EDM remix search")
+            return send_tiktok_edm_content(bot, thread_id, message)
         
         elif config["type"] == "random_video":
             return send_content(bot, thread_id, random.choice(VIDEO_CONTENT_TYPES), message, allow_fallback=allow_fallback)
