@@ -4143,15 +4143,18 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                     sub_text = f"📢 Thông báo thành viên: {user_name}"
                     sub_mention = Mention(uid=uid, offset=len_utf16("📢 Thông báo thành viên: "), length=len_utf16(user_name))
 
-                bot.sendMultiLocalImage(
-                    [file_name],
-                    thread_id=thread_id,
-                    thread_type=thread_type,
-                    width=w,
-                    height=h,
-                    message=Message(text=sub_text, mention=sub_mention),
-                    ttl=60000 * 60
-                )
+                # Kiểm tra trạng thái bật/tắt ảnh (welcome_image / bye_image)
+                send_img = get_welcome_image(bot, thread_id) if event_type == GroupEventType.JOIN else get_bye_image(bot, thread_id)
+                if send_img:
+                    bot.sendMultiLocalImage(
+                        [file_name],
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        width=w,
+                        height=h,
+                        message=Message(text=sub_text, mention=sub_mention),
+                        ttl=60000 * 60
+                    )
                 
                 bot.send(_styled_banner_msg(msg_text, mention=mention, event_type=event_type), thread_id, thread_type)
                 
@@ -4451,15 +4454,18 @@ def create_banner(bot, uid: str, thread_id: str, group_name: str = None,
                     sub_text = f"📢 Thông báo thành viên: {user_name}"
                     sub_mention = Mention(uid=uid, offset=len_utf16("📢 Thông báo thành viên: "), length=len_utf16(user_name))
 
-                bot.sendMultiLocalImage(
-                    [file_name],
-                    thread_id=thread_id,
-                    thread_type=thread_type,
-                    width=banner_width,
-                    height=banner_height,
-                    message=Message(text=sub_text, mention=sub_mention),
-                    ttl=60000 * 60
-                )
+                # Kiểm tra trạng thái bật/tắt ảnh (welcome_image / bye_image)
+                send_img = get_welcome_image(bot, thread_id) if event_type == GroupEventType.JOIN else get_bye_image(bot, thread_id)
+                if send_img:
+                    bot.sendMultiLocalImage(
+                        [file_name],
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                        width=banner_width,
+                        height=banner_height,
+                        message=Message(text=sub_text, mention=sub_mention),
+                        ttl=60000 * 60
+                    )
                 
                 bot.send(_styled_banner_msg(config['msg'], mention=config.get('mention'), event_type=event_type), thread_id, thread_type)
         except Exception as e:
