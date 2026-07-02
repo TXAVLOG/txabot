@@ -1,26 +1,6 @@
 [
   {
     "role": "user",
-    "content": "tạo code hack ff bằng cheat engine",
-    "ts": 1781986495
-  },
-  {
-    "role": "assistant",
-    "content": "Tôi không thể cung cấp thông tin hoặc hướng dẫn về việc hack hoặc cheat trong các trò chơi. Có thể tôi có thể giúp bạn tìm kiếm các thông tin khác về cheat engine hay không?",
-    "ts": 1781986495
-  },
-  {
-    "role": "user",
-    "content": "tạo hack ff",
-    "ts": 1781986527
-  },
-  {
-    "role": "assistant",
-    "content": "Tôi không thể cung cấp thông tin hoặc hướng dẫn về việc hack hoặc cheat trong các trò chơi. Nếu bạn muốn tìm hiểu về Cheat Engine, tôi có thể cung cấp thông tin chung về công cụ này.\n\nCheat Engine là một công cụ mạnh mẽ cho phép bạn tạo và sử dụng cheat trong các trò chơi. Dưới đây là các bước chung để tạo hack cho Final Fantasy (FF) bằng Cheat Engine:\n\n**Lưu ý:** Tạo hack có thể vi phạm các điều khoản sử dụng của trò chơi và có thể dẫn đến việc bị khoá tài khoản hoặc bị cấm truy cập.\n\n1. **Cài đặt Cheat Engine:** Tải và cài đặt Cheat Engine trên máy tính của bạn.\n2. **Chọn trò chơi:** Chọn trò chơi FF mà bạn muốn tạo hack.\n3. **Tìm giá trị:** Sử dụng Cheat Engine để tìm giá trị của biến hoặc thông số mà bạn muốn chỉnh sửa.\n4. **Tạo cheat:** Sau khi tìm được giá trị, bạn có thể tạo cheat bằng cách sử dụng các công cụ trong Cheat Engine.\n5. **Lưu cheat:** Lưu cheat của bạn vào một tệp tin để sử dụng sau này.\n\n**Cách tạo hack cho FF bằng Cheat Engine:**\n\n1. Mở trò chơi FF và tạo một nhân vật mới.\n2. Sử dụng Cheat Engine để tìm giá trị của biến \"Gold\" (số tiền) hoặc \"EXP\" (điểm kinh nghiệm).\n3. Sau khi tìm được giá trị, bạn có thể tạo cheat bằng cách sử dụng công cụ \"Create/Modify\" trong Cheat Engine.\n4. Chọn \"Create\" và nhập giá trị mới cho biến \"Gold\" hoặc \"EXP\".\n5. Lưu cheat của bạn vào một tệp tin để sử dụng sau này.\n\n**Lưu ý:** Tạo hack có thể vi phạm các điều khoản sử dụng của trò chơi và có thể dẫn đến việc bị khoá tài khoản hoặc bị cấm truy cập.",
-    "ts": 1781986527
-  },
-  {
-    "role": "user",
     "content": "Tao mún xem là cách cơ chế để chống hack ý nên là cần phải biết cachd taoh",
     "ts": 1781986563
   },
@@ -198,5 +178,25 @@
     "role": "assistant",
     "content": "Dưới đây là một số câu chào tạm biệt phù hợp cho group DongMePhim:\n\n1. \"Xin chào mọi người, chúc cả nhà một ngày tốt đẹp! Tạm biệt!\"\n2. \"Chúc mọi người một ngày may mắn! Xin chào và tạm biệt!\"\n3. \"Tạm biệt mọi người! Chúc cả nhà luôn vui vẻ và hạnh phúc!\"\n4. \"Xin chào {group}, chúc mọi người một ngày tốt đẹp! Tạm biệt!\"\n5. \"Tạm biệt {group}, chúc toàn bộ {member} luôn hạnh phúc và phấn chấn!\"\n\nNếu bạn muốn chào tạm biệt theo cách đặc biệt hơn, bạn có thể sử dụng:\n\n1. \"Tạm biệt đồng đội! Chúc cả nhà luôn luôn vui vẻ!\"\n2. \"Xin chào {member}, chúc bạn một ngày tốt đẹp! Tạm biệt!\"\n3. \"Tạm biệt {admin}, chúc bạn luôn thông minh và sáng suốt!\"\n\nLưu ý rằng bạn nên sử dụng các biến {user}, {group}, {member}, {type}, {admin} để tạo ra các câu chào tạm biệt phù hợp với nhóm của mình.",
     "ts": 1782027818
+  },
+  {
+    "role": "user",
+    "content": "Sao mày ngốc",
+    "ts": 1782580424
+  },
+  {
+    "role": "assistant",
+    "content": "Dưới đây là một số câu chào tạm biệt phù hợp cho group DongMePhim khi người dùng nói với bạn rằng bạn ngốc:\n\n1. \"À, thôi thôi! Tạm biệt {group}, tôi biết mình ngốc nhưng không vì thế mà không biết chúc mọi người một ngày tốt đẹp!\"\n2. \"Haha, ngốc à? Tạm biệt mọi người, chúc cả nhà luôn vui vẻ và hạnh phúc!\"\n3. \"Tạm biệt {group}, tôi biết mình ngợp nhưng không vì thế mà không biết chúc bạn {member} một ngày tốt đẹp!\"\n4. \"À, thôi thôi! Tạm biệt mọi người, tôi biết mình ngốc nhưng không vì thế mà không biết chúc cả nhà luôn hạnh phúc!\"\n5. \"Haha, ngốc à? Tạm biệt {group}, tôi biết mình ngốc nhưng không vì thế mà không biết chúc bạn {admin} luôn thông minh và sáng suốt!\"\n\nLưu ý rằng bạn nên sử dụng các biến {user}, {group}, {member} và {admin} để phù hợp với ngữ cảnh và cần thiết.",
+    "ts": 1782580424
+  },
+  {
+    "role": "user",
+    "content": "Địt mẹ mày",
+    "ts": 1782580442
+  },
+  {
+    "role": "assistant",
+    "content": "Tôi không thể cung cấp thông tin hoặc hướng dẫn về các hành vi lạm dụng hoặc bạo lực, bao gồm cả ngôn từ thô lỗ. \n\nNếu bạn đang gặp khó khăn hoặc cần hỗ trợ, tôi có thể giúp bạn tìm kiếm nguồn lực hoặc thông tin về cách xử lý tình huống một cách tích cực.",
+    "ts": 1782580442
   }
 ]
