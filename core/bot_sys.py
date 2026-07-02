@@ -5054,23 +5054,68 @@ def create_rotating_webp(image_url, cache_path=None):
     import io
     import os
     import tempfile
+    import random
+    import glob
     
     if not cache_path:
         cache_path = "modules/cache/"
         
     try:
-        if os.path.exists(image_url):
-            avatar = Image.open(image_url).convert('RGBA')
+        bg_image = None
+        # Load from image_url (which could be a Zalo CDN URL or local path)
+        if image_url:
+            try:
+                if os.path.exists(image_url):
+                    bg_image = Image.open(image_url).convert('RGBA')
+                else:
+                    ua = get_random_user_agent()
+                    headers = {"User-Agent": ua}
+                    response = requests.get(image_url, headers=headers, timeout=10)
+                    response.raise_for_status()
+                    bg_image = Image.open(io.BytesIO(response.content)).convert('RGBA')
+            except Exception as e:
+                print(f"Error loading image_url: {e}")
+                
+        if not bg_image:
+            # Fallback to random background image
+            bg_dir = "background/"
+            images = glob.glob(bg_dir + "*.jpg") + glob.glob(bg_dir + "*.png") + glob.glob(bg_dir + "*.jpeg")
+            if images:
+                bg_path = random.choice(images)
+                bg_image = Image.open(bg_path).convert("RGBA")
+            else:
+                # If no backgrounds, create a solid color one
+                bg_image = Image.new("RGBA", (512, 512), (79, 183, 155, 255))
+                
+        # Now implement the high quality animated disc sticker creation logic:
+        base_size = 512
+        scale = 2
+        work_size = base_size * scale
+
+        w, h = bg_image.size
+        if w > h:
+            left = (w - h) // 2
+            bg_square_src = bg_image.crop((left, 0, left + h, h))
         else:
-            ua = get_random_user_agent()
-            headers = {"User-Agent": ua}
-            response = requests.get(image_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            avatar = Image.open(io.BytesIO(response.content)).convert('RGBA')
-            
-        # Get dominant color of cover image to make dynamic border
+            top = (h - w) // 2
+            bg_square_src = bg_image.crop((0, top, w, top + w))
+
+        square_size = 340 * scale
+        square_x = 20 * scale
+        square_y = (work_size - square_size) // 2
+        square_radius = 40 * scale
+
+        square_img = bg_square_src.resize((square_size, square_size), Image.Resampling.LANCZOS)
+        mask_square = Image.new('L', (square_size, square_size), 0)
+        draw_mask_square = ImageDraw.Draw(mask_square)
+        draw_mask_square.rounded_rectangle((0, 0, square_size, square_size),
+                                           radius=square_radius, fill=255)
+        square_rounded = Image.new('RGBA', (square_size, square_size), (0, 0, 0, 0))
+        square_rounded.paste(square_img, (0, 0), mask=mask_square)
+
+        # Get dominant color of bg_image for dynamic border coloring (similar to create_rotating_webp)
         try:
-            small_img = avatar.resize((50, 50), Image.Resampling.NEAREST)
+            small_img = bg_image.resize((50, 50), Image.Resampling.NEAREST)
             pixels = list(small_img.getdata())
             r_sum, g_sum, b_sum = 0, 0, 0
             count = 0
@@ -5082,131 +5127,120 @@ def create_rotating_webp(image_url, cache_path=None):
                 b_sum += pix[2]
                 count += 1
             if count > 0:
-                dom_color = (r_sum // count, g_sum // count, b_sum // count, 255)
+                dom_color = (r_sum // count, g_sum // count, b_sum // count)
             else:
-                dom_color = (79, 183, 155, 255)
+                dom_color = (79, 183, 155)
         except Exception:
-            dom_color = (79, 183, 155, 255)
-            
-        canvas_size = (510, 510)
-        card_pos = (20, 85)
-        card_size = (340, 340)
-        card_radius = 40
-        card_border_width = 8
-        card_border_color = dom_color
-        
-        disc_center = (433, 255)
-        disc_radius = 73
-        disc_border_color = (196, 46, 158, 255) # Magenta
-        disc_body_color = (20, 20, 20, 255)
-        
-        # 1. Create the Vinyl Disc Image (146x146)
-        disc_img = Image.new("RGBA", (disc_radius * 2, disc_radius * 2), (0, 0, 0, 0))
-        draw_disc = ImageDraw.Draw(disc_img)
-        
-        # Outer colored ring (magenta)
-        draw_disc.ellipse([0, 0, disc_radius * 2, disc_radius * 2], fill=disc_border_color)
-        
-        # Black disc body (slightly smaller than border)
-        border_inset = 4
-        draw_disc.ellipse([border_inset, border_inset, disc_radius * 2 - border_inset, disc_radius * 2 - border_inset], fill=disc_body_color)
-        
-        # Vinyl grooves (concentric circles)
-        for r in [65, 57, 49, 41]:
-            draw_disc.ellipse(
-                [disc_radius - r, disc_radius - r, disc_radius + r, disc_radius + r],
-                outline=(60, 60, 60, 255),
-                width=1
-            )
-            
-        # Center crop of the cover image
-        crop_radius = 38
-        center_crop_size = crop_radius * 2
-        cropped_cover = ImageOps.fit(avatar, (center_crop_size, center_crop_size), centering=(0.5, 0.5))
-        mask = Image.new("L", (center_crop_size, center_crop_size), 0)
-        draw_mask = ImageDraw.Draw(mask)
-        draw_mask.ellipse((0, 0, center_crop_size, center_crop_size), fill=255)
-        cropped_cover.putalpha(mask)
-        
-        # Paste center crop onto disc
-        disc_img.paste(cropped_cover, (disc_radius - crop_radius, disc_radius - crop_radius), cropped_cover)
-        
+            dom_color = (79, 183, 155)
+
+        color_square_border = dom_color
+        border_width = 8 * scale
+
+        R_outer = 147 * scale
+        border_disc = border_width
+        black_ring = 62 * scale
+        R_black = R_outer - border_disc
+        R_inner = 73 * scale
+
+        cx = square_x + square_size
+        cy = square_y + square_size // 2
+
+        # Use a contrasting or complementary color for the disc outer border
+        color_disc_border = (255 - dom_color[0], 255 - dom_color[1], 255 - dom_color[2])
+
+        core_size = 2 * R_inner
+        bg_core = bg_square_src.resize((core_size, core_size), Image.Resampling.LANCZOS)
+
+        disc_size = 2 * R_outer
+        disc_base = Image.new('RGBA', (disc_size, disc_size), (0, 0, 0, 0))
+        draw_disc = ImageDraw.Draw(disc_base)
+        draw_disc.ellipse((0, 0, disc_size, disc_size), fill=color_disc_border)
+
+        black_size = 2 * R_black
+        offset_black = (disc_size - black_size) // 2
+        draw_disc.ellipse((offset_black, offset_black, offset_black + black_size, offset_black + black_size),
+                          fill=(20, 20, 20, 255))
+
+        # Add vinyl grooves (lines) to make it look even cooler!
+        for r in [R_black - 16*scale, R_black - 32*scale, R_black - 48*scale]:
+            offset_groove = (disc_size - 2*r) // 2
+            draw_disc.ellipse((offset_groove, offset_groove, offset_groove + 2*r, offset_groove + 2*r),
+                              outline=(60, 60, 60, 255), width=1*scale)
+
+        mask_core = Image.new('L', (core_size, core_size), 0)
+        draw_mask_core = ImageDraw.Draw(mask_core)
+        draw_mask_core.ellipse((0, 0, core_size, core_size), fill=255)
+
         # Center spindle hole
-        hole_radius = 4
-        draw_disc.ellipse(
-            [disc_radius - hole_radius, disc_radius - hole_radius, disc_radius + hole_radius, disc_radius + hole_radius],
-            fill=(150, 150, 150, 255),
-            outline=(100, 100, 100, 255),
-            width=1
-        )
-        
-        # 2. Create the Cover Card Image (340x340)
-        card_img = Image.new("RGBA", card_size, (0, 0, 0, 0))
-        draw_card = ImageDraw.Draw(card_img)
-        
-        # Resize cover to fit inside card with border inset
-        inner_card_size = (card_size[0] - card_border_width * 2, card_size[1] - card_border_width * 2)
-        resized_cover = ImageOps.fit(avatar, inner_card_size, centering=(0.5, 0.5))
-        
-        # Create rounded mask for cover
-        mask_card = Image.new("L", inner_card_size, 0)
-        draw_mask_card = ImageDraw.Draw(mask_card)
-        draw_mask_card.rounded_rectangle(
-            [0, 0, inner_card_size[0], inner_card_size[1]],
-            radius=card_radius - card_border_width,
-            fill=255
-        )
-        resized_cover.putalpha(mask_card)
-        
-        # Paste cover with border offset
-        card_img.paste(resized_cover, (card_border_width, card_border_width), resized_cover)
-        
-        # Draw rounded card border
-        draw_card.rounded_rectangle(
-            [card_border_width//2, card_border_width//2, card_size[0] - card_border_width//2, card_size[1] - card_border_width//2],
-            radius=card_radius,
-            outline=card_border_color,
-            width=card_border_width
-        )
-        
-        # Save static image (first frame)
+        hole_radius = 4 * scale
+
+        # Generate frames
+        # We can optimize the number of frames to 60 for smooth slow loop (3 seconds at 20fps)
+        num_frames = 60
+        frames = []
+
+        # Create static image (first frame) as required by the return signature
         os.makedirs(cache_path, exist_ok=True)
         static_temp = tempfile.NamedTemporaryFile(suffix='_static.png', delete=False, dir=cache_path)
         static_file_name = static_temp.name
         static_temp.close()
-        
-        static_canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-        disc_offset = (disc_center[0] - disc_radius, disc_center[1] - disc_radius)
-        static_canvas.paste(disc_img, disc_offset, disc_img)
-        static_canvas.paste(card_img, card_pos, card_img)
-        static_canvas.save(static_file_name, format="PNG")
-        
-        # Generate frames for the animated WEBP
-        frames = []
-        num_frames = 30
-        for i in range(num_frames):
-            angle = i * (360 / num_frames)
-            # Only the vinyl disc rotates!
-            rotated_disc = disc_img.rotate(-angle, resample=Image.Resampling.BICUBIC)
-            
-            frame_canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-            frame_canvas.paste(rotated_disc, disc_offset, rotated_disc)
-            frame_canvas.paste(card_img, card_pos, card_img)
-            frames.append(frame_canvas)
-            
+
+        for frame_idx in range(num_frames):
+            frame = Image.new('RGBA', (work_size, work_size), (0, 0, 0, 0))
+
+            disc_img = disc_base.copy()
+
+            angle = - (frame_idx / num_frames) * 360
+            rotated_core = bg_core.rotate(angle, resample=Image.Resampling.BICUBIC, expand=False)
+
+            core_with_mask = Image.new('RGBA', (core_size, core_size), (0, 0, 0, 0))
+            core_with_mask.paste(rotated_core, (0, 0), mask_core)
+
+            core_offset = (disc_size - core_size) // 2
+            disc_img.paste(core_with_mask, (core_offset, core_offset), core_with_mask)
+
+            # Spindle hole
+            draw_disc_with_hole = ImageDraw.Draw(disc_img)
+            draw_disc_with_hole.ellipse(
+                [disc_size//2 - hole_radius, disc_size//2 - hole_radius, disc_size//2 + hole_radius, disc_size//2 + hole_radius],
+                fill=(150, 150, 150, 255),
+                outline=(100, 100, 100, 255),
+                width=1*scale
+            )
+
+            frame.paste(disc_img, (cx - R_outer, cy - R_outer), disc_img)
+            frame.paste(square_rounded, (square_x, square_y), square_rounded)
+
+            draw_frame = ImageDraw.Draw(frame)
+            draw_frame.rounded_rectangle(
+                [square_x, square_y, square_x + square_size, square_y + square_size],
+                radius=square_radius,
+                outline=color_square_border,
+                width=border_width
+            )
+
+            frame_resized = frame.resize((base_size, base_size), Image.Resampling.LANCZOS)
+            frames.append(frame_resized)
+
+        # Save static image (first frame)
+        frames[0].save(static_file_name, format="PNG")
+
+        # Save animated WEBP
         temp_file = tempfile.NamedTemporaryFile(suffix='.webp', delete=False, dir=cache_path)
         temp_file_name = temp_file.name
         temp_file.close()
-        
+
         frames[0].save(
             temp_file_name,
             save_all=True,
             append_images=frames[1:],
-            duration=50,
+            duration=50, # 50ms per frame = 20 fps
             loop=0,
-            format="WEBP"
+            format="WEBP",
+            quality=85
         )
         return static_file_name, temp_file_name
+
     except Exception as e:
         print(f"Lỗi khi tạo WebP đĩa xoay: {e}")
         return None

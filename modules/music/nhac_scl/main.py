@@ -1242,7 +1242,7 @@ def _play_and_send_song(song, username, author_id, thread_id, thread_type, messa
             msg = _music_styled_msg(text=text, mention=mention)
             client.send(msg, thread_id, thread_type, ttl=60000)
             time.sleep(0)
-            client.sendLocalImage(song_image_path, thread_id, thread_type, width=width, height=height, ttl=600000)
+            client.sendLocalImage(song_image_path, thread_id, thread_type, width=width, height=height, ttl=0)
             time.sleep(0)
 
             try:
@@ -1251,15 +1251,15 @@ def _play_and_send_song(song, username, author_id, thread_id, thread_type, messa
                     try:
                         webp_url = upload_to_uguu(animated_disc_path)
                         if webp_url:
-                            client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, 
-                                                    thread_id=thread_id, thread_type=thread_type, ttl=600000)
-                            time.sleep(0)
+                             client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, 
+                                                     thread_id=thread_id, thread_type=thread_type, ttl=0)
+                             time.sleep(0)
                     finally:
                         delete_file(animated_disc_path)
             except Exception as disc_err:
                 print("Lỗi tạo/gửi sticker đĩa xoay SCL:", disc_err)
 
-            client.sendRemoteVoice(voiceUrl=upload_response, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+            client.sendRemoteVoice(voiceUrl=upload_response, thread_id=thread_id, thread_type=thread_type, ttl=0)
         except Exception as e:
             print(f"[ERROR] Lỗi khi gửi bài hát: {e}")
             text = f"🚦{username}, lỗi khi gửi bài hát: {str(e)}"

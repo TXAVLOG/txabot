@@ -943,10 +943,10 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
             if song_image_path and os.path.exists(song_image_path):
                 with Image.open(song_image_path) as img:
                     w, h = img.size
-                client.sendLocalImage(song_image_path, thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=600000)
+                client.sendLocalImage(song_image_path, thread_id=thread_id, thread_type=thread_type, width=w, height=h, ttl=0)
                 delete_file(song_image_path)
 
-            client.sendRemoteVoice(voiceUrl=upload_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+            client.sendRemoteVoice(voiceUrl=upload_url, thread_id=thread_id, thread_type=thread_type, ttl=0)
 
             try:
                 cover_url = song.get("thumbnail")
@@ -959,7 +959,7 @@ def handle_nct_command(message, message_object, thread_id, thread_type, author_i
                         try:
                             webp_url = upload_to_uguu(animated_path)
                             if webp_url:
-                                client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=600000)
+                                client.send_custom_sticker(staticImgUrl=webp_url, animationImgUrl=webp_url, thread_id=thread_id, thread_type=thread_type, ttl=0)
                         finally:
                             delete_file(animated_path)
             except Exception as disc_err:

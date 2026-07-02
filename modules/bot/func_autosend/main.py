@@ -1,17 +1,32 @@
-from config import prefix
-from datetime import datetime, timedelta
+import re
 import os
 import random
 import threading
 import time
-from zlapi.models import *
-import pytz
 import requests
 import json
+import tempfile
+import inspect
+import pytz
 from urllib.parse import urlparse
 from PIL import Image
-from core.bot_sys import get_user_name_by_id, read_settings, write_settings, is_admin, convert_to_m4a, zalo_len
+from datetime import datetime, timedelta
+
+from config import prefix
+from zlapi.models import *
+from core.bot_sys import get_user_name_by_id, read_settings, write_settings, is_admin, convert_to_m4a, zalo_len, upload_file
 from modules.utils.image_sender import ImageSender
+
+try:
+    from modules.music.nhac_zingmp3.main import (
+        request_zing,
+        create_single_song_image,
+        upload_to_uguu,
+        delete_file,
+        CACHE_PATH as ZING_CACHE_PATH
+    )
+except Exception as e:
+    print(f"❌ Không import được module ZingMP3 tại top import: {e}")
 
 # Danh sách thể loại nội dung
 CONTENT_TYPES = {
@@ -19,9 +34,14 @@ CONTENT_TYPES = {
     "video": {"type": "random_video", "desc": "Random video"},
     "music": {"type": "music", "desc": "Random nhạc ZingMP3 BXH"},
     "remotevd": {"type": "remote_video", "desc": "Video Local"},
-    "vdgirl": {"type": "video", "desc": "Video gái"},
-    "vdcos": {"type": "video", "desc": "Video cosplay"},
-    "vdanime": {"type": "video", "desc": "Video anime"},
+    "vdgirl": {"type": "video_file", "desc": "Video gái"},
+    "vdcos": {"type": "video_file", "desc": "Video cosplay"},
+    "vdanime": {"type": "video_file", "desc": "Video anime"},
+    "vdsexy": {"type": "video_file", "desc": "Video sexy"},
+    "vdchill": {"type": "video_file", "desc": "Video chill"},
+    "vdgai": {"type": "video_file", "desc": "Video gái tổng hợp"},
+    "vdtiktok": {"type": "tiktok", "desc": "Video TikTok EDM"},
+    "vdgdrive": {"type": "gdrive", "desc": "Video từ Google Drive"},
     "girl": {"type": "image", "desc": "Ảnh gái"},
     "cosplay": {"type": "image", "desc": "Ảnh cosplay"},
     "anime": {"type": "image", "desc": "Ảnh anime"},
@@ -30,9 +50,14 @@ CONTENT_TYPES = {
     "mixed": {"type": "mixed", "desc": "Trộn lẫn tất cả thể loại"},
 }
 
-ALLOWED_TYPES = ["image", "video", "music", "remotevd", "mixed"]
+ALLOWED_TYPES = [
+    "image", "video", "music", "remotevd", "mixed",
+    "vdgirl", "vdcos", "vdanime", "vdsexy", "vdchill", "vdgai",
+    "vdtiktok", "vdgdrive",
+    "girl", "cosplay", "anime", "boy", "girlsexy"
+]
 
-VIDEO_CONTENT_TYPES = [name for name, cfg in CONTENT_TYPES.items() if cfg["type"] == "video"]
+VIDEO_CONTENT_TYPES = [name for name, cfg in CONTENT_TYPES.items() if cfg["type"] == "video_file"]
 IMAGE_CONTENT_TYPES = [name for name, cfg in CONTENT_TYPES.items() if cfg["type"] == "image"]
 AUTOSEND_TYPE_ALIASES = {
     "anh": "image",
@@ -414,76 +439,71 @@ def send_fallback_video_content(bot, thread_id, message, excluded_type=None):
     return False
 
 def send_tiktok_edm_content(bot, thread_id, message):
-    """Search TikTok EDM remix, download first result and send"""
-    try:
-        from modules.downloader.tiktok.main import _search_tiktok, _download_tiktok, _normalize_items
-        from core.bot_sys import upload_file
-        import tempfile
-    except Exception as e:
-        print(f"❌ Không import được module TikTok: {e}")
-        return False
-
-    print(f"[Autosend TikTok] Đang search TikTok EDM remix...")
+    """Search TikTok EDM remix using TikWM API directly, download a random result and send"""
+    print(f"[Autosend TikTok] Đang tìm kiếm video EDM remix trên TikTok qua TikWM...")
     
     try:
-        # Search TikTok EDM remix
-        search_result = _search_tiktok("edm remix", content_type="video", count=5)
-        items = _normalize_items(search_result)
+        # Search TikTok EDM remix using free TikWM API
+        url = "https://www.tikwm.com/api/feed/search"
+        data = {
+            "keywords": "edm remix",
+            "count": 30, # Get a good pool of results
+            "cursor": random.randint(0, 50) # Randomize cursor to get different videos each time!
+        }
         
-        if not items:
-            print("❌ Không tìm thấy kết quả TikTok EDM remix")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
+        response = requests.post(url, data=data, headers=headers, timeout=15)
+        response.raise_for_status()
+        res_json = response.json()
+        
+        if res_json.get("code") != 0:
+            raise ValueError(f"TikWM API error: {res_json.get('msg')}")
+            
+        videos = res_json.get("data", {}).get("videos", [])
+        if not videos:
+            print("❌ Không tìm thấy video TikTok nào.")
             return False
             
-        # Get first item
-        first_item = items[0]
-        video_url = first_item.get("playUrl") or first_item.get("play") or first_item.get("hdplay") or first_item.get("video_url_no_watermark")
+        # Select a random video
+        video = random.choice(videos)
+        # Direct play URL (usually without watermark)
+        video_url = video.get("play")
+        title = video.get("title", "EDM Remix")
         
         if not video_url:
-            print("❌ Không tìm thấy URL video trong kết quả TikTok")
+            print("❌ Không tìm thấy URL video trong kết quả.")
             return False
             
-        print(f"[Autosend TikTok] Đã tìm thấy video: {first_item.get('title', 'No title')[:50]}")
-        print(f"[Autosend TikTok] Đang tải video từ TikTok...")
+        print(f"[Autosend TikTok] Đã tìm thấy video: '{title[:50]}'")
+        print(f"[Autosend TikTok] Đang tải video từ: {video_url}")
         
-        # Download video
-        download_result = _download_tiktok(video_url)
-        inner = download_result.get("data") if isinstance(download_result, dict) else download_result
-        
-        if not inner:
-            print("❌ Không thể tải video từ TikTok")
-            return False
-            
-        video_download_url = inner.get("play") or inner.get("hdplay") or inner.get("video_url_no_watermark")
-        
-        if not video_download_url:
-            print("❌ Không tìm thấy URL tải video")
-            return False
-            
-        # Download video file
-        print(f"[Autosend TikTok] Đang tải file video: {video_download_url}")
-        video_response = requests.get(video_download_url, headers=REQUEST_HEADERS, timeout=30)
+        # Download the video
+        video_response = requests.get(video_url, headers=headers, timeout=30)
         video_response.raise_for_status()
         
-        # Save to temp file
+        # Save to a temporary file
         temp_dir = tempfile.gettempdir()
         temp_video = os.path.join(temp_dir, f"autosend_tiktok_{int(time.time())}.mp4")
         with open(temp_video, "wb") as f:
             f.write(video_response.content)
             
-        print(f"[Autosend TikTok] Đã tải video, kích thước: {len(video_response.content)} bytes")
+        print(f"[Autosend TikTok] Đã tải xong video, kích thước: {os.path.getsize(temp_video)} bytes")
         
-        # Upload video
+        # Upload video to host (e.g. Catbox/Uguu)
         print(f"[Autosend TikTok] Đang upload video lên server...")
         upload_url = upload_file(temp_video, "video/mp4")
         
-        # Cleanup temp file
+        # Clean up temporary file
         try:
             os.remove(temp_video)
         except:
             pass
             
         if not upload_url:
-            print("❌ Không thể upload video lên server")
+            print("❌ Không thể upload video lên server.")
             return False
             
         print(f"[Autosend TikTok] Upload thành công: {upload_url}")
@@ -496,7 +516,7 @@ def send_tiktok_edm_content(bot, thread_id, message):
         bot.sendRemoteVideo(
             upload_url,
             DEFAULT_VIDEO_THUMB_URL,
-            duration='1000',
+            duration='1000000',
             message=None,
             thread_id=thread_id,
             thread_type=ThreadType.GROUP,
@@ -504,7 +524,7 @@ def send_tiktok_edm_content(bot, thread_id, message):
             height=1920
         )
         
-        print(f"[Autosend TikTok] ✅ Đã gửi video TikTok EDM remix thành công")
+        print(f"[Autosend TikTok] ✅ Đã gửi video TikTok EDM thành công")
         return True
         
     except Exception as e:
@@ -512,18 +532,6 @@ def send_tiktok_edm_content(bot, thread_id, message):
         return False
 
 def send_chart_music_content(bot, thread_id, message):
-    try:
-        from modules.music.nhac_zingmp3.main import (
-            request_zing,
-            create_single_song_image,
-            upload_to_uguu,
-            delete_file,
-            CACHE_PATH,
-        )
-    except Exception as e:
-        print(f"❌ Không import được module ZingMP3: {e}")
-        return False
-
     chart_res = request_zing("/api/v2/page/get/chart-home")
     items = (((chart_res or {}).get("data") or {}).get("RTChart") or {}).get("items", [])[:10]
     if not items:
@@ -552,7 +560,7 @@ def send_chart_music_content(bot, thread_id, message):
             item.get("artistsNames", "Unknown Artist"),
         )
         song_image_path = create_single_song_image(song)
-        temp_file = os.path.join(CACHE_PATH, f"autosend_{encode_id}.mp3")
+        temp_file = os.path.join(ZING_CACHE_PATH, f"autosend_{encode_id}.mp3")
 
         # 1. Send the greeting message and song image FIRST
         caption = message
@@ -665,7 +673,6 @@ def send_gdrive_video_content(bot, thread_id, message):
         print(f"[Autosend GDrive] Chon link: {video_url[:100]}...")
         
         if is_gdrive_url(video_url):
-            import tempfile
             temp_dir = tempfile.gettempdir()
             temp_video = os.path.join(temp_dir, f"gdrive_video_{int(time.time())}.mp4")
             
@@ -674,7 +681,6 @@ def send_gdrive_video_content(bot, thread_id, message):
             file_size = os.path.getsize(temp_video)
             print(f"[Autosend GDrive] Da tai xong, kich thuoc: {file_size} bytes")
             
-            from core.bot_sys import upload_file
             print(f"[Autosend GDrive] Dang upload len Catbox...")
             upload_url = upload_file(temp_video, "video/mp4")
             
@@ -695,7 +701,7 @@ def send_gdrive_video_content(bot, thread_id, message):
         bot.sendRemoteVideo(
             upload_url,
             DEFAULT_VIDEO_THUMB_URL,
-            duration='1000',
+            duration='1000000',
             message=None,
             thread_id=thread_id,
             thread_type=ThreadType.GROUP,
@@ -722,7 +728,6 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
                     raise ValueError(f"File video local không tồn tại: {local_video_path}")
                 
                 # Upload local video
-                from core.bot_sys import upload_file
                 print(f"[Autosend RemoteVD] Đang upload video local: {local_video_path}")
                 upload_url = upload_file(local_video_path, "video/mp4")
                 
@@ -738,7 +743,7 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
                 bot.sendRemoteVideo(
                     upload_url,
                     DEFAULT_VIDEO_THUMB_URL,
-                    duration='1000',
+                    duration='1000000',
                     message=None,
                     thread_id=thread_id,
                     thread_type=ThreadType.GROUP,
@@ -753,17 +758,16 @@ def send_content(bot, thread_id, content_type, message, allow_fallback=True):
                     print("⏩ Nguồn remotevd lỗi, đã chuyển cấu hình autosend của nhóm sang 'vdgirl'.")
                 return send_fallback_video_content(bot, thread_id, message) if allow_fallback else False
 
-        if config["type"] == "video":
-            print(f"[Autosend] type=video: Random chọn nguồn video...")
-            if random.choice([True, False]):
-                return send_tiktok_edm_content(bot, thread_id, message)
-            else:
-                return send_gdrive_video_content(bot, thread_id, message)
+        elif config["type"] == "tiktok":
+            return send_tiktok_edm_content(bot, thread_id, message)
+
+        elif config["type"] == "gdrive":
+            return send_gdrive_video_content(bot, thread_id, message)
         
         elif config["type"] == "random_video":
             return send_content(bot, thread_id, random.choice(VIDEO_CONTENT_TYPES), message, allow_fallback=allow_fallback)
 
-        elif config["type"] == "image":
+        elif config["type"] in ("image", "video_file"):
             error = image_sender.send_image(
                 bot=bot,
                 thread_id=thread_id,
@@ -910,7 +914,6 @@ def start_autosend_handle(client, thread_type, message_object, message, thread_i
             return
             
         time_args = " ".join(parts[1:])
-        import re
         time_tokens = re.split(r'[\s,]+', time_args)
         time_tokens = [t.strip() for t in time_tokens if t.strip()]
         
@@ -1072,7 +1075,6 @@ def txa_command(bot, message_object, thread_id, thread_type, author_id, message_
     
     func = dispatch_map.get(cmd)
     if func:
-        import inspect
         sig = inspect.signature(func)
         args_map = {
             'bot': bot,
