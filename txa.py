@@ -2779,10 +2779,13 @@ class bot(ZaloAPI):
             silver_users = settings.get("silver_users", [])
             is_user_approved = (author_id in admin_bot or author_id in approved_users or author_id in silver_users or author_id == self.uid)
             
+            high_level_admins = settings.get("high_level_admins", [])
             if thread_type == ThreadType.GROUP:
                 is_allowed = (
+                    (author_id in admin_bot) or
+                    (author_id in high_level_admins) or
                     (thread_id in allowed_thread_ids and is_user_approved) or 
-                    (is_bot_on_cmd and (author_id in admin_bot or is_group_admin_or_creator(self, author_id, thread_id))) or
+                    (is_bot_on_cmd and is_group_admin_or_creator(self, author_id, thread_id)) or
                     (author_id == self.uid)
                 )
             else:

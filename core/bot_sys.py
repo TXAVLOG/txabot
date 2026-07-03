@@ -218,7 +218,8 @@ def is_url_in_message(message_object):
 def is_admin(bot, author_id):
     settings = read_settings(bot.uid)
     admin_bot = settings.get("admin_bot", [])
-    return author_id in admin_bot
+    high_level_admins = settings.get("high_level_admins", [])
+    return author_id in admin_bot or author_id in high_level_admins
 
 def is_group_admin_or_creator(bot, author_id, thread_id):
     try:
