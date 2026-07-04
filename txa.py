@@ -1671,9 +1671,15 @@ class DynamicCommandHandler:
                 high_level_admins = settings.get("high_level_admins", [])
                 silver_users = settings.get("silver_users", [])
                 
-                is_super_admin = (author_id == self.client.uid) or (author_id in high_level_admins)
-                is_admin_bot = is_super_admin or (author_id in admin_bot)
-                is_silver = is_admin_bot or (author_id in silver_users)
+                author_id_str = str(author_id)
+                bot_uid_str = str(self.client.uid)
+                admin_bot_strs = [str(uid) for uid in admin_bot]
+                high_level_admins_strs = [str(uid) for uid in high_level_admins]
+                silver_users_strs = [str(uid) for uid in silver_users]
+                
+                is_super_admin = (author_id_str == bot_uid_str) or (author_id_str in high_level_admins_strs)
+                is_admin_bot = is_super_admin or (author_id_str in admin_bot_strs)
+                is_silver = is_admin_bot or (author_id_str in silver_users_strs)
                 
                 if t_per in ['super-admin', 'super']:
                     if not is_super_admin:

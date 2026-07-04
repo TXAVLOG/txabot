@@ -307,7 +307,8 @@ def is_admin(author_id):
     settings = read_settings()
     admin_bot = settings.get("admin_bot", [])
     high_level_admins = settings.get("high_level_admins", [])
-    return author_id in admin_bot or author_id in high_level_admins
+    author_id_str = str(author_id)
+    return author_id_str in [str(x) for x in admin_bot] or author_id_str in [str(x) for x in high_level_admins]
 
 def _get_msg_value(msg, key, default=None):
     if isinstance(msg, dict):

@@ -219,16 +219,17 @@ def is_admin(bot, author_id):
     settings = read_settings(bot.uid)
     admin_bot = settings.get("admin_bot", [])
     high_level_admins = settings.get("high_level_admins", [])
-    return author_id in admin_bot or author_id in high_level_admins
+    author_id_str = str(author_id)
+    return author_id_str in [str(x) for x in admin_bot] or author_id_str in [str(x) for x in high_level_admins]
 
 def is_group_admin_or_creator(bot, author_id, thread_id):
     try:
         group_info = bot.fetchGroupInfo(groupId=thread_id)
         if group_info and thread_id in group_info.gridInfoMap:
             group_data = group_info.gridInfoMap[thread_id]
-            admin_ids = group_data.get('adminIds', [])
-            creator_id = group_data.get('creatorId', '')
-            return author_id in admin_ids or author_id == creator_id
+            admin_ids = [str(x) for x in group_data.get('adminIds', [])]
+            creator_id = str(group_data.get('creatorId', ''))
+            return str(author_id) in admin_ids or str(author_id) == creator_id
     except Exception as e:
         print(f"[ERROR] is_group_admin_or_creator error: {e}")
     return False
@@ -236,7 +237,7 @@ def is_group_admin_or_creator(bot, author_id, thread_id):
 def admin_cao(bot, author_id):
     settings = read_settings(bot.uid)
     high_level_admins = settings.get("high_level_admins", [])
-    return author_id in high_level_admins
+    return str(author_id) in [str(x) for x in high_level_admins]
 
 def handle_bot_admin(bot):
     settings = read_settings(bot.uid)
